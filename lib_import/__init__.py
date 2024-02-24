@@ -50,5 +50,5 @@ lib_adapt_pose = ['Human36mDataset', 'TEST_SUBJECTS', 'read_3d_data', 'create_2d
 
 lib_except_my_utils = lib_torch + lib_standard + lib_third_party + lib_camera_models + lib_adapt_pose
 
-os.chdir('/home/hrai/codes/PoseAdaptor')
+os.chdir('/home/hrai/codes/hpe_library')
 __all__ = lib_torch + lib_standard + lib_third_party + lib_camera_models + lib_adapt_pose

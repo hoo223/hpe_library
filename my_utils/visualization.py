@@ -2,13 +2,23 @@ from lib_import import *
 from .dh import projection, generate_world_frame, rotate_torso_by_R
 from .test_utils import get_h36m_keypoint_index
 
-def axes_2d(fig, rect=None, loc=111, W=1000, H=1000, xlabel='X', ylabel='Y', title='', axis='on', show_axis=True):
+def axes_2d(fig, rect=None, loc=111, W=1000, H=1000, xlim=None, ylim=None, xlabel='X', ylabel='Y', title='', axis='on', show_axis=True, normalize=False, ax=None):
     if rect != None:
         ax = fig.add_axes(rect)
     else:
-        ax = fig.add_subplot(loc)
-    ax.set_xlim((0, W))
-    ax.set_ylim((H, 0))
+        if ax == None:
+            ax = fig.add_subplot(loc)
+    if xlim != None:
+        ax.set_xlim(xlim)
+    else:
+        ax.set_xlim((0, W))
+    if ylim != None:
+        ax.set_ylim(ylim)
+    else:
+        ax.set_ylim((H, 0))
+    if normalize:
+        ax.set_xlim((-1, 1))
+        ax.set_ylim((1, -1))
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
@@ -19,11 +29,12 @@ def axes_2d(fig, rect=None, loc=111, W=1000, H=1000, xlabel='X', ylabel='Y', tit
         ax.axes.yaxis.set_visible(False)
     return ax
 
-def axes_3d(fig, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True):
+def axes_3d(fig, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True, ax=None):
     if rect != None:
         ax = fig.add_axes(rect, projection='3d')
     else:
-        ax = fig.add_subplot(loc, projection='3d')
+        if ax == None:
+            ax = fig.add_subplot(loc, projection='3d')
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.set_zlim(zlim)
@@ -171,6 +182,70 @@ def get_2d_pose_image(kps, img=None, H=1080, W=1920, box=None, thickness=10, dat
             cv2.rectangle(img, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
 
     return img
+
+def draw_2d_pose(ax, pose2d, img=None, H=1080, W=1920, box=None, thickness=10, dataset='h36m', normalize=False):
+    if not normalize:
+        img = get_2d_pose_image(pose2d, img=img, H=H, W=W, box=box, thickness=thickness, dataset=dataset)
+        ax.imshow(img)
+    else:
+        if dataset == 'h36m':
+            connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], 
+                        [5, 6], [0, 7], [7, 8], [8, 9], [9, 10], 
+                        [8, 11], [11, 12], [12, 13], [8, 14], [14, 15], [15, 16]] 
+            LR = np.array([0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=bool) 
+        elif dataset == 'h36m_torso':
+            connections = [[0, 1], [0, 4], [4, 11], [11, 14], [14, 0]]
+            LR = np.array([0, 0, 1, 1, 0], dtype=bool)
+        elif dataset == 'torso': # pelvis l_hip l_shoulder r_shoulder r_hip
+            connections = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]]
+            LR = np.array([1, 1, 2, 0, 0], dtype=int)
+        elif dataset == 'limb':
+            connections = [[0, 1], [1, 2]]
+            LR = np.array([2, 2], dtype=int)
+        elif dataset == 'base':
+            connections = [[0, 1], [0, 2]]
+            LR = np.array([1, 0], dtype=int)
+        elif dataset == 'twolines': # pelvis l_hip l_shoulder r_shoulder r_hip
+            connections = [[1, 4], [2, 3]]
+            LR = np.array([0, 1], dtype=int)
+        elif dataset == 'line':
+            connections = [[0, 1]]
+            LR = np.array([2], dtype=int)
+        elif dataset == 'aihub':
+            connections = [[15,12], [12,17], [12,16], [17,19], [19,21], [16,18],
+                        [18,20], [12,0], [0,1], [0,2], [2,1], [2,5], [5,8], [1,4], [4,7]]
+            LR = np.array([0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0], dtype=bool)
+        elif dataset == 'coco':
+            connections = [[0, 1], [0, 2], [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], # head
+                        [5, 6], [6, 12], [12, 11], [11, 5], # torso
+                        [5, 7], [7, 9], # left arm
+                        [6, 8], [8, 10], # right arm
+                        [11, 13], [13, 15], # left leg
+                        [12, 14], [14, 16], # right leg
+                        ]
+            LR = np.array([0, 1, 2, 0, 1, 0, 1, # head
+                        2, 1, 2, 0, # torso
+                        0, 0, # left arm
+                        1, 1, # right arm
+                        0, 0, # left leg
+                        1, 1, # right leg
+                        ], dtype=bool)
+            
+        lcolor = 'r' # (255, 0, 0)
+        rcolor = 'b' # (0, 0, 255)
+        mcolor = 'k' # (0, 0, 0)
+        colors = [lcolor, rcolor, mcolor]
+
+        kps = pose2d
+        for j,c in enumerate(connections):
+            start = map(float, kps[c[0]])
+            end = map(float, kps[c[1]])
+            start = list(start)
+            end = list(end)
+            ax.plot([start[0], end[0]], [start[1], end[1]], '-', color=colors[LR[j]], linewidth=1.5)
+            if img != None:
+                ax.imshow(img)
+
 
 def show_2d_3d(fig_idx, 
                camera, 

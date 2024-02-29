@@ -52,10 +52,12 @@ def projection(pose_3d, proj_mat):
 def batch_projection(batch_pose_3d, batch_proj_mat):
     if len(batch_pose_3d.shape) == 4:
         homo = torch.cat((batch_pose_3d, torch.ones(batch_pose_3d.shape[0], batch_pose_3d.shape[1], batch_pose_3d.shape[2], 1).to(batch_pose_3d.device)), dim=-1)
+        batch_pose_projected = homo @ batch_proj_mat.transpose(-2, -1)
+        batch_pose_projected = batch_pose_projected / batch_pose_projected[:, :, :, 2].unsqueeze(-1)
     elif len(batch_pose_3d.shape) == 3:
         homo = torch.cat((batch_pose_3d, torch.ones(batch_pose_3d.shape[0], batch_pose_3d.shape[1], 1).to(batch_pose_3d.device)), dim=-1)
-    batch_pose_projected = homo @ batch_proj_mat.transpose(-2, -1)
-    batch_pose_projected = batch_pose_projected / batch_pose_projected[:, :, :, 2].unsqueeze(-1)
+        batch_pose_projected = homo @ batch_proj_mat.transpose(-2, -1)
+        batch_pose_projected = batch_pose_projected / batch_pose_projected[:, :, 2].unsqueeze(-1)
     return batch_pose_projected
     
 def project_batch_tensor(pose_3d_batch, proj_mat_tensor, device='cuda'):

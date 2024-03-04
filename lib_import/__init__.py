@@ -42,13 +42,18 @@ from camera_models import draw3d_arrow, get_calibration_matrix, get_plane_from_t
 lib_camera_models = ["GenericPoint", "Image", "ImagePlane", "Polygon", "PrincipalAxis", "ReferenceFrame", "draw3d_arrow", "get_calibration_matrix", "get_plane_from_three_points", "get_plucker_matrix", "get_projection_matrix", "get_rotation_matrix", "to_homogeneus", "to_inhomogeneus", "set_xyzlim3d", "set_xyzticks"]
 
 # AdaptPose library
-sys.path.append('/home/hrai/codes/AdaptPose')
-#os.chdir('/home/hrai/codes/AdaptPose')
-from common.h36m_dataset import Human36mDataset, TEST_SUBJECTS
-from utils.data_utils import read_3d_data, create_2d_data
-lib_adapt_pose = ['Human36mDataset', 'TEST_SUBJECTS', 'read_3d_data', 'create_2d_data']
+# sys.path.append('/home/hrai/codes/AdaptPose')
+# #os.chdir('/home/hrai/codes/AdaptPose')
+# from common.h36m_dataset import Human36mDataset, TEST_SUBJECTS
+# from utils.data_utils import read_3d_data, create_2d_data
+# lib_adapt_pose = ['Human36mDataset', 'TEST_SUBJECTS', 'read_3d_data', 'create_2d_data']
 
-lib_except_my_utils = lib_torch + lib_standard + lib_third_party + lib_camera_models + lib_adapt_pose
+# PoSynDA library
+sys.path.append('/home/hrai/codes/PoSynDA')
+from common.h36m_dataset import Human36mDataset
+lib_posynda = ['Human36mDataset']
+
+lib_except_my_utils = lib_torch + lib_standard + lib_third_party + lib_camera_models + lib_posynda #+ lib_adapt_pose
 
 os.chdir('/home/hrai/codes/hpe_library')
-__all__ = lib_torch + lib_standard + lib_third_party + lib_camera_models + lib_adapt_pose
+__all__ = lib_except_my_utils

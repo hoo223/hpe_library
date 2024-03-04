@@ -530,7 +530,7 @@ def draw_bbox(ax, bbox, box_type='xyxy'):
     ax.plot([x1, y1], [x2, y2], color='r')
     
     
-def save_h36m_pose_video(pose_list, video_path, dataset='h36m', W=None, H=None, pose_type='3d', fps=30,
+def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=None, W=None, H=None, pose_type='3d', fps=30,
                          xlim=(-0.5, 0.5), ylim=(-0.5, 0.5), zlim=(0, 1), view=(0, 45),
                          centered_xy=False, cam_space=True, on_ground=True, refine_tilt=True,  
                          dynamic_view=True, dual_view=False,
@@ -539,13 +539,25 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', W=None, H=None, 
     # pose_list : [N, 17, 3]
     fig = plt.figure()
     fig.clear()
-    if dual_view:
-        ax1 = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 45), show_axis=show_axis)
-        ax2 = axes_3d(fig, loc=122, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, -45), show_axis=show_axis)
-    elif dynamic_view: 
-        ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 0), show_axis=show_axis)# (0, 10*(sin(2*radians(frame)))+45))
-    else:
-        ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis)
+    if pose_type == '3d':
+        if dual_view:
+            ax1 = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 45), show_axis=show_axis)
+            ax2 = axes_3d(fig, loc=122, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, -45), show_axis=show_axis)
+        elif dynamic_view: 
+            ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 0), show_axis=show_axis)# (0, 10*(sin(2*radians(frame)))+45))
+        else:
+            ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis)
+    elif pose_type == '2d':
+        ax = axes_2d(fig, normalize=True)
+    elif pose_type == '2d3d':
+        #assert pose_2d_list.all() != None, 'pose_2d_list should be provided'
+        assert len(pose_2d_list) == len(pose_list), 'pose_2d_list should have same length as pose_list'
+        assert dual_view == False, 'dual_view is not supported in 2d3d mode'
+        if dynamic_view: 
+            ax = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 0), show_axis=show_axis)# (0, 10*(sin(2*radians(frame)))+45))
+        else:
+            ax = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis)
+        ax2 = axes_2d(fig, loc=122, normalize=True)
 
     videowriter = imageio.get_writer(video_path, fps=fps)
     for frame in tqdm(range(len(pose_list))):
@@ -588,17 +600,52 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', W=None, H=None, 
                 draw_3d_pose(ax, pose, dataset=dataset)
                 ax.set_title('frame {}'.format(frame)) 
             
-            canvas = FigureCanvas(fig)
-            canvas.draw()
-            image_from_plot = np.array(canvas.renderer._renderer)
-            image_from_plot = cv2.cvtColor(image_from_plot, cv2.COLOR_RGB2BGR)       
-            videowriter.append_data(image_from_plot)
         elif pose_type == '2d':
-            ax = axes_2d(fig, W=W, H=H)
+            pose_2d = pose_2d_list[frame].copy() # 1 frame
+            clear_axes(ax)
             if imgs != None:
                 assert len(imgs) == len(pose_list), 'imgs should have same length as pose_list'
-                img = get_2d_pose_image(pose, img=imgs[frame], W=W, H=H, dataset=dataset)   
+                #img = get_2d_pose_image(pose, img=imgs[frame], W=W, H=H, dataset=dataset)   
+                draw_2d_pose(ax, pose, normalize=True)
             else: 
-                img = get_2d_pose_image(pose, W=W, H=H, dataset=dataset)
-            videowriter.append_data(img)
+                draw_2d_pose(ax, pose, normalize=True)
+
+        elif pose_type == '2d3d':
+            pose_2d = pose_2d_list[frame].copy() # 1 frame
+            if centered_xy:
+                pose[:, 0] -= pose[get_h36m_keypoint_index('Pelvis'), 0]
+                pose[:, 1] -= pose[get_h36m_keypoint_index('Pelvis'), 1]
+            if cam_space:
+                R1 = Rotation.from_rotvec([-np.pi/2, 0, 0]).as_matrix() # -90 around x-axis
+                R2 = Rotation.from_rotvec([0, 0, np.pi/2]).as_matrix() # 90 around z-axis
+                pose = rotate_torso_by_R(pose, R2 @ R1) #+ np.array([0, 0, 0.5])
+            if on_ground or refine_tilt:
+                l_ankle = pose[get_h36m_keypoint_index('L_Ankle')]
+                r_ankle = pose[get_h36m_keypoint_index('R_Ankle')]
+                c_ankle = (l_ankle + r_ankle) / 2
+            if on_ground:
+                pose -= c_ankle
+            if refine_tilt:
+                head = pose[get_h36m_keypoint_index('Head')]
+                tilt = degrees(np.arctan2(head[2] - c_ankle[2], head[0] - c_ankle[0])) - 90
+                R3 = Rotation.from_rotvec([0, np.radians(tilt), 0]).as_matrix() # tilt around y-axis
+                pose = rotate_torso_by_R(pose, R3)
+
+            if dynamic_view: 
+                clear_axes(ax)
+                ax.view_init(0, frame)
+                draw_3d_pose(ax, pose, dataset=dataset)
+                ax.set_title('frame {}'.format(frame))
+            else:
+                clear_axes(ax)
+                draw_3d_pose(ax, pose, dataset=dataset)
+                ax.set_title('frame {}'.format(frame))
+            clear_axes(ax2)
+            draw_2d_pose(ax2, pose_2d, normalize=True)
+
+        canvas = FigureCanvas(fig)
+        canvas.draw()
+        image_from_plot = np.array(canvas.renderer._renderer)
+        image_from_plot = cv2.cvtColor(image_from_plot, cv2.COLOR_RGB2BGR)       
+        videowriter.append_data(image_from_plot)
     videowriter.close()

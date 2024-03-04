@@ -157,17 +157,16 @@ def generate_kookmin_pkl_for_each_video(pose3d_list, available_frames, subject, 
     else:
         source = '{}_{}_{}_{}'.format(subject, camera_id, action, phase)
     
-    if source in os.listdir(save_folder): 
-        if not overwrite:
-            print(source, 'exists')
-            return 0
-    
     data = {}
     for key in ['joint_2d', 'confidence', 'joint3d_image', 'joints_2.5d_image', '2.5d_factor', 'camera_name', 'action', 'source', 'frame', 'world_3d', 'cam_3d', 'cam_param']:
         data[key] = []
     
     file_name = source + '.pkl'
     save_path = os.path.join(save_folder, file_name) 
+    if os.path.exists(save_path):
+        if not overwrite:
+            print(save_path, 'exists')
+            return 0
     
     fx = camera_param['intrinsic'][0, 0]  
     fy = camera_param['intrinsic'][1, 1]  

@@ -2,11 +2,16 @@ from lib_import import *
 from .dh import projection, generate_world_frame, rotate_torso_by_R
 from .test_utils import get_h36m_keypoint_index
 
-def clear_axes(ax):
-    for line in ax.lines[:]:
-        line.remove()  # Remove lines
-    for collection in ax.collections[:]:
-        collection.remove()  # Remove collections, e.g., scatter plots
+def clear_axes(ax, blacklist=[]):
+    if 'line' not in blacklist:
+        for line in ax.lines[:]:
+            line.remove()  # Remove lines
+    if 'collection' not in blacklist:   
+        for collection in ax.collections[:]:
+            collection.remove()  # Remove collections, e.g., scatter plots
+    if 'patch' not in blacklist:
+        for patch in ax.patches[:]:
+            patch.remove()
 
 def axes_2d(fig=None, rect=None, loc=111, W=1000, H=1000, xlim=None, ylim=None, xlabel='X', ylabel='Y', title='', axis='on', show_axis=True, normalize=False, ax=None):
     if fig == None:
@@ -518,17 +523,27 @@ def draw_one_segment(fig_idx, segment, cam_proj, period=1, W=1000, H=1000, show_
     
     plt.show()
     
-def draw_bbox(ax, bbox, box_type='xyxy'):
+def draw_bbox(ax, bbox, box_type='xyxy', color="red", linewidth=1):
     if box_type == 'xyxy':
         x1, y1, x2, y2 = bbox
     elif box_type == 'xxyy':
         x1, x2, y1, y2 = bbox
     elif box_type == 'xywh':
-        x, y, w, h = bbox
-        x1, y1 = x - w/2, y - h/2
-        x2, y2 = x + w/2, y + h/2
-    ax.plot([x1, y1], [x2, y2], color='r')
-    
+        cx, cy, w, h = bbox
+        x1, y1 = cx - w/2, cy - h/2
+        x2, y2 = cx + w/2, cy + h/2
+    #ax.plot([x1, y1], [x2, y2], color='r')
+    width = x2 - x1
+    height = y2 - y1
+    cx = x1 + width/2
+    cy = y1 + height/2
+    # Create a rectangle patch
+    rect = patches.Rectangle((x1, y1), width, height, linewidth=linewidth, edgecolor=color, facecolor='none')
+    # Add the rectangle to the Axes
+    ax.add_patch(rect)
+    # ax.plot(x1, y1, 'yx')
+    # ax.plot(x2, y2, 'bx')
+    # ax.plot(cx, cy, 'kx')
     
 def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=None, W=None, H=None, pose_type='3d', fps=30,
                          xlim=(-0.5, 0.5), ylim=(-0.5, 0.5), zlim=(0, 1), view=(0, 45),

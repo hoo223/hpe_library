@@ -14,6 +14,12 @@ def clear_axes(ax, blacklist=[]):
             if 'patch' not in blacklist:
                 for patch in ax_.patches[:]:
                     patch.remove()
+            if 'text' not in blacklist:
+                for text in ax_.texts[:]:
+                    text.remove()
+            if 'image' not in blacklist:
+                for image in ax_.images[:]:
+                    image.remove()
     else:
         if 'line' not in blacklist:
             for line in ax.lines[:]:
@@ -24,6 +30,12 @@ def clear_axes(ax, blacklist=[]):
         if 'patch' not in blacklist:
             for patch in ax.patches[:]:
                 patch.remove()
+        if 'text' not in blacklist:
+            for text in ax_.texts[:]:
+                text.remove()
+        if 'image' not in blacklist:
+            for image in ax_.images[:]:
+                image.remove()
 
 def axes_2d(fig=None, rect=None, loc=111, W=1000, H=1000, xlim=None, ylim=None, xlabel='X', ylabel='Y', title='', axis='on', show_axis=True, normalize=False, ax=None):
     if fig == None:
@@ -267,7 +279,7 @@ def draw_2d_pose(ax, pose2d, img=None, H=1080, W=1920, box=None, thickness=10, d
     mcolor = 'k' # (0, 0, 0)
     colors = [lcolor, rcolor, mcolor]
 
-    if img.any() != None:
+    if type(img) != type(None):
         ax.imshow(img)
 
     kps = pose2d

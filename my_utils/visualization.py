@@ -3,15 +3,27 @@ from .dh import projection, generate_world_frame, rotate_torso_by_R
 from .test_utils import get_h36m_keypoint_index
 
 def clear_axes(ax, blacklist=[]):
-    if 'line' not in blacklist:
-        for line in ax.lines[:]:
-            line.remove()  # Remove lines
-    if 'collection' not in blacklist:   
-        for collection in ax.collections[:]:
-            collection.remove()  # Remove collections, e.g., scatter plots
-    if 'patch' not in blacklist:
-        for patch in ax.patches[:]:
-            patch.remove()
+    if type(ax) == list:
+        for ax_ in ax:
+            if 'line' not in blacklist:
+                for line in ax_.lines[:]:
+                    line.remove()  # Remove lines
+            if 'collection' not in blacklist:   
+                for collection in ax_.collections[:]:
+                    collection.remove()  # Remove collections, e.g., scatter plots
+            if 'patch' not in blacklist:
+                for patch in ax_.patches[:]:
+                    patch.remove()
+    else:
+        if 'line' not in blacklist:
+            for line in ax.lines[:]:
+                line.remove()  # Remove lines
+        if 'collection' not in blacklist:   
+            for collection in ax.collections[:]:
+                collection.remove()  # Remove collections, e.g., scatter plots
+        if 'patch' not in blacklist:
+            for patch in ax.patches[:]:
+                patch.remove()
 
 def axes_2d(fig=None, rect=None, loc=111, W=1000, H=1000, xlim=None, ylim=None, xlabel='X', ylabel='Y', title='', axis='on', show_axis=True, normalize=False, ax=None):
     if fig == None:
@@ -545,7 +557,7 @@ def draw_bbox(ax, bbox, box_type='xyxy', color="red", linewidth=1):
     # ax.plot(x2, y2, 'bx')
     # ax.plot(cx, cy, 'kx')
     
-def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=None, W=None, H=None, pose_type='3d', fps=30,
+def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=None, gt=[], W=None, H=None, pose_type='3d', fps=30,
                          xlim=(-0.5, 0.5), ylim=(-0.5, 0.5), zlim=(0, 1), view=(0, 45),
                          centered_xy=False, cam_space=True, on_ground=True, refine_tilt=True,  
                          dynamic_view=True, dual_view=False,
@@ -574,30 +586,57 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
             ax = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis)
         ax2 = axes_2d(fig, loc=122, normalize=True)
 
+    if len(gt) != 0:
+        assert gt.shape == pose_list.shape, 'gt should have same shape as pose_list'
+
     videowriter = imageio.get_writer(video_path, fps=fps)
     for frame in tqdm(range(len(pose_list))):
+        pose_2d = pose_2d_list[frame].copy() # 1 frame
         pose = pose_list[frame].copy() # 1 frame
-        if pose_type == '3d':
+        if len(gt) != 0: pose_gt = gt[frame].copy()
+        else: pose_gt = []
+
+        if '3d' in pose_type:
             if centered_xy:
                 pose[:, 0] -= pose[get_h36m_keypoint_index('Pelvis'), 0]
                 pose[:, 1] -= pose[get_h36m_keypoint_index('Pelvis'), 1]
             if cam_space:
                 R1 = Rotation.from_rotvec([-np.pi/2, 0, 0]).as_matrix() # -90 around x-axis
-                R2 = Rotation.from_rotvec([0, 0, np.pi/2]).as_matrix() # 90 around z-axis
+                R2 = Rotation.from_rotvec([0, 0, -np.pi/2]).as_matrix() # -90 around z-axis
                 pose = rotate_torso_by_R(pose, R2 @ R1) #+ np.array([0, 0, 0.5])
             if on_ground or refine_tilt:
                 l_ankle = pose[get_h36m_keypoint_index('L_Ankle')]
                 r_ankle = pose[get_h36m_keypoint_index('R_Ankle')]
                 c_ankle = (l_ankle + r_ankle) / 2
-            if on_ground:
-                pose -= c_ankle
-            if refine_tilt:
-                head = pose[get_h36m_keypoint_index('Head')]
-                tilt = degrees(np.arctan2(head[2] - c_ankle[2], head[0] - c_ankle[0])) - 90
-                R3 = Rotation.from_rotvec([0, np.radians(tilt), 0]).as_matrix() # tilt around y-axis
-                pose = rotate_torso_by_R(pose, R3)
+                if on_ground:
+                    pose -= c_ankle
+                if refine_tilt:
+                    head = pose[get_h36m_keypoint_index('Head')]
+                    tilt = degrees(np.arctan2(head[2] - c_ankle[2], head[0] - c_ankle[0])) - 90
+                    R3 = Rotation.from_rotvec([0, np.radians(tilt), 0]).as_matrix() # tilt around y-axis
+                    pose = rotate_torso_by_R(pose, R3)
             #pose = get_rootrel_pose(pose) # root-relative
-                
+            
+            if len(pose_gt) != 0:
+                if centered_xy:
+                    pose_gt[:, 0] -= pose_gt[get_h36m_keypoint_index('Pelvis'), 0]
+                    pose_gt[:, 1] -= pose_gt[get_h36m_keypoint_index('Pelvis'), 1]
+                if cam_space:
+                    R3 = Rotation.from_rotvec([0, 0, np.pi/2]).as_matrix() # 
+                    pose_gt = rotate_torso_by_R(pose_gt, R3 @ R1)
+                if on_ground or refine_tilt:
+                    l_ankle_gt = pose_gt[get_h36m_keypoint_index('L_Ankle')]
+                    r_ankle_gt = pose_gt[get_h36m_keypoint_index('R_Ankle')]
+                    c_ankle_gt = (l_ankle_gt + r_ankle_gt) / 2
+                    if on_ground:
+                        pose_gt -= c_ankle_gt
+                    if refine_tilt:
+                        head = pose_gt[get_h36m_keypoint_index('Head')]
+                        tilt = degrees(np.arctan2(head[2] - c_ankle_gt[2], head[0] - c_ankle_gt[0])) - 90
+                        R3 = Rotation.from_rotvec([0, np.radians(tilt), 0]).as_matrix() # tilt around y-axis
+                        pose_gt = rotate_torso_by_R(pose_gt, R3)
+
+        if pose_type == '3d':
             if dual_view:
                 clear_axes(ax1)
                 clear_axes(ax2)
@@ -605,18 +644,15 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
                 draw_3d_pose(ax2, pose, dataset=dataset)
                 ax1.set_title('frame {}'.format(frame))
                 ax2.set_title('frame {}'.format(frame))
-            elif dynamic_view: 
-                clear_axes(ax)
-                ax.view_init(0, frame)
-                draw_3d_pose(ax, pose, dataset=dataset)
-                ax.set_title('frame {}'.format(frame)) 
             else:
+                if dynamic_view: 
+                    ax.view_init(0, frame)
                 clear_axes(ax)
                 draw_3d_pose(ax, pose, dataset=dataset)
+                if pose_gt != None:
+                    draw_3d_pose(ax, pose_gt, dataset=dataset)
                 ax.set_title('frame {}'.format(frame)) 
-            
         elif pose_type == '2d':
-            pose_2d = pose_2d_list[frame].copy() # 1 frame
             clear_axes(ax)
             if imgs != None:
                 assert len(imgs) == len(pose_list), 'imgs should have same length as pose_list'
@@ -624,37 +660,14 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
                 draw_2d_pose(ax, pose, normalize=True)
             else: 
                 draw_2d_pose(ax, pose, normalize=True)
-
         elif pose_type == '2d3d':
-            pose_2d = pose_2d_list[frame].copy() # 1 frame
-            if centered_xy:
-                pose[:, 0] -= pose[get_h36m_keypoint_index('Pelvis'), 0]
-                pose[:, 1] -= pose[get_h36m_keypoint_index('Pelvis'), 1]
-            if cam_space:
-                R1 = Rotation.from_rotvec([-np.pi/2, 0, 0]).as_matrix() # -90 around x-axis
-                R2 = Rotation.from_rotvec([0, 0, np.pi/2]).as_matrix() # 90 around z-axis
-                pose = rotate_torso_by_R(pose, R2 @ R1) #+ np.array([0, 0, 0.5])
-            if on_ground or refine_tilt:
-                l_ankle = pose[get_h36m_keypoint_index('L_Ankle')]
-                r_ankle = pose[get_h36m_keypoint_index('R_Ankle')]
-                c_ankle = (l_ankle + r_ankle) / 2
-            if on_ground:
-                pose -= c_ankle
-            if refine_tilt:
-                head = pose[get_h36m_keypoint_index('Head')]
-                tilt = degrees(np.arctan2(head[2] - c_ankle[2], head[0] - c_ankle[0])) - 90
-                R3 = Rotation.from_rotvec([0, np.radians(tilt), 0]).as_matrix() # tilt around y-axis
-                pose = rotate_torso_by_R(pose, R3)
-
+            clear_axes(ax)
             if dynamic_view: 
-                clear_axes(ax)
                 ax.view_init(0, frame)
-                draw_3d_pose(ax, pose, dataset=dataset)
-                ax.set_title('frame {}'.format(frame))
-            else:
-                clear_axes(ax)
-                draw_3d_pose(ax, pose, dataset=dataset)
-                ax.set_title('frame {}'.format(frame))
+            draw_3d_pose(ax, pose, dataset=dataset)
+            if len(pose_gt) != 0:
+                draw_3d_pose(ax, pose_gt, dataset=dataset)
+            ax.set_title('frame {}'.format(frame))
             clear_axes(ax2)
             draw_2d_pose(ax2, pose_2d, normalize=True)
 

@@ -184,6 +184,7 @@ def generate_kookmin_pkl_for_each_video(pose3d_list, available_frames, subject, 
         if trans is not None:
             modified -= np.array([modified[0][0], modified[0][1], 0])
             modified += np.array([trans[0], trans[1], 0])
+            #modified += trans
         if rot is not None:
             modified = rotate_torso_by_R(modified, rot)
         world_3d = modified

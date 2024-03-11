@@ -193,6 +193,55 @@ kookmin_connections = [
     [20, 24]
 ]
 
+# https://github.com/chaneyddtt/Generating-Multiple-Hypotheses-for-3D-Human-Pose-Estimation-with-Mixture-Density-Network/issues/12
+def mpi_inf_3dhp2h36m(x):
+    '''
+    Input: x (T x V x C)  
+    //mpi_inf_3dhp 17 body keypoints
+    0:  'Head top',
+    1:  'Neck',
+    2:  'RightArm',
+    3:  'RightForeArm'
+    4:  'RightHand'
+    5:  'LeftArm'
+    6:  'LeftForeArm'
+    7:  'LeftHand'
+    8:  'RightUpLeg'
+    9:  'RightLeg'
+    10: 'RightFoot'
+    11: 'LeftUpLeg'
+    12: 'LeftLeg'
+    13: 'LeftFoot'
+    14: 'Hip'
+    15: 'Spine'
+    16: 'Head'
+    '''
+    if len(x.shape) == 2:
+        V, C = x.shape
+        T = 1
+        x = x.reshape(T, V, C)
+    else:
+        T, V, C = x.shape
+    y = np.zeros([T,17,C])
+    y[:,0,:] = x[:,14,:]  # Pelvis
+    y[:,1,:] = x[:,8,:]   # R_Hip
+    y[:,2,:] = x[:,9,:]   # R_Knee
+    y[:,3,:] = x[:,10,:]   # R_Ankle
+    y[:,4,:] = x[:,11,:]   # L_Hip
+    y[:,5,:] = x[:,12,:]   # L_Knee
+    y[:,6,:] = x[:,13,:]   # L_Ankle
+    y[:,7,:] = x[:,15,:]   # Torso
+    y[:,8,:] = x[:,1,:]   # Neck
+    y[:,9,:] = x[:,16,:]   # Nose
+    y[:,10,:] = x[:,0,:] # Head
+    y[:,11,:] = x[:,5,:] # L_Shoulder
+    y[:,12,:] = x[:,6,:] # L_Elbow
+    y[:,13,:] = x[:,7,:] # L_Wrist
+    y[:,14,:] = x[:,2,:] # R_Shoulder
+    y[:,15,:] = x[:,3,:] # R_Elbow
+    y[:,16,:] = x[:,4,:] # R_Wrist
+    return y
+
 def kookmin2h36m(x):
     '''
     Input: x (T x V x C)  
@@ -1060,10 +1109,14 @@ def MPJPE_for_multiple_pose(pred, gt, root_rel=True):
     return mpjpe / pred.shape[0]
 
 def get_rootrel_pose(pose):
-    # input: pose (N, D)
+    # input: pose (N, D) or 
     # output: rootrel_pose (1N, D)
-    root_pose = pose[0]
-    rootrel_pose = pose - root_pose
+    if len(pose.shape) == 2:
+        rootrel_pose = pose - pose[0]
+    elif len(pose.shape) == 3:
+        rootrel_pose = pose - pose[:, 0:1]
+    elif len(pose.shape) == 4:
+        rootrel_pose = pose - pose[:, :, 0:1]
     return rootrel_pose
 
 def get_xy_centered_pose(pose):

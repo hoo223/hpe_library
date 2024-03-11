@@ -338,3 +338,7 @@ def get_inference_from_dhdst_limb(model, input_data, args, W, H, denormalize=Fal
 def normalize_input(input_data, W, H):
     # input range: [0, W] -> [-1, 1]
     return input_data / W * 2 - [1, H / W, 0]
+
+# def normalize_3d_pose(pose_3d, W, H):
+#     # input range: [0, W] -> [-1, 1]
+#     return (pose_3d + [1, H / W, 0]) * W / 2

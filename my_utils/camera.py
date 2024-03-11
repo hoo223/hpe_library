@@ -181,7 +181,7 @@ class Camera:
             dx=dx_c, 
             dy=dy_c,
             dz=dz_c,
-            name="{}".format(name),
+            name=f"{name}",
         )
         return cam_frame
     

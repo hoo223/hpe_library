@@ -267,7 +267,7 @@ def draw_2d_pose(ax, pose2d, img=None, H=1080, W=1920, box=None, thickness=10, d
     mcolor = 'k' # (0, 0, 0)
     colors = [lcolor, rcolor, mcolor]
 
-    if img != None:
+    if img.any() != None:
         ax.imshow(img)
 
     kps = pose2d

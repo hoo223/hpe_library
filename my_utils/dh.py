@@ -1,6 +1,7 @@
 from lib_import import *
 from my_utils import *
 from .test_utils import get_h36m_keypoint_index
+#from .visualization import draw_3d_pose
 
 def generate_world_frame():
     world_origin = np.zeros(3)
@@ -348,6 +349,23 @@ def calculate_azimuth_elevation(vector, root_R, degrees=False):
     else:
         return azimuth, elevation  # Converting to degrees for readability
     
+def calculate_batch_azimuth_elevation(batch_vector, batch_root_R=torch.eye(3).unsqueeze(0).unsqueeze(0), degrees=False):
+    # batch_vector: [B, F, 3]
+    # batch_root_R: [B, F, 3, 3]
+    if type(batch_vector) != torch.Tensor:
+        batch_vector = torch.tensor(batch_vector, dtype=torch.float32)
+    if len(batch_vector) == 2:
+        batch_vector = batch_vector.unsqueeze(0)   
+    batch_vector = (batch_root_R.transpose(2, 3) @ batch_vector.unsqueeze(-1)).squeeze(-1)
+    
+    batch_x, batch_y, batch_z = batch_vector[:, :, 0], batch_vector[:, :, 1], batch_vector[:, :, 2]
+    batch_azimuth = torch.atan2(batch_y, batch_x)
+    batch_elevation = torch.atan2(batch_z, torch.sqrt(batch_x**2 + batch_y**2))
+    if degrees:
+        return torch.rad2deg(batch_azimuth), torch.rad2deg(batch_elevation)
+    else:
+        return batch_azimuth, batch_elevation  # Converting to degrees for readability
+    
 def azim_elev_to_vec(azim, elev, magnitude=1, origin=[0, 0, 0], degrees=False):
     if degrees:
         azim = math.radians(azim)
@@ -364,6 +382,9 @@ def batch_azim_elev_to_vec(batch_azim, batch_elev, batch_magnitude, batch_origin
     batch_x = batch_magnitude * torch.cos(batch_azim) * torch.cos(batch_elev)
     batch_y = batch_magnitude * torch.sin(batch_azim) * torch.cos(batch_elev)
     batch_z = batch_magnitude * torch.sin(batch_elev)
+    if len(batch_x.shape) == 2: batch_x = batch_x.unsqueeze(-1)
+    if len(batch_y.shape) == 2: batch_y = batch_y.unsqueeze(-1)
+    if len(batch_z.shape) == 2: batch_z = batch_z.unsqueeze(-1)
     batch_cam_origin = torch.cat([batch_x, batch_y, batch_z], dim=-1).to(batch_origin.device)
     batch_cam_origin = batch_cam_origin + batch_origin
     return batch_cam_origin
@@ -1288,7 +1309,11 @@ class BatchDHModel:
         return self.calculate_batch_azimuth_elevation(batch_vec, batch_root_tf[:, :, :3, :3]) # yaw, pitch
     
     def calculate_batch_azimuth_elevation(self, batch_vector, batch_root_R, degrees=False):
+        print(batch_root_R.shape, batch_vector.unsqueeze(-1).shape)
         batch_vector = (batch_root_R.transpose(2, 3) @ batch_vector.unsqueeze(-1)).squeeze(-1)
+        print(batch_vector.shape)
+        #batch_vector = (batch_root_R @ torch.cat([batch_vector, torch.ones([batch_vector.shape[0], batch_vector.shape[1], 1]).to(batch_vector.device)], dim=2)).squeeze(-1)
+
         batch_x, batch_y, batch_z = batch_vector[:, :, 0], batch_vector[:, :, 1], batch_vector[:, :, 2]
         batch_azimuth = torch.atan2(batch_y, batch_x)
         batch_elevation = torch.atan2(batch_z, torch.sqrt(batch_x**2 + batch_y**2))

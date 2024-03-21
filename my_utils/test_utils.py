@@ -198,23 +198,25 @@ def mpi_inf_3dhp2h36m(x):
     '''
     Input: x (T x V x C)  
     //mpi_inf_3dhp 17 body keypoints
-    0:  'Head top',
-    1:  'Neck',
-    2:  'RightArm',
-    3:  'RightForeArm'
-    4:  'RightHand'
-    5:  'LeftArm'
-    6:  'LeftForeArm'
-    7:  'LeftHand'
-    8:  'RightUpLeg'
-    9:  'RightLeg'
-    10: 'RightFoot'
-    11: 'LeftUpLeg'
-    12: 'LeftLeg'
-    13: 'LeftFoot'
-    14: 'Hip'
-    15: 'Spine'
-    16: 'Head'
+    0'Right Ankle', 3
+    1'Right Knee', 2
+    2'Right Hip', 1
+    3'Left Hip', 4
+    4'Left Knee', 5
+    5'Left Ankle', 6
+    6'Right Wrist', 15
+    7'Right Elbow', 14
+    8'Right Shoulder', 13
+    9'Left Shoulder', 10
+    10'Left Elbow', 11
+    11'Left Wrist', 12
+    12'Neck', 8 
+    13'Top of Head', 9
+    14'Pelvis)', 0
+    15'Thorax', 7 
+    16'Spine', mpi3d
+    17'Jaw', mpi3d
+    18'Head', mpi3d
     '''
     if len(x.shape) == 2:
         V, C = x.shape
@@ -224,22 +226,22 @@ def mpi_inf_3dhp2h36m(x):
         T, V, C = x.shape
     y = np.zeros([T,17,C])
     y[:,0,:] = x[:,14,:]  # Pelvis
-    y[:,1,:] = x[:,8,:]   # R_Hip
-    y[:,2,:] = x[:,9,:]   # R_Knee
-    y[:,3,:] = x[:,10,:]   # R_Ankle
-    y[:,4,:] = x[:,11,:]   # L_Hip
-    y[:,5,:] = x[:,12,:]   # L_Knee
-    y[:,6,:] = x[:,13,:]   # L_Ankle
+    y[:,1,:] = x[:,2,:]   # R_Hip
+    y[:,2,:] = x[:,1,:]   # R_Knee
+    y[:,3,:] = x[:,0,:]   # R_Ankle
+    y[:,4,:] = x[:,3,:]   # L_Hip
+    y[:,5,:] = x[:,4,:]   # L_Knee
+    y[:,6,:] = x[:,5,:]   # L_Ankle
     y[:,7,:] = x[:,15,:]   # Torso
-    y[:,8,:] = x[:,1,:]   # Neck
-    y[:,9,:] = x[:,16,:]   # Nose
-    y[:,10,:] = x[:,0,:] # Head
-    y[:,11,:] = x[:,5,:] # L_Shoulder
-    y[:,12,:] = x[:,6,:] # L_Elbow
-    y[:,13,:] = x[:,7,:] # L_Wrist
-    y[:,14,:] = x[:,2,:] # R_Shoulder
-    y[:,15,:] = x[:,3,:] # R_Elbow
-    y[:,16,:] = x[:,4,:] # R_Wrist
+    y[:,8,:] = x[:,12,:]   # Neck
+    y[:,9,:] = (x[:,12,:] + x[:,13,:]) * 0.5 # Nose
+    y[:,10,:] = x[:,13,:] # Head
+    y[:,11,:] = x[:,9,:] # L_Shoulder
+    y[:,12,:] = x[:,10,:] # L_Elbow
+    y[:,13,:] = x[:,11,:] # L_Wrist
+    y[:,14,:] = x[:,8,:] # R_Shoulder
+    y[:,15,:] = x[:,7,:] # R_Elbow
+    y[:,16,:] = x[:,6,:] # R_Wrist
     return y
 
 def kookmin2h36m(x):
@@ -1337,10 +1339,10 @@ def get_bbox_area(bbox, input_type='xyxy'):
 
 def get_bbox_from_pose2d(pose_2d, output_type='xyxy'):
     assert len(pose_2d.shape) == 2, 'pose_2d should be (num_joints, 2)'
-    x1 = int(pose_2d[:, 0].min())
-    x2 = int(pose_2d[:, 0].max())
-    y1 = int(pose_2d[:, 1].min())
-    y2 = int(pose_2d[:, 1].max())
+    x1 = float(pose_2d[:, 0].min())
+    x2 = float(pose_2d[:, 0].max())
+    y1 = float(pose_2d[:, 1].min())
+    y2 = float(pose_2d[:, 1].max())
     
     if output_type == 'xyxy':
         return x1, y1, x2, y2
@@ -1350,6 +1352,15 @@ def get_bbox_from_pose2d(pose_2d, output_type='xyxy'):
         return cx, cy, x2 - x1, y2 - y1
     elif output_type == 'xxyy':
         return x1, x2, y1, y2
+    
+def get_batch_bbox_from_pose2d(batch_pose_2d):
+    assert type(batch_pose_2d) == torch.Tensor, 'batch_pose_2d should be torch.Tensor'
+    batch_x1 = batch_pose_2d[:, :, 0].min(dim=1, keepdim=True).values
+    batch_x2 = batch_pose_2d[:, :, 0].max(dim=1, keepdim=True).values
+    batch_y1 = batch_pose_2d[:, :, 1].min(dim=1, keepdim=True).values
+    batch_y2 = batch_pose_2d[:, :, 1].max(dim=1, keepdim=True).values
+    batch_bbox = torch.cat([batch_x1, batch_y1, batch_x2, batch_y2], dim=1)
+    return batch_bbox
 
 def get_bbox_area_from_pose2d(pose_2d):
     bbox = get_bbox_from_pose2d(pose_2d, output_type='xyxy')
@@ -1459,3 +1470,11 @@ def matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
         F.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :
     ].reshape(batch_dim + (4,))
     return standardize_quaternion(out)
+
+def get_pose_height(pose_2d):
+    if len(pose_2d.shape) == 2:
+        return pose_2d[:, 1].max(axis=-1) - pose_2d[:, 1].min(axis=-1)
+    elif len(pose_2d.shape) == 3:
+        return pose_2d[:, :, 1].max(axis=-1) - pose_2d[:, :, 1].min(axis=-1)
+    elif len(pose_2d.shape) == 4:
+        return pose_2d[:, :, :, 1].max(axis=-1) - pose_2d[:, :, :, 1].min(axis=-1)

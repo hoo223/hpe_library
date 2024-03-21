@@ -50,9 +50,9 @@ lib_camera_models = ["GenericPoint", "Image", "ImagePlane", "Polygon", "Principa
 # lib_adapt_pose = ['Human36mDataset', 'TEST_SUBJECTS', 'read_3d_data', 'create_2d_data']
 
 # PoSynDA library
-sys.path.append('/home/hrai/codes/PoSynDA')
-from common.h36m_dataset import Human36mDataset
-lib_posynda = ['Human36mDataset']
+# sys.path.append('/home/hrai/codes/PoSynDA')
+# from common.h36m_dataset import Human36mDataset
+lib_posynda = [] # ['Human36mDataset']
 
 lib_except_my_utils = lib_torch + lib_standard + lib_third_party + lib_camera_models + lib_posynda #+ lib_adapt_pose
 

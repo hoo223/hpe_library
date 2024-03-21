@@ -31,10 +31,10 @@ def clear_axes(ax, blacklist=[]):
             for patch in ax.patches[:]:
                 patch.remove()
         if 'text' not in blacklist:
-            for text in ax_.texts[:]:
+            for text in ax.texts[:]:
                 text.remove()
         if 'image' not in blacklist:
-            for image in ax_.images[:]:
+            for image in ax.images[:]:
                 image.remove()
 
 def axes_2d(fig=None, rect=None, loc=111, W=1000, H=1000, xlim=None, ylim=None, xlabel='X', ylabel='Y', title='', axis='on', show_axis=True, normalize=False, ax=None):
@@ -111,6 +111,10 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         joint_pairs = [[0, 1], [1, 2]]
         joint_pairs_left = []
         joint_pairs_right = []
+    elif dataset == 'vector':
+        joint_pairs = [[0, 1]]
+        joint_pairs_left = []
+        joint_pairs_right = []
     elif dataset == 'base':
         joint_pairs = [[0, 1], [0, 2]]
         joint_pairs_left = [[0, 1]]
@@ -127,6 +131,10 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         joint_pairs = [[1, 2], [2, 3], [4, 5], [5, 6], [7, 8], [8, 9], [8, 11], [8, 14], [9, 10], [11, 12], [12, 13], [14, 15], [15, 16]]
         joint_pairs_left = [[8, 11], [11, 12], [12, 13], [4, 5], [5, 6]]
         joint_pairs_right = [[8, 14], [14, 15], [15, 16], [1, 2], [2, 3]]
+    elif dataset == 'h36m_without_nose':
+        joint_pairs = [[0, 1], [0, 4], [0, 7], [1, 2], [2, 3], [4, 5], [5, 6], [7, 8], [8, 9], [8, 10], [8, 13], [10, 11], [11, 12], [13, 14], [14, 15]]
+        joint_pairs_left = [[8, 10], [10, 11], [11, 12], [4, 5], [5, 6]]
+        joint_pairs_right = [[8, 13], [13, 14], [14, 15], [1, 2], [2, 3]]
     else: # 'h36m'
         joint_pairs = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], [5, 6], [0, 7], [7, 8], [8, 9], [8, 11], [8, 14], [9, 10], [11, 12], [12, 13], [14, 15], [15, 16]]
         joint_pairs_left = [[8, 11], [11, 12], [12, 13], [0, 4], [4, 5], [5, 6]]
@@ -149,7 +157,7 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
             # xs *= -1
             # ys *= -1
             # zs *= -1
-        elif dataset in ['aihub', 'h36m_world', 'h36m_torso', 'torso', 'base', 'fit3d', 'h36m', 'kookmin', 'dhdst_torso', 'limb', 'h36m_without_pelvis']:
+        elif dataset in ['aihub', 'h36m_world', 'h36m_torso', 'torso', 'base', 'fit3d', 'h36m', 'kookmin', 'dhdst_torso', 'limb', 'h36m_without_pelvis', 'h36m_without_nose', 'vector']:
             xs, ys, zs = [np.array([j3d[limb[0], j], j3d[limb[1], j]]) for j in range(3)]
         if joint_pairs[i] in joint_pairs_left:
             ax.plot(xs, ys, zs, color=color_left, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth) # axis transformation for visualization
@@ -235,10 +243,17 @@ def draw_2d_pose(ax, pose2d, img=None, H=1080, W=1920, box=None, thickness=10, d
         connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], 
                     [5, 6], [0, 7], [7, 8], [8, 9], [9, 10], 
                     [8, 11], [11, 12], [12, 13], [8, 14], [14, 15], [15, 16]] 
-        LR = np.array([0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=bool) 
+        LR = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0], dtype=bool) 
     elif dataset == 'h36m_torso':
         connections = [[0, 1], [0, 4], [4, 11], [11, 14], [14, 0]]
         LR = np.array([0, 0, 1, 1, 0], dtype=bool)
+    elif dataset == 'h36m_without_nose':
+        # 9 nose -> head
+        # 11~16 -> 10~15
+        connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], 
+                    [5, 6], [0, 7], [7, 8], [8, 9], 
+                    [8, 10], [10, 11], [11, 12], [8, 13], [13, 14], [14, 15]] 
+        LR = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0], dtype=bool) 
     elif dataset == 'torso': # pelvis l_hip l_shoulder r_shoulder r_hip
         connections = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]]
         LR = np.array([1, 1, 2, 0, 0], dtype=int)
@@ -251,7 +266,7 @@ def draw_2d_pose(ax, pose2d, img=None, H=1080, W=1920, box=None, thickness=10, d
     elif dataset == 'twolines': # pelvis l_hip l_shoulder r_shoulder r_hip
         connections = [[1, 4], [2, 3]]
         LR = np.array([0, 1], dtype=int)
-    elif dataset == 'line':
+    elif dataset in ['line', 'vector']:
         connections = [[0, 1]]
         LR = np.array([2], dtype=int)
     elif dataset == 'aihub':
@@ -274,8 +289,8 @@ def draw_2d_pose(ax, pose2d, img=None, H=1080, W=1920, box=None, thickness=10, d
                     1, 1, # right leg
                     ], dtype=bool)
         
-    lcolor = 'r' # (255, 0, 0)
-    rcolor = 'b' # (0, 0, 255)
+    lcolor = 'b' # (255, 0, 0)
+    rcolor = 'r' # (0, 0, 255)
     mcolor = 'k' # (0, 0, 0)
     colors = [lcolor, rcolor, mcolor]
 
@@ -547,7 +562,7 @@ def draw_one_segment(fig_idx, segment, cam_proj, period=1, W=1000, H=1000, show_
     
     plt.show()
     
-def draw_bbox(ax, bbox, box_type='xyxy', color="red", linewidth=1):
+def draw_bbox(ax, bbox, box_type='xyxy', color="red", linestyle='-', linewidth=1, dim_type='2d'):
     if box_type == 'xyxy':
         x1, y1, x2, y2 = bbox
     elif box_type == 'xxyy':
@@ -561,18 +576,28 @@ def draw_bbox(ax, bbox, box_type='xyxy', color="red", linewidth=1):
     height = y2 - y1
     cx = x1 + width/2
     cy = y1 + height/2
-    # Create a rectangle patch
-    rect = patches.Rectangle((x1, y1), width, height, linewidth=linewidth, edgecolor=color, facecolor='none')
-    # Add the rectangle to the Axes
-    ax.add_patch(rect)
-    # ax.plot(x1, y1, 'yx')
-    # ax.plot(x2, y2, 'bx')
-    # ax.plot(cx, cy, 'kx')
+    if dim_type == '2d':
+        # Create a rectangle patch
+        rect = patches.Rectangle((x1, y1), width, height, linewidth=linewidth, linestyle=linestyle, edgecolor=color, facecolor='none')
+        # Add the rectangle to the Axes
+        ax.add_patch(rect)
+        # ax.plot(x1, y1, 'yx')
+        # ax.plot(x2, y2, 'bx')
+        # ax.plot(cx, cy, 'kx')
+    elif dim_type == '3d':
+        upper_left = [x1, y1, 0]
+        upper_right = [x2, y1, 0]
+        lower_left = [x1, y2, 0]
+        lower_right = [x2, y2, 0]
+        ax.plot([upper_left[0], upper_right[0]], [upper_left[1], upper_right[1]], [upper_left[2], upper_right[2]], color=color, linewidth=linewidth)
+        ax.plot([upper_right[0], lower_right[0]], [upper_right[1], lower_right[1]], [upper_right[2], lower_right[2]], color=color, linewidth=linewidth)
+        ax.plot([lower_right[0], lower_left[0]], [lower_right[1], lower_left[1]], [lower_right[2], lower_left[2]], color=color, linewidth=linewidth)
+        ax.plot([lower_left[0], upper_left[0]], [lower_left[1], upper_left[1]], [lower_left[2], upper_left[2]], color=color, linewidth=linewidth)
     
 def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=None, gt=[], W=None, H=None, pose_type='3d', fps=30,
                          xlim=(-0.5, 0.5), ylim=(-0.5, 0.5), zlim=(0, 1), view=(0, 45),
-                         centered_xy=False, cam_space=True, on_ground=True, refine_tilt=True,  
-                         dynamic_view=True, dual_view=False,
+                         centered_xy=False, cam_space=False, on_ground=False, refine_tilt=False,  
+                         dynamic_view=False, dual_view=False,
                          imgs=None,
                          show_axis=False):
     # pose_list : [N, 17, 3]
@@ -603,7 +628,8 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
 
     videowriter = imageio.get_writer(video_path, fps=fps)
     for frame in tqdm(range(len(pose_list))):
-        pose_2d = pose_2d_list[frame].copy() # 1 frame
+        if type(pose_2d_list) != type(None):
+            pose_2d = pose_2d_list[frame].copy() # 1 frame
         pose = pose_list[frame].copy() # 1 frame
         if len(gt) != 0: pose_gt = gt[frame].copy()
         else: pose_gt = []
@@ -661,7 +687,7 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
                     ax.view_init(0, frame)
                 clear_axes(ax)
                 draw_3d_pose(ax, pose, dataset=dataset)
-                if pose_gt != None:
+                if len(pose_gt) != 0:
                     draw_3d_pose(ax, pose_gt, dataset=dataset)
                 ax.set_title('frame {}'.format(frame)) 
         elif pose_type == '2d':
@@ -681,7 +707,7 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
                 draw_3d_pose(ax, pose_gt, dataset=dataset)
             ax.set_title('frame {}'.format(frame))
             clear_axes(ax2)
-            draw_2d_pose(ax2, pose_2d, normalize=True)
+            draw_2d_pose(ax2, pose_2d, normalize=True, dataset=dataset)
 
         canvas = FigureCanvas(fig)
         canvas.draw()

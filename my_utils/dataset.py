@@ -6,9 +6,9 @@ from .test_utils import get_h36m_keypoint_index
 ## for general
 
 def load_h36m():
+    from posynda_utils import Human36mDataset
     # camera parameters
     cam_param = readJSON('/home/hrai/codes/hpe_library/data/h36m_camera-parameters.json')
-
     print('==> Loading 3D data wrt World CS...')
     h36m_3d_world = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)
 

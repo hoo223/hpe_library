@@ -341,11 +341,8 @@ def normalize_input(input_data, W, H):
         return input_data / W * 2 - [1, H / W, 0]
     elif input_data.shape[-1] == 2:
         return input_data / W * 2 - [1, H / W]
-<<<<<<< Updated upstream
     else:
         assert 0, f'Invalid input shape: {input_data.shape}'
-=======
->>>>>>> Stashed changes
 
 # def normalize_3d_pose(pose_3d, W, H):
 #     # input range: [0, W] -> [-1, 1]

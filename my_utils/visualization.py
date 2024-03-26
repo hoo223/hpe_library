@@ -84,7 +84,6 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
     ax.set_title(title)
     ax.view_init(view[0], view[1])
     if not show_axis:
-<<<<<<< Updated upstream
         # ax.axes.xaxis.set_visible(False)
         # ax.axes.yaxis.set_visible(False)
         # ax.axes.zaxis.set_visible(False)
@@ -93,7 +92,6 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
 
     if not grid:
         ax.grid('off')
->>>>>>> Stashed changes
     return ax
 
 # https://github.com/Vegetebird/MHFormer/blob/main/demo/vis.py
@@ -699,11 +697,7 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
                     ax.view_init(0, frame/fps*30)
                 clear_axes(ax)
                 draw_3d_pose(ax, pose, dataset=dataset)
-<<<<<<< Updated upstream
-                if len(pose_gt) != 0:
-=======
                 if type(gt) != type(None):
->>>>>>> Stashed changes
                     draw_3d_pose(ax, pose_gt, dataset=dataset)
                 ax.set_title('frame {}'.format(frame)) 
         elif pose_type == '2d':

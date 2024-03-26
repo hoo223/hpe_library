@@ -66,7 +66,7 @@ def axes_2d(fig=None, rect=None, loc=111, W=1000, H=1000, xlim=None, ylim=None, 
         ax.axes.yaxis.set_visible(False)
     return ax
 
-def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True, ax=None):
+def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True, ax=None, grid=True):
     if fig == None:
         fig = plt.gcf()
     if rect != None:
@@ -84,12 +84,16 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
     ax.set_title(title)
     ax.view_init(view[0], view[1])
     if not show_axis:
+<<<<<<< Updated upstream
         # ax.axes.xaxis.set_visible(False)
         # ax.axes.yaxis.set_visible(False)
         # ax.axes.zaxis.set_visible(False)
         for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
             axis.set_ticklabels([])
 
+    if not grid:
+        ax.grid('off')
+>>>>>>> Stashed changes
     return ax
 
 # https://github.com/Vegetebird/MHFormer/blob/main/demo/vis.py
@@ -607,18 +611,18 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
                          centered_xy=False, cam_space=False, on_ground=False, refine_tilt=False,  
                          dynamic_view=False, dual_view=False,
                          imgs=None,
-                         show_axis=False):
+                         show_axis=False, grid=True):
     # pose_list : [N, 17, 3]
     fig = plt.figure()
     fig.clear()
     if pose_type == '3d':
         if dual_view:
-            ax1 = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 45), show_axis=show_axis)
-            ax2 = axes_3d(fig, loc=122, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, -45), show_axis=show_axis)
+            ax1 = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 45), show_axis=show_axis, grid=grid)
+            ax2 = axes_3d(fig, loc=122, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, -45), show_axis=show_axis, grid=grid)
         elif dynamic_view: 
-            ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 0), show_axis=show_axis)# (0, 10*(sin(2*radians(frame)))+45))
+            ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 0), show_axis=show_axis, grid=grid)# (0, 10*(sin(2*radians(frame)))+45))
         else:
-            ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis)
+            ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis, grid=grid)
     elif pose_type == '2d':
         ax = axes_2d(fig, normalize=True)
     elif pose_type == '2d3d':
@@ -626,12 +630,12 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
         assert len(pose_2d_list) == len(pose_list), 'pose_2d_list should have same length as pose_list'
         assert dual_view == False, 'dual_view is not supported in 2d3d mode'
         if dynamic_view: 
-            ax = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 0), show_axis=show_axis)# (0, 10*(sin(2*radians(frame)))+45))
+            ax = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 0), show_axis=show_axis, grid=grid)# (0, 10*(sin(2*radians(frame)))+45))
         else:
-            ax = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis)
+            ax = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis, grid=grid)
         ax2 = axes_2d(fig, loc=122, normalize=True)
 
-    if len(gt) != 0:
+    if type(gt) != type(None):
         assert gt.shape == pose_list.shape, 'gt should have same shape as pose_list'
 
     videowriter = imageio.get_writer(video_path, fps=fps)
@@ -639,7 +643,7 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
         if type(pose_2d_list) != type(None):
             pose_2d = pose_2d_list[frame].copy() # 1 frame
         pose = pose_list[frame].copy() # 1 frame
-        if len(gt) != 0: pose_gt = gt[frame].copy()
+        if type(gt) != type(None): pose_gt = gt[frame].copy()
         else: pose_gt = []
 
         if '3d' in pose_type:
@@ -692,18 +696,22 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
                 ax2.set_title('frame {}'.format(frame))
             else:
                 if dynamic_view: 
-                    ax.view_init(0, frame)
+                    ax.view_init(0, frame/fps*30)
                 clear_axes(ax)
                 draw_3d_pose(ax, pose, dataset=dataset)
+<<<<<<< Updated upstream
                 if len(pose_gt) != 0:
+=======
+                if type(gt) != type(None):
+>>>>>>> Stashed changes
                     draw_3d_pose(ax, pose_gt, dataset=dataset)
                 ax.set_title('frame {}'.format(frame)) 
         elif pose_type == '2d':
             clear_axes(ax)
-            if imgs != None:
+            if type(imgs) != type(None):
                 assert len(imgs) == len(pose_list), 'imgs should have same length as pose_list'
                 #img = get_2d_pose_image(pose, img=imgs[frame], W=W, H=H, dataset=dataset)   
-                draw_2d_pose(ax, pose, normalize=True)
+                draw_2d_pose(ax, pose, normalize=True, img=imgs[frame])
             else: 
                 draw_2d_pose(ax, pose, normalize=True)
         elif pose_type == '2d3d':

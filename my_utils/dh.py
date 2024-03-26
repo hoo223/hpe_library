@@ -354,8 +354,9 @@ def calculate_batch_azimuth_elevation(batch_vector, batch_root_R=torch.eye(3).un
     # batch_root_R: [B, F, 3, 3]
     if type(batch_vector) != torch.Tensor:
         batch_vector = torch.tensor(batch_vector, dtype=torch.float32)
-    if len(batch_vector) == 2:
+    if len(batch_vector.shape) == 2:
         batch_vector = batch_vector.unsqueeze(0)   
+    batch_root_R = batch_root_R.to(batch_vector.device)
     batch_vector = (batch_root_R.transpose(2, 3) @ batch_vector.unsqueeze(-1)).squeeze(-1)
     
     batch_x, batch_y, batch_z = batch_vector[:, :, 0], batch_vector[:, :, 1], batch_vector[:, :, 2]
@@ -376,9 +377,14 @@ def azim_elev_to_vec(azim, elev, magnitude=1, origin=[0, 0, 0], degrees=False):
     return np.array([x,y,z])
 
 def batch_azim_elev_to_vec(batch_azim, batch_elev, batch_magnitude, batch_origin, degrees=False):
+    # batch_azim, batch_elev: [B, F]
+    # batch_magnitude: [B, F, 1] or [B, F]
+    # batch_origin: [B, F, 3]
     if degrees:
         batch_azim = torch.deg2rad(batch_azim)
         batch_elev = torch.deg2rad(batch_elev)
+    if len(batch_magnitude.shape) == 3:
+        batch_magnitude = batch_magnitude.reshape(batch_magnitude.shape[0], -1)
     batch_x = batch_magnitude * torch.cos(batch_azim) * torch.cos(batch_elev)
     batch_y = batch_magnitude * torch.sin(batch_azim) * torch.cos(batch_elev)
     batch_z = batch_magnitude * torch.sin(batch_elev)

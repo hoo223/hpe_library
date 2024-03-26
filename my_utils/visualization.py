@@ -84,9 +84,12 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
     ax.set_title(title)
     ax.view_init(view[0], view[1])
     if not show_axis:
-        ax.axes.xaxis.set_visible(False)
-        ax.axes.yaxis.set_visible(False)
-        ax.axes.zaxis.set_visible(False)
+        # ax.axes.xaxis.set_visible(False)
+        # ax.axes.yaxis.set_visible(False)
+        # ax.axes.zaxis.set_visible(False)
+        for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
+            axis.set_ticklabels([])
+
     return ax
 
 # https://github.com/Vegetebird/MHFormer/blob/main/demo/vis.py
@@ -107,10 +110,15 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         joint_pairs = [[0, 1], [0, 2], [0, 3], [3, 4], [4, 5], [5, 6], [4, 7], [4, 8]]
         joint_pairs_left = [[0, 2],[4, 7]]
         joint_pairs_right = [[0, 1], [4, 8]]
+    elif dataset == 'torso_small': 
+        # 0: pelvis, 1: r_hip, 4: l_shoulder, 3: neck, 5:r_shoulder, 2: l_hip
+        joint_pairs = [[0, 1], [1, 5], [5, 3], [3, 4], [4, 2], [2, 0]]
+        joint_pairs_left = [[3, 4], [4, 2], [2, 0]]
+        joint_pairs_right = [[0, 1], [1, 5], [5, 3]]
     elif dataset == 'limb':
         joint_pairs = [[0, 1], [1, 2]]
-        joint_pairs_left = []
-        joint_pairs_right = []
+        joint_pairs_left = [[0, 1]]
+        joint_pairs_right = [[1, 2]]
     elif dataset == 'vector':
         joint_pairs = [[0, 1]]
         joint_pairs_left = []
@@ -157,7 +165,7 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
             # xs *= -1
             # ys *= -1
             # zs *= -1
-        elif dataset in ['aihub', 'h36m_world', 'h36m_torso', 'torso', 'base', 'fit3d', 'h36m', 'kookmin', 'dhdst_torso', 'limb', 'h36m_without_pelvis', 'h36m_without_nose', 'vector']:
+        elif dataset in ['aihub', 'h36m_world', 'h36m_torso', 'torso', 'base', 'fit3d', 'h36m', 'kookmin', 'dhdst_torso', 'limb', 'h36m_without_pelvis', 'h36m_without_nose', 'vector', 'torso_small']:
             xs, ys, zs = [np.array([j3d[limb[0], j], j3d[limb[1], j]]) for j in range(3)]
         if joint_pairs[i] in joint_pairs_left:
             ax.plot(xs, ys, zs, color=color_left, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth) # axis transformation for visualization

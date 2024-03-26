@@ -1,5 +1,5 @@
 from lib_import import *
-from .dh import rotate_torso_by_R, get_torso_direction, rotation_matrix_to_vector_align, projection, get_torso_rotation_matrix
+from .dh import rotate_torso_by_R, get_torso_direction, rotation_matrix_to_vector_align, projection, get_torso_rotation_matrix, calculate_batch_azimuth_elevation
 from .test_utils import readJSON, halpe2h36m, get_video_info, get_bbox_area_from_pose2d, get_bbox_from_pose2d, change_bbox_convention, get_bbox_area
 from .test_utils import get_h36m_keypoint_index
 
@@ -469,3 +469,151 @@ def get_ap_pose_2d(video_path, ap_result_path, dataset='h36m'):
             pose_2d_list[frame_num] = keypoints
 
     return pose_2d_list
+
+def parse_args_by_model_name(target):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="configs/pose3d/DHDST_kookmin_baseline.yaml", help="Path to the config file.")
+    parser.add_argument('-c', '--checkpoint', default='checkpoint', type=str, metavar='PATH', help='checkpoint directory')
+    parser.add_argument('-p', '--pretrained', default='checkpoint', type=str, metavar='PATH', help='pretrained checkpoint directory')
+    parser.add_argument('-r', '--resume', default='', type=str, metavar='FILENAME', help='checkpoint to resume (file name)')
+    parser.add_argument('-e', '--evaluate', default='checkpoint/pose3d/MB_ft_h36m/best_epoch.bin', type=str, metavar='FILENAME', help='checkpoint to evaluate (file name)')
+    parser.add_argument('-ms', '--selection', default='best_epoch.bin', type=str, metavar='FILENAME', help='checkpoint to finetune (file name)')
+    parser.add_argument('-sd', '--seed', default=0, type=int, help='random seed')
+    parser.add_argument('-g', '--gpu', default='0', type=str, help='GPU id')
+    #opts = parser.parse_args([])
+    if target == 'MB_release':
+        opts = parser.parse_args([
+            '--config', 'configs/pretrain/MB_pretrain.yaml',
+            '--evaluate', 'checkpoint/pretrain/MB_release/best_epoch.bin'])
+    else:
+        opts = parser.parse_args([
+            '--config', 'configs/pose3d/{}.yaml'.format(target),
+            '--evaluate', 'checkpoint/pose3d/{}/best_epoch.bin'.format(target)])
+    return opts
+
+def get_limb_angle(batch_gt):
+    # batch_gt: (B, T, 17, 3)
+    
+    # get the keypoint index
+    r_hip = get_h36m_keypoint_index('r_hip')
+    l_hip = get_h36m_keypoint_index('l_hip')
+    r_shoulder = get_h36m_keypoint_index('r_shoulder')
+    l_shoulder = get_h36m_keypoint_index('l_shoulder')
+    r_elbow = get_h36m_keypoint_index('r_elbow')
+    l_elbow = get_h36m_keypoint_index('l_elbow')
+    r_knee = get_h36m_keypoint_index('r_knee')
+    l_knee = get_h36m_keypoint_index('l_knee')
+    
+    # 3D d1, d2
+    d1_r_hip = batch_gt[:, :, r_hip].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d1_l_hip = batch_gt[:, :, l_hip].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d1_r_shoulder = batch_gt[:, :, r_shoulder].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d1_l_shoulder = batch_gt[:, :, l_shoulder].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d2_r_knee = batch_gt[:, :, r_knee].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d2_l_knee = batch_gt[:, :, l_knee].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d2_r_elbow = batch_gt[:, :, r_elbow].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d2_l_elbow = batch_gt[:, :, l_elbow].unsqueeze(2) # torch.Size([1, F, 1, 3])
+
+    # 3D vector
+    k_r_upper_leg = d2_r_knee - d1_r_hip # torch.Size([1, F, 1, 3])
+    k_l_upper_leg = d2_l_knee - d1_l_hip # torch.Size([1, F, 1, 3])
+    k_r_upper_arm = d2_r_elbow - d1_r_shoulder # torch.Size([1, F, 1, 3])
+    k_l_upper_arm = d2_l_elbow - d1_l_shoulder # torch.Size([1, F, 1, 3])
+
+    # Azimuth, Elevation angle
+    R_azim_r_upper_leg, R_elev_r_upper_leg = calculate_batch_azimuth_elevation(k_r_upper_leg[:, :, 0]) # torch.Size([1, F])
+    R_azim_l_upper_leg, R_elev_l_upper_leg = calculate_batch_azimuth_elevation(k_l_upper_leg[:, :, 0]) # torch.Size([1, F])
+    R_azim_r_upper_arm, R_elev_r_upper_arm = calculate_batch_azimuth_elevation(k_r_upper_arm[:, :, 0]) # torch.Size([1, F])
+    R_azim_l_upper_arm, R_elev_l_upper_arm = calculate_batch_azimuth_elevation(k_l_upper_arm[:, :, 0]) # torch.Size([1, F])
+
+    R_r_upper_leg = torch.cat([R_azim_r_upper_leg.unsqueeze(-1), R_elev_r_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
+    R_l_upper_leg = torch.cat([R_azim_l_upper_leg.unsqueeze(-1), R_elev_l_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
+    R_r_upper_arm = torch.cat([R_azim_r_upper_arm.unsqueeze(-1), R_elev_r_upper_arm.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
+    R_l_upper_arm = torch.cat([R_azim_l_upper_arm.unsqueeze(-1), R_elev_l_upper_arm.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
+    
+    # angle
+    angle = torch.cat([R_r_upper_leg, R_l_upper_leg, R_r_upper_arm, R_l_upper_arm], dim=0)
+    
+    return angle
+    
+
+def get_input_gt_for_onevec(batch_input, batch_gt):
+    # batch_input: (B, T, 17, 3) 
+    # batch_gt: (B, T, 17, 3)
+    
+    # get the keypoint index
+    r_hip = get_h36m_keypoint_index('r_hip')
+    l_hip = get_h36m_keypoint_index('l_hip')
+    r_shoulder = get_h36m_keypoint_index('r_shoulder')
+    l_shoulder = get_h36m_keypoint_index('l_shoulder')
+    r_elbow = get_h36m_keypoint_index('r_elbow')
+    l_elbow = get_h36m_keypoint_index('l_elbow')
+    r_knee = get_h36m_keypoint_index('r_knee')
+    l_knee = get_h36m_keypoint_index('l_knee')
+    
+    # 2D p1, p2
+    p1_r_hip = batch_input[:, :, r_hip, :2].unsqueeze(2) # torch.Size([1, 243, 1, 2])
+    p1_l_hip = batch_input[:, :, l_hip, :2].unsqueeze(2) # torch.Size([1, 243, 1, 2])
+    p1_r_shoulder = batch_input[:, :, r_shoulder, :2].unsqueeze(2) # torch.Size([1, 243, 1, 2])
+    p1_l_shoulder = batch_input[:, :, l_shoulder, :2].unsqueeze(2) # torch.Size([1, 243, 1, 2])
+    p2_r_elbow = batch_input[:, :, r_elbow, :2].unsqueeze(2) # torch.Size([1, 243, 1, 2])
+    p2_l_elbow = batch_input[:, :, l_elbow, :2].unsqueeze(2) # torch.Size([1, 243, 1, 2])
+    p2_r_knee = batch_input[:, :, r_knee, :2].unsqueeze(2) # torch.Size([1, 243, 1, 2])
+    p2_l_knee = batch_input[:, :, l_knee, :2].unsqueeze(2) # torch.Size([1, 243, 1, 2])
+
+    # 2D vector
+    v_r_upper_leg = p2_r_knee - p1_r_hip # torch.Size([1, 243, 1, 2])
+    v_l_upper_leg = p2_l_knee - p1_l_hip # torch.Size([1, 243, 1, 2])
+    v_r_upper_arm = p2_r_elbow - p1_r_shoulder # torch.Size([1, 243, 1, 2])
+    v_l_upper_arm = p2_l_elbow - p1_l_shoulder # torch.Size([1, 243, 1, 2])
+     
+    # input
+    input_r_upper_leg = torch.cat([p1_r_hip, v_r_upper_leg], dim=2)
+    input_l_upper_leg = torch.cat([p1_l_hip, v_l_upper_leg], dim=2)
+    input_r_upper_arm = torch.cat([p1_r_shoulder, v_r_upper_arm], dim=2)
+    input_l_upper_arm = torch.cat([p1_l_shoulder, v_l_upper_arm], dim=2)
+    input = torch.cat([input_r_upper_leg, input_l_upper_leg, input_r_upper_arm, input_l_upper_arm], dim=0)
+    
+    # 3D d1, d2
+    d1_r_hip = batch_gt[:, :, r_hip].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d1_l_hip = batch_gt[:, :, l_hip].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d1_r_shoulder = batch_gt[:, :, r_shoulder].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d1_l_shoulder = batch_gt[:, :, l_shoulder].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d2_r_knee = batch_gt[:, :, r_knee].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d2_l_knee = batch_gt[:, :, l_knee].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d2_r_elbow = batch_gt[:, :, r_elbow].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d2_l_elbow = batch_gt[:, :, l_elbow].unsqueeze(2) # torch.Size([1, F, 1, 3])
+
+    # 3D vector
+    k_r_upper_leg = d2_r_knee - d1_r_hip # torch.Size([1, F, 1, 3])
+    k_l_upper_leg = d2_l_knee - d1_l_hip # torch.Size([1, F, 1, 3])
+    k_r_upper_arm = d2_r_elbow - d1_r_shoulder # torch.Size([1, F, 1, 3])
+    k_l_upper_arm = d2_l_elbow - d1_l_shoulder # torch.Size([1, F, 1, 3])
+
+    # Azimuth, Elevation angle
+    R_azim_r_upper_leg, R_elev_r_upper_leg = calculate_batch_azimuth_elevation(k_r_upper_leg[:, :, 0]) # torch.Size([1, F])
+    R_azim_l_upper_leg, R_elev_l_upper_leg = calculate_batch_azimuth_elevation(k_l_upper_leg[:, :, 0]) # torch.Size([1, F])
+    R_azim_r_upper_arm, R_elev_r_upper_arm = calculate_batch_azimuth_elevation(k_r_upper_arm[:, :, 0]) # torch.Size([1, F])
+    R_azim_l_upper_arm, R_elev_l_upper_arm = calculate_batch_azimuth_elevation(k_l_upper_arm[:, :, 0]) # torch.Size([1, F])
+
+    R_r_upper_leg = torch.cat([R_azim_r_upper_leg.unsqueeze(-1), R_elev_r_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
+    R_l_upper_leg = torch.cat([R_azim_l_upper_leg.unsqueeze(-1), R_elev_l_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
+    R_r_upper_arm = torch.cat([R_azim_r_upper_arm.unsqueeze(-1), R_elev_r_upper_arm.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
+    R_l_upper_arm = torch.cat([R_azim_l_upper_arm.unsqueeze(-1), R_elev_l_upper_arm.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
+
+    # Bone length
+    L_r_upper_leg = torch.mean(torch.norm(k_r_upper_leg, dim=-1), dim=1, keepdim=True) # torch.Size([B, 1, 1])
+    L_l_upper_leg = torch.mean(torch.norm(k_l_upper_leg, dim=-1), dim=1, keepdim=True) # torch.Size([B, 1, 1])
+    L_r_upper_arm = torch.mean(torch.norm(k_r_upper_arm, dim=-1), dim=1, keepdim=True) # torch.Size([B, 1, 1])
+    L_l_upper_arm = torch.mean(torch.norm(k_l_upper_arm, dim=-1), dim=1, keepdim=True) # torch.Size([B, 1, 1])
+    
+    # root point gt
+    gt_root_point = torch.cat([d1_r_hip, d1_l_hip, d1_r_shoulder, d1_l_shoulder], dim=0)[:, :, 0]
+    
+    # length gt
+    gt_length = torch.cat([L_r_upper_leg, L_l_upper_leg, L_r_upper_arm, L_l_upper_arm], dim=0)[:, :, 0]
+    
+    # angle gt
+    gt_angle = torch.cat([R_r_upper_leg, R_l_upper_leg, R_r_upper_arm, R_l_upper_arm], dim=0)
+    
+    return input, gt_root_point, gt_length, gt_angle

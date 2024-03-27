@@ -532,7 +532,7 @@ def get_limb_angle(batch_gt):
     R_l_upper_arm = torch.cat([R_azim_l_upper_arm.unsqueeze(-1), R_elev_l_upper_arm.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
     
     # angle
-    angle = torch.cat([R_r_upper_leg, R_l_upper_leg, R_r_upper_arm, R_l_upper_arm], dim=0)
+    angle = torch.cat([R_r_upper_leg, R_l_upper_leg, R_r_upper_arm, R_l_upper_arm], dim=0) # torch.Size([4, F, 2])
     
     return angle
     

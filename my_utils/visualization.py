@@ -95,7 +95,7 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
     return ax
 
 # https://github.com/Vegetebird/MHFormer/blob/main/demo/vis.py
-def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0.5, handle_=None):
+def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0.5, alpha=1.0, color=None):
     if dataset == 'aihub':
         joint_pairs = [[15,12],  [12,17],  [12,16],  [17,19],  [19,21], [16,18], [18,20], [12,0], [0,1], [0,2], [2,1], [2,5], [5,8], [1,4], [4,7], [12,17]]
         joint_pairs_left = [[12,16], [16,18], [18,20], [0,1], [1,4], [4,7]]
@@ -150,10 +150,15 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         joint_pairs_left = [[8, 11], [11, 12], [12, 13], [0, 4], [4, 5], [5, 6]]
         joint_pairs_right = [[8, 14], [14, 15], [15, 16], [0, 1], [1, 2], [2, 3]]
 
-    color_mid = '0.1' # "#00457E"
-    color_left = 'r' # "#02315E"
-    color_right = 'b' # "#2F70AF"
-
+    if type(color) != type(None):
+        color_mid = color
+        color_left = color
+        color_right = color
+    else:
+        color_mid = '0.1' # "#00457E"
+        color_left = 'r' # "#02315E"
+        color_right = 'b' # "#2F70AF"
+    
     j3d = pose
     assert j3d.shape[1] > 2, 'Only single 3d pose is supported.'
     
@@ -170,11 +175,11 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         elif dataset in ['aihub', 'h36m_world', 'h36m_torso', 'torso', 'base', 'fit3d', 'h36m', 'kookmin', 'dhdst_torso', 'limb', 'h36m_without_pelvis', 'h36m_without_nose', 'vector', 'torso_small']:
             xs, ys, zs = [np.array([j3d[limb[0], j], j3d[limb[1], j]]) for j in range(3)]
         if joint_pairs[i] in joint_pairs_left:
-            ax.plot(xs, ys, zs, color=color_left, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth) # axis transformation for visualization
+            ax.plot(xs, ys, zs, color=color_left, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha) 
         elif joint_pairs[i] in joint_pairs_right:
-            ax.plot(xs, ys, zs, color=color_right, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth) # axis transformation for visualization
+            ax.plot(xs, ys, zs, color=color_right, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha) 
         else:
-            ax.plot(xs, ys, zs, color=color_mid, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth) # axis transformation for visualization
+            ax.plot(xs, ys, zs, color=color_mid, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha) 
             
 
 # https://github.com/Vegetebird/MHFormer/blob/main/demo/vis.py

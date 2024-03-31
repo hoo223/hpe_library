@@ -2,6 +2,7 @@ from lib_import import *
 from .dh import rotate_torso_by_R, get_torso_direction, rotation_matrix_to_vector_align, projection, get_torso_rotation_matrix, calculate_batch_azimuth_elevation
 from .test_utils import readJSON, halpe2h36m, get_video_info, get_bbox_area_from_pose2d, get_bbox_from_pose2d, change_bbox_convention, get_bbox_area
 from .test_utils import get_h36m_keypoint_index
+from .test_utils import World2CameraCoordinate, get_rootrel_pose, optimize_scaling_factor, infer_box, camera_to_image_frame
 
 ## for general
 
@@ -491,48 +492,74 @@ def parse_args_by_model_name(target):
             '--evaluate', 'checkpoint/pose3d/{}/best_epoch.bin'.format(target)])
     return opts
 
-def get_limb_angle(batch_gt):
+def get_limb_angle(batch_pose):
     # batch_gt: (B, T, 17, 3)
+    if type(batch_pose) != torch.Tensor:
+        batch_pose = torch.tensor(batch_pose).float()
     
     # get the keypoint index
     r_hip = get_h36m_keypoint_index('r_hip')
-    l_hip = get_h36m_keypoint_index('l_hip')
-    r_shoulder = get_h36m_keypoint_index('r_shoulder')
-    l_shoulder = get_h36m_keypoint_index('l_shoulder')
-    r_elbow = get_h36m_keypoint_index('r_elbow')
-    l_elbow = get_h36m_keypoint_index('l_elbow')
     r_knee = get_h36m_keypoint_index('r_knee')
+    r_ankle = get_h36m_keypoint_index('r_ankle')
+    
+    l_hip = get_h36m_keypoint_index('l_hip')
     l_knee = get_h36m_keypoint_index('l_knee')
+    l_ankle = get_h36m_keypoint_index('l_ankle')
+    
+    r_shoulder = get_h36m_keypoint_index('r_shoulder')
+    r_elbow = get_h36m_keypoint_index('r_elbow')
+    r_wrist = get_h36m_keypoint_index('r_wrist')
+    
+    l_shoulder = get_h36m_keypoint_index('l_shoulder')
+    l_elbow = get_h36m_keypoint_index('l_elbow')
+    l_wrist = get_h36m_keypoint_index('l_wrist')
+    
     
     # 3D d1, d2
-    d1_r_hip = batch_gt[:, :, r_hip].unsqueeze(2) # torch.Size([1, F, 1, 3])
-    d1_l_hip = batch_gt[:, :, l_hip].unsqueeze(2) # torch.Size([1, F, 1, 3])
-    d1_r_shoulder = batch_gt[:, :, r_shoulder].unsqueeze(2) # torch.Size([1, F, 1, 3])
-    d1_l_shoulder = batch_gt[:, :, l_shoulder].unsqueeze(2) # torch.Size([1, F, 1, 3])
-    d2_r_knee = batch_gt[:, :, r_knee].unsqueeze(2) # torch.Size([1, F, 1, 3])
-    d2_l_knee = batch_gt[:, :, l_knee].unsqueeze(2) # torch.Size([1, F, 1, 3])
-    d2_r_elbow = batch_gt[:, :, r_elbow].unsqueeze(2) # torch.Size([1, F, 1, 3])
-    d2_l_elbow = batch_gt[:, :, l_elbow].unsqueeze(2) # torch.Size([1, F, 1, 3])
+    d1_r_hip = batch_pose[:, :, r_hip].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d1_l_hip = batch_pose[:, :, l_hip].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d1_r_shoulder = batch_pose[:, :, r_shoulder].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d1_l_shoulder = batch_pose[:, :, l_shoulder].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d2_r_knee = batch_pose[:, :, r_knee].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d2_l_knee = batch_pose[:, :, l_knee].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d2_r_elbow = batch_pose[:, :, r_elbow].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d2_l_elbow = batch_pose[:, :, l_elbow].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d3_r_ankle = batch_pose[:, :, r_ankle].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d3_l_ankle = batch_pose[:, :, l_ankle].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d3_r_wrist = batch_pose[:, :, r_wrist].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d3_l_wrist = batch_pose[:, :, l_wrist].unsqueeze(2) # torch.Size([B, F, 1, 3])
 
     # 3D vector
-    k_r_upper_leg = d2_r_knee - d1_r_hip # torch.Size([1, F, 1, 3])
-    k_l_upper_leg = d2_l_knee - d1_l_hip # torch.Size([1, F, 1, 3])
-    k_r_upper_arm = d2_r_elbow - d1_r_shoulder # torch.Size([1, F, 1, 3])
-    k_l_upper_arm = d2_l_elbow - d1_l_shoulder # torch.Size([1, F, 1, 3])
+    k_r_upper_leg = d2_r_knee - d1_r_hip # torch.Size([B, F, 1, 3])
+    k_l_upper_leg = d2_l_knee - d1_l_hip # torch.Size([B, F, 1, 3])
+    k_r_upper_arm = d2_r_elbow - d1_r_shoulder # torch.Size([B, F, 1, 3])
+    k_l_upper_arm = d2_l_elbow - d1_l_shoulder # torch.Size([B, F, 1, 3])
+    k_r_under_leg = d3_r_ankle - d2_r_knee # torch.Size([B, F, 1, 3])
+    k_l_under_leg = d3_l_ankle - d2_l_knee # torch.Size([B, F, 1, 3])
+    k_r_under_arm = d3_r_wrist - d2_r_elbow # torch.Size([B, F, 1, 3])
+    k_l_under_arm = d3_l_wrist - d2_l_elbow # torch.Size([B, F, 1, 3])
 
     # Azimuth, Elevation angle
-    R_azim_r_upper_leg, R_elev_r_upper_leg = calculate_batch_azimuth_elevation(k_r_upper_leg[:, :, 0]) # torch.Size([1, F])
-    R_azim_l_upper_leg, R_elev_l_upper_leg = calculate_batch_azimuth_elevation(k_l_upper_leg[:, :, 0]) # torch.Size([1, F])
-    R_azim_r_upper_arm, R_elev_r_upper_arm = calculate_batch_azimuth_elevation(k_r_upper_arm[:, :, 0]) # torch.Size([1, F])
-    R_azim_l_upper_arm, R_elev_l_upper_arm = calculate_batch_azimuth_elevation(k_l_upper_arm[:, :, 0]) # torch.Size([1, F])
+    R_azim_r_upper_leg, R_elev_r_upper_leg = calculate_batch_azimuth_elevation(k_r_upper_leg[:, :, 0]) # torch.Size([B, F])
+    R_azim_l_upper_leg, R_elev_l_upper_leg = calculate_batch_azimuth_elevation(k_l_upper_leg[:, :, 0]) # torch.Size([B, F])
+    R_azim_r_upper_arm, R_elev_r_upper_arm = calculate_batch_azimuth_elevation(k_r_upper_arm[:, :, 0]) # torch.Size([B, F])
+    R_azim_l_upper_arm, R_elev_l_upper_arm = calculate_batch_azimuth_elevation(k_l_upper_arm[:, :, 0]) # torch.Size([B, F])
+    R_azim_r_under_leg, R_elev_r_under_leg = calculate_batch_azimuth_elevation(k_r_under_leg[:, :, 0]) # torch.Size([B, F])
+    R_azim_l_under_leg, R_elev_l_under_leg = calculate_batch_azimuth_elevation(k_l_under_leg[:, :, 0]) # torch.Size([B, F])
+    R_azim_r_under_arm, R_elev_r_under_arm = calculate_batch_azimuth_elevation(k_r_under_arm[:, :, 0]) # torch.Size([B, F])
+    R_azim_l_under_arm, R_elev_l_under_arm = calculate_batch_azimuth_elevation(k_l_under_arm[:, :, 0]) # torch.Size([B, F])
 
-    R_r_upper_leg = torch.cat([R_azim_r_upper_leg.unsqueeze(-1), R_elev_r_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
-    R_l_upper_leg = torch.cat([R_azim_l_upper_leg.unsqueeze(-1), R_elev_l_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
-    R_r_upper_arm = torch.cat([R_azim_r_upper_arm.unsqueeze(-1), R_elev_r_upper_arm.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
-    R_l_upper_arm = torch.cat([R_azim_l_upper_arm.unsqueeze(-1), R_elev_l_upper_arm.unsqueeze(-1)], dim=-1) # torch.Size([1, F, 2])
+    R_r_upper_leg = torch.cat([R_azim_r_upper_leg.unsqueeze(-1), R_elev_r_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])
+    R_l_upper_leg = torch.cat([R_azim_l_upper_leg.unsqueeze(-1), R_elev_l_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])
+    R_r_upper_arm = torch.cat([R_azim_r_upper_arm.unsqueeze(-1), R_elev_r_upper_arm.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])
+    R_l_upper_arm = torch.cat([R_azim_l_upper_arm.unsqueeze(-1), R_elev_l_upper_arm.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])
+    R_r_under_leg = torch.cat([R_azim_r_under_leg.unsqueeze(-1), R_elev_r_under_leg.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])
+    R_l_under_leg = torch.cat([R_azim_l_under_leg.unsqueeze(-1), R_elev_l_under_leg.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])
+    R_r_under_arm = torch.cat([R_azim_r_under_arm.unsqueeze(-1), R_elev_r_under_arm.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])
+    R_l_under_arm = torch.cat([R_azim_l_under_arm.unsqueeze(-1), R_elev_l_under_arm.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])
     
     # angle
-    angle = torch.cat([R_r_upper_leg, R_l_upper_leg, R_r_upper_arm, R_l_upper_arm], dim=0) # torch.Size([4, F, 2])
+    angle = torch.cat([R_r_upper_leg, R_l_upper_leg, R_r_upper_arm, R_l_upper_arm, R_r_under_leg, R_l_under_leg, R_r_under_arm, R_l_under_arm], dim=0) # torch.Size([Bx8, F, 2])
     
     return angle
     
@@ -617,3 +644,62 @@ def get_input_gt_for_onevec(batch_input, batch_gt):
     gt_angle = torch.cat([R_r_upper_leg, R_l_upper_leg, R_r_upper_arm, R_l_upper_arm], dim=0)
     
     return input, gt_root_point, gt_length, gt_angle
+
+def get_h36m_camera_info(h36m_3d_world, h36m_cam_param, subject, action, camera_id):
+    # h36m_3d_world, h36m_cam_param -> from load_h36m()
+    cam_info = h36m_3d_world._data[subject][action]['cameras']
+    cam_param = get_cam_param(cam_info, subject, h36m_cam_param)
+    calibration_matrix = np.array(cam_param[camera_id]['int']['calibration_matrix'])
+    R = np.array(cam_param[camera_id]['ext']['R'])
+    t = np.array(cam_param[camera_id]['ext']['t'])/1000
+    H = cam_param[camera_id]['H']
+    W = cam_param[camera_id]['W']
+    camera_param = {
+        'intrinsic': calibration_matrix,
+        'extrinsic': np.concatenate([R, t.reshape(3, 1)], axis=1),
+    }
+    fx = camera_param['intrinsic'][0, 0]  
+    fy = camera_param['intrinsic'][1, 1]  
+    cx = camera_param['intrinsic'][0, 2]  
+    cy = camera_param['intrinsic'][1, 2] 
+    return calibration_matrix, camera_param, H, W, fx, fy, cx, cy
+
+def h36m_data_processing(pose3d_list, camera_param, fx, fy, cx, cy, length=243):
+    pose_2d_list = []
+    cam_3d_list = []
+    img_3d_list = []
+    img_3d_hat_list = []
+    img_25d_list = []
+    scale_list = []
+    for frame_num in tqdm(range(len(pose3d_list[:length]))):
+        world_3d = np.array(pose3d_list[frame_num])
+        # world to camera
+        pos = copy.deepcopy(world_3d)
+        cam_3d = World2CameraCoordinate(pos, camera_param['extrinsic']) * 1000 # World coordinate -> Camera coordinate
+        cam_3d_hat = get_rootrel_pose(cam_3d)
+
+        # camera to image
+        box = infer_box(cam_3d, {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy}, 0)
+        img_2d, img_3d = camera_to_image_frame(cam_3d, box, {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy}, 0) 
+        img_3d_hat = get_rootrel_pose(img_3d) # (17, 3) # root-relative pose 
+        # 2.5d factor
+        pred_lambda, losses = optimize_scaling_factor(img_3d_hat, cam_3d_hat, stop_tolerance=0.0001) # x,y,z 사용
+        # joint 2.5d image
+        img_25d = img_3d * pred_lambda
+
+        pose_2d_list.append(img_2d)
+        cam_3d_list.append(cam_3d)
+        img_3d_list.append(img_3d)
+        img_3d_hat_list.append(img_3d_hat)
+        img_25d_list.append(img_25d)
+        scale_list.append(pred_lambda)
+
+    pose_2d_list = np.array(pose_2d_list)
+    pose_2d_list = np.append(pose_2d_list, np.ones((pose_2d_list.shape[0], pose_2d_list.shape[1], 1)), axis=2)
+    cam_3d_list = np.array(cam_3d_list)
+    img_3d_list = np.array(img_3d_list)
+    img_3d_hat_list = np.array(img_3d_hat_list)
+    img_25d_list = np.array(img_25d_list)
+    scale_list = np.array(scale_list)
+
+    return pose_2d_list, cam_3d_list, img_3d_list, img_3d_hat_list, img_25d_list, scale_list

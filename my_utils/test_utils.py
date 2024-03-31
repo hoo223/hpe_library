@@ -87,6 +87,88 @@ h36m_connections = [
     ('L_Elbow','L_Wrist')
 ]
 
+len_ids = {
+    'R_HIP' : 0,
+    'R_UPPER_LEG' : 1,
+    'R_UNDER_LEG' : 2,
+    'L_HIP' : 3,
+    'L_UPPER_LEG' : 4,
+    'L_UNDER_LEG' : 5,
+    'UNDER_TORSO' : 6,
+    'UPPER_TORSO' : 7,
+    'UNDER_FACE' : 8,
+    'UPPER_FACE' : 9,
+    'L_SHOULDER' : 10,
+    'L_UPPER_ARM' : 11,
+    'L_UNDER_ARM' : 12,
+    'R_SHOULDER' : 13,
+    'R_UPPER_ARM' : 14,
+    'R_UNDER_ARM' : 15
+}
+
+
+# len_id_names = {
+#     0: 'R_HIP',
+#     1: 'R_UPPER_LEG',
+#     2: 'R_UNDER_LEG',
+#     3: 'L_HIP',
+#     4: 'L_UPPER_LEG',
+#     5: 'L_UNDER_LEG',
+#     6: 'UNDER_TORSO',
+#     7: 'UPPER_TORSO',
+#     8: 'UNDER_FACE',
+#     9: 'UPPER_FACE',
+#     10: 'L_SHOULDER',
+#     11: 'L_UPPER_ARM',
+#     12: 'L_UNDER_ARM',
+#     13: 'R_SHOULDER',
+#     14: 'R_UPPER_ARM',
+#     15: 'R_UNDER_ARM'
+# }
+
+part_ids = {
+    'R_ARM': 0,
+    'L_ARM': 1,
+    'R_LEG': 2,
+    'L_LEG': 3,
+    'TORSO_SMALL': 4,
+    'TORSO_FULL': 5
+}
+
+# part_id_names = {
+#     0: 'R_ARM',
+#     1: 'L_ARM',
+#     2: 'R_LEG',
+#     3: 'L_LEG',
+#     4: 'TORSO_SMALL',
+#     5: 'TORSO_FULL'
+# }
+
+h36m_part_keypoints = [
+    [14, 15, 16], 
+    [11, 12, 13], 
+    [1, 2, 3], 
+    [4, 5, 6], 
+    [0, 1, 4, 8, 11, 14], 
+    [0, 1, 4, 7, 8, 9, 10, 11, 14]
+]
+
+def get_h36m_limb_lens(x):
+    '''
+        Input: (F, 17, 3)
+        Output: (F, 16)
+    '''
+    limbs_id = [[0,1], [1,2], [2,3],
+         [0,4], [4,5], [5,6],
+         [0,7], [7,8], [8,9], [9,10],
+         [8,11], [11,12], [12,13],
+         [8,14], [14,15], [15,16]
+        ]
+    limbs = x[:,limbs_id,:] # (F, 16, 2, 3)
+    limbs = limbs[:,:,0,:]-limbs[:,:,1,:] # (F, 16, 3)
+    limb_lens = np.linalg.norm(limbs, axis=-1) # (F, 16)
+    return limb_lens
+
 # h36m_connections = [
 #     (0,1),
 #     (0,4),

@@ -496,11 +496,14 @@ def get_limb_angle(batch_pose):
     # batch_gt: (B, T, 17, 3)
     if type(batch_pose) != torch.Tensor:
         batch_pose = torch.tensor(batch_pose).float()
+    if len(batch_pose.shape) == 3:
+        batch_pose = batch_pose.unsqueeze(0)
     
     # get the keypoint index
     r_hip = get_h36m_keypoint_index('r_hip')
     r_knee = get_h36m_keypoint_index('r_knee')
     r_ankle = get_h36m_keypoint_index('r_ankle')
+
     
     l_hip = get_h36m_keypoint_index('l_hip')
     l_knee = get_h36m_keypoint_index('l_knee')
@@ -514,40 +517,39 @@ def get_limb_angle(batch_pose):
     l_elbow = get_h36m_keypoint_index('l_elbow')
     l_wrist = get_h36m_keypoint_index('l_wrist')
     
-    
     # 3D d1, d2
-    d1_r_hip = batch_pose[:, :, r_hip].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d1_l_hip = batch_pose[:, :, l_hip].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d1_r_shoulder = batch_pose[:, :, r_shoulder].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d1_l_shoulder = batch_pose[:, :, l_shoulder].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d2_r_knee = batch_pose[:, :, r_knee].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d2_l_knee = batch_pose[:, :, l_knee].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d2_r_elbow = batch_pose[:, :, r_elbow].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d2_l_elbow = batch_pose[:, :, l_elbow].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d3_r_ankle = batch_pose[:, :, r_ankle].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d3_l_ankle = batch_pose[:, :, l_ankle].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d3_r_wrist = batch_pose[:, :, r_wrist].unsqueeze(2) # torch.Size([B, F, 1, 3])
-    d3_l_wrist = batch_pose[:, :, l_wrist].unsqueeze(2) # torch.Size([B, F, 1, 3])
+    d1_r_hip = batch_pose[:, :, r_hip] # torch.Size([B, F, 3])
+    d1_l_hip = batch_pose[:, :, l_hip] # torch.Size([B, F, 3])
+    d1_r_shoulder = batch_pose[:, :, r_shoulder] # torch.Size([B, F, 3])
+    d1_l_shoulder = batch_pose[:, :, l_shoulder] # torch.Size([B, F, 3])
+    d2_r_knee = batch_pose[:, :, r_knee] # torch.Size([B, F, 3])
+    d2_l_knee = batch_pose[:, :, l_knee] # torch.Size([B, F, 3])
+    d2_r_elbow = batch_pose[:, :, r_elbow] # torch.Size([B, F, 3])
+    d2_l_elbow = batch_pose[:, :, l_elbow] # torch.Size([B, F, 3])
+    d3_r_ankle = batch_pose[:, :, r_ankle] # torch.Size([B, F, 3])
+    d3_l_ankle = batch_pose[:, :, l_ankle] # torch.Size([B, F, 3])
+    d3_r_wrist = batch_pose[:, :, r_wrist] # torch.Size([B, F, 3])
+    d3_l_wrist = batch_pose[:, :, l_wrist] # torch.Size([B, F, 3])
 
     # 3D vector
-    k_r_upper_leg = d2_r_knee - d1_r_hip # torch.Size([B, F, 1, 3])
-    k_l_upper_leg = d2_l_knee - d1_l_hip # torch.Size([B, F, 1, 3])
-    k_r_upper_arm = d2_r_elbow - d1_r_shoulder # torch.Size([B, F, 1, 3])
-    k_l_upper_arm = d2_l_elbow - d1_l_shoulder # torch.Size([B, F, 1, 3])
-    k_r_under_leg = d3_r_ankle - d2_r_knee # torch.Size([B, F, 1, 3])
-    k_l_under_leg = d3_l_ankle - d2_l_knee # torch.Size([B, F, 1, 3])
-    k_r_under_arm = d3_r_wrist - d2_r_elbow # torch.Size([B, F, 1, 3])
-    k_l_under_arm = d3_l_wrist - d2_l_elbow # torch.Size([B, F, 1, 3])
+    k_r_upper_leg = d2_r_knee - d1_r_hip # torch.Size([B, F, 3])
+    k_l_upper_leg = d2_l_knee - d1_l_hip # torch.Size([B, F, 3])
+    k_r_upper_arm = d2_r_elbow - d1_r_shoulder # torch.Size([B, F, 3])
+    k_l_upper_arm = d2_l_elbow - d1_l_shoulder # torch.Size([B, F, 3])
+    k_r_under_leg = d3_r_ankle - d2_r_knee # torch.Size([B, F, 3])
+    k_l_under_leg = d3_l_ankle - d2_l_knee # torch.Size([B, F, 3])
+    k_r_under_arm = d3_r_wrist - d2_r_elbow # torch.Size([B, F, 3])
+    k_l_under_arm = d3_l_wrist - d2_l_elbow # torch.Size([B, F, 3])
 
     # Azimuth, Elevation angle
-    R_azim_r_upper_leg, R_elev_r_upper_leg = calculate_batch_azimuth_elevation(k_r_upper_leg[:, :, 0]) # torch.Size([B, F])
-    R_azim_l_upper_leg, R_elev_l_upper_leg = calculate_batch_azimuth_elevation(k_l_upper_leg[:, :, 0]) # torch.Size([B, F])
-    R_azim_r_upper_arm, R_elev_r_upper_arm = calculate_batch_azimuth_elevation(k_r_upper_arm[:, :, 0]) # torch.Size([B, F])
-    R_azim_l_upper_arm, R_elev_l_upper_arm = calculate_batch_azimuth_elevation(k_l_upper_arm[:, :, 0]) # torch.Size([B, F])
-    R_azim_r_under_leg, R_elev_r_under_leg = calculate_batch_azimuth_elevation(k_r_under_leg[:, :, 0]) # torch.Size([B, F])
-    R_azim_l_under_leg, R_elev_l_under_leg = calculate_batch_azimuth_elevation(k_l_under_leg[:, :, 0]) # torch.Size([B, F])
-    R_azim_r_under_arm, R_elev_r_under_arm = calculate_batch_azimuth_elevation(k_r_under_arm[:, :, 0]) # torch.Size([B, F])
-    R_azim_l_under_arm, R_elev_l_under_arm = calculate_batch_azimuth_elevation(k_l_under_arm[:, :, 0]) # torch.Size([B, F])
+    R_azim_r_upper_leg, R_elev_r_upper_leg = calculate_batch_azimuth_elevation(k_r_upper_leg) # torch.Size([B, F])
+    R_azim_l_upper_leg, R_elev_l_upper_leg = calculate_batch_azimuth_elevation(k_l_upper_leg) # torch.Size([B, F])
+    R_azim_r_upper_arm, R_elev_r_upper_arm = calculate_batch_azimuth_elevation(k_r_upper_arm) # torch.Size([B, F])
+    R_azim_l_upper_arm, R_elev_l_upper_arm = calculate_batch_azimuth_elevation(k_l_upper_arm) # torch.Size([B, F])
+    R_azim_r_under_leg, R_elev_r_under_leg = calculate_batch_azimuth_elevation(k_r_under_leg) # torch.Size([B, F])
+    R_azim_l_under_leg, R_elev_l_under_leg = calculate_batch_azimuth_elevation(k_l_under_leg) # torch.Size([B, F])
+    R_azim_r_under_arm, R_elev_r_under_arm = calculate_batch_azimuth_elevation(k_r_under_arm) # torch.Size([B, F])
+    R_azim_l_under_arm, R_elev_l_under_arm = calculate_batch_azimuth_elevation(k_l_under_arm) # torch.Size([B, F])
 
     R_r_upper_leg = torch.cat([R_azim_r_upper_leg.unsqueeze(-1), R_elev_r_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])
     R_l_upper_leg = torch.cat([R_azim_l_upper_leg.unsqueeze(-1), R_elev_l_upper_leg.unsqueeze(-1)], dim=-1) # torch.Size([B, F, 2])

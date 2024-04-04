@@ -158,6 +158,11 @@ def get_h36m_limb_lens(x):
         Input: (F, 17, 3)
         Output: (F, 16)
     '''
+    assert type(x) == np.ndarray, 'x should be np.ndarray'
+    if len(x.shape) == 2:
+        V, C = x.shape
+        T = 1
+        x = x.reshape(T, V, C)
     limbs_id = [[0,1], [1,2], [2,3],
          [0,4], [4,5], [5,6],
          [0,7], [7,8], [8,9], [9,10],

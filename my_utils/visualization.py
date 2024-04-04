@@ -66,7 +66,7 @@ def axes_2d(fig=None, rect=None, loc=111, W=1000, H=1000, xlim=None, ylim=None, 
         ax.axes.yaxis.set_visible(False)
     return ax
 
-def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True, ax=None, grid=True):
+def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True, ax=None, grid=True, normalize=False):
     if fig == None:
         fig = plt.gcf()
     if rect != None:
@@ -74,6 +74,10 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
     else:
         if ax == None:
             ax = fig.add_subplot(loc, projection='3d')
+    if normalize:
+        xlim = (-1, 1)
+        ylim = (-1, 1)
+        zlim = (-1, 1)
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.set_zlim(zlim)

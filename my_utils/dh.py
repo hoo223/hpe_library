@@ -1,6 +1,6 @@
 from lib_import import *
 from my_utils import *
-from .test_utils import get_h36m_keypoint_index
+from .test_utils import get_h36m_keypoint_index, get_h36m_keypoints, get_batch_h36m_keypoints
 #from .visualization import draw_3d_pose
 
 def generate_world_frame():
@@ -285,6 +285,26 @@ def rotate_torso_by_R_for_batch_tensor(torso_batch, R, device='cuda'):
     # https://kh-kim.github.io/nlp_with_deep_learning_blog/docs/1-04-linear_layer/02-matmul_exercise/ 
     return torch.bmm(R, root_rel_batch.transpose(1, 2)).transpose(1, 2) + root_batch
 
+def rotate_pose_by_R_for_batch(batch_pose, batch_R):
+    # input
+        # batch_pose: [batch, frame, 17, 3]
+        # batch_R: [batch, frame, 3, 3]
+    # output
+        # rotated_pose: [batch, frame, 17, 3]
+    assert len(batch_pose.shape) == 4, "batch_pose should be 4-dimensional tensor"
+    if type(batch_R) != torch.Tensor:
+        batch_R = torch.tensor(batch_R, dtype=torch.float32)
+    if type(batch_pose) != torch.Tensor:
+        batch_pose = torch.tensor(batch_pose, dtype=torch.float32)
+    if batch_R.shape == (3,3):
+        batch_R = batch_R.unsqueeze(0).unsqueeze(0).repeat(batch_pose.shape[0], batch_pose.shape[1], 1, 1)
+    root_batch = batch_pose[..., 0:1, :] # [batch, frame, 1, 3]
+    root_rel_batch = batch_pose - root_batch # [batch, frame, 17, 3]
+
+    # bmm -> batch matrix multiplication 
+    # https://kh-kim.github.io/nlp_with_deep_learning_blog/docs/1-04-linear_layer/02-matmul_exercise/ 
+    return (batch_R @ root_rel_batch.transpose(-2, -1)).transpose(-2, -1) + root_batch
+
 # New DH matrix convention for appendage (param a removed)
 # Rot_z_theta -> Rot_y_minus_alpha -> Trans_x_d
 def DH_matrix(theta, alpha, d):
@@ -294,14 +314,13 @@ def DH_matrix(theta, alpha, d):
         [sin(alpha), 0, cos(alpha), d*sin(alpha)],
         [0, 0, 0, 1]
     ]
-    # Rot_z_theta = np.eye(4)
-    # Rot_z_theta[:3, :3] = Rotation.from_rotvec(np.array([0, 0, theta])).as_matrix()
-    # Rot_y_alpha = np.eye(4)
-    # Rot_y_alpha[:3, :3] = Rotation.from_rotvec(np.array([0, -alpha, 0])).as_matrix()
-    # Trans_x_d = np.eye(4)
-    # Trans_x_d[0, 3] = d
-    # #dh_matrix = Trans_x_d @ Rot_y_alpha @ Rot_z_theta
-    # dh_matrix = Rot_z_theta @ Rot_y_alpha @ Trans_x_d
+    # dh_matrix = [
+    #     [cos(theta)*cos(alpha), -sin(theta)*cos(alpha), -sin(alpha), d*cos(alpha)*cos(theta)],
+    #     [sin(theta), cos(theta), 0, d*sin(theta)],
+    #     [sin(alpha)*cos(theta), -sin(alpha)*sin(theta), cos(alpha), d*sin(alpha)*cos(theta)],
+    #     [0, 0, 0, 1]
+    # ]
+
     return np.array(dh_matrix)
 
 def generate_two_link(link1_yaw, link1_pitch, link2_yaw, link2_pitch, l1, l2, root_tf=np.eye(4), degrees=True):
@@ -406,7 +425,7 @@ class Appendage:
         self.root_tf = root_tf
         self.root_origin = self.root_tf[:3, 3]
         self.root_R = self.root_tf[:3, :3]
-        self.root_frame = self.generate_vis_frame(self.root_tf[:3, 3], self.root_tf[:3, :3].transpose(), name='root')
+        self.root_frame = generate_vis_frame(self.root_tf[:3, 3], self.root_tf[:3, :3], name='root')
 
         self.update_link(self.link1_yaw, self.link1_pitch, self.link2_yaw, self.link2_pitch, degree=degree)
 
@@ -427,18 +446,9 @@ class Appendage:
         child_tf = parent_tf @ dh_matrix
         parent_origin = parent_tf[:3, 3]
         child_rot = child_tf[:3, :3]
-        child_frame = self.generate_vis_frame(parent_origin, child_rot.transpose(), name)
+        child_frame = generate_vis_frame(parent_origin, child_rot.transpose(), name)
         return child_tf, child_frame, dh_matrix
-    
-    def generate_vis_frame(self, pos, R, name='dh_frame'):
-        dh_frame = ReferenceFrame(
-            origin=pos, 
-            dx=R[0], 
-            dy=R[1],
-            dz=R[2],
-            name=name,
-        )
-        return dh_frame
+
     
     def update_link(self, link1_yaw=None, link1_pitch=None, link2_yaw=None, link2_pitch=None, degree=False):
         # update angles
@@ -477,16 +487,18 @@ class Appendage:
         ax.plot(*np.c_[self.link2_origin, self.terminal_origin], color="tab:gray", ls='--') # link2 arm
         ax.plot(self.terminal_origin[0], self.terminal_origin[1], self.terminal_origin[2], '.r') # terminal origin
         if draw_frame:
-            self.root_frame.draw3d(color='tab:blue', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name, show_axis=show_axis) # root frame
+            self.root_frame.draw3d(color='k', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name, show_axis=show_axis) # root frame
             self.link1_frame.draw3d(color='tab:red', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name, show_axis=show_axis) # link1 frame
             self.link2_frame.draw3d(color='tab:red', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name, show_axis=show_axis) # link2 frame
             
 
 class DHModel:
-    def __init__(self, init_pose_3d) -> None:
+    def __init__(self, init_pose_3d, head_is_dh=False, forward_dir='-z') -> None:
         # rotation matrices
-        self.left_init_R = Rotation.from_rotvec(-np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
-        self.right_init_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
+        #self.left_init_R = Rotation.from_rotvec(-np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
+        #self.right_init_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
+        self.forward_dir = forward_dir
+        self.head_is_dh = head_is_dh
         
         # appendage id
         self.head_id = 0
@@ -497,6 +509,8 @@ class DHModel:
         
         # set keypoints
         self.set_keypoints_from_pose(init_pose_3d)
+        # set torso frame
+        self.set_torso_frame_from_pose(init_pose_3d)
         # extract vectors wrt world frame
         self.set_limb_vectors()
         # set lengths
@@ -527,6 +541,15 @@ class DHModel:
         self.l_ankle_origin = pose[6]
         self.r_knee_origin  = pose[2]
         self.r_ankle_origin = pose[3]
+    
+    def set_torso_frame_from_pose(self, ref_pose):
+        # lower frame
+        self.lower_torso_frame_origin, self.lower_torso_frame_R = get_lower_torso_frame_from_pose(ref_pose, self.forward_dir)
+        self.lower_torso_frame = generate_vis_frame(self.lower_torso_frame_origin, self.lower_torso_frame_R, name='lower')
+
+        # upper frame
+        self.upper_torso_frame_origin, self.upper_torso_frame_R = get_upper_torso_frame_from_pose(ref_pose, self.forward_dir)
+        self.upper_torso_frame = generate_vis_frame(self.upper_torso_frame_origin, self.upper_torso_frame_R, name='upper')
         
     def set_limb_vectors(self):
         self.neck_to_nose_vector    = self.nose_origin    - self.neck_origin
@@ -565,6 +588,9 @@ class DHModel:
     def get_limb_length(self, by_dict=False):
         if by_dict:
             limb_length = {}
+            if self.head_is_dh:
+                limb_length['h_l1_length']     = self.neck_to_nose_length
+                limb_length['h_l2_length']     = self.nose_to_head_length
             limb_length['ra_l1_length']    = self.right_upper_arm_length
             limb_length['ra_l2_length']    = self.right_lower_arm_length
             limb_length['la_l1_length']    = self.left_upper_arm_length
@@ -574,20 +600,23 @@ class DHModel:
             limb_length['ll_l1_length']    = self.left_upper_leg_length
             limb_length['ll_l2_length']    = self.left_lower_leg_length
         else:
-            limb_length = self.limb_length[2:]
+            if self.head_is_dh:
+                limb_length = self.limb_length
+            else:
+                limb_length = self.limb_length[2:]
         return limb_length
         
-    def set_torso(self, batch_torso):
-        self.batch_torso_origin      = batch_torso[0]
-        self.batch_r_hip_origin      = batch_torso[1]
-        self.batch_l_hip_origin      = batch_torso[2]
-        self.batch_torso_origin      = batch_torso[3]
-        self.batch_neck_origin       = batch_torso[4]
-        self.batch_l_shoulder_origin = batch_torso[5]
-        self.batch_r_shoulder_origin = batch_torso[6]
+    def set_torso(self, torso):
+        self.pelvis_origin      = torso[0]
+        self.r_hip_origin      = torso[1]
+        self.l_hip_origin      = torso[2]
+        self.torso_origin      = torso[3]
+        self.neck_origin       = torso[4]
+        self.l_shoulder_origin = torso[5]
+        self.r_shoulder_origin = torso[6]
         
-    def set_appendage_from_angles(self, angles, head=False):
-        if head:
+    def set_appendage_from_angles(self, angles):
+        if self.head_is_dh:
             self.head.update_link(angles['h_l1_yaw'], angles['h_l1_pitch'])
         self.right_arm.update_link(angles['ra_l1_yaw'], angles['ra_l1_pitch'], angles['ra_l2_yaw'], angles['ra_l2_pitch'])
         self.left_arm.update_link(angles['la_l1_yaw'], angles['la_l1_pitch'], angles['la_l2_yaw'], angles['la_l2_pitch'])
@@ -597,8 +626,10 @@ class DHModel:
     def set_dh_model_from_pose(self, pose):
         # update keypoints
         self.set_keypoints_from_pose(pose)        
-        # get body reference frame
+        # set body reference frame
         self.set_body_reference_frame()
+        # set torso frame
+        self.set_torso_frame_from_pose(pose)
         # extract vectors wrt world frame
         self.set_limb_vectors()
         ## generate appendages ---------------------------------------------------------------------
@@ -630,12 +661,16 @@ class DHModel:
         )
         
     def generate_appendage(self, appendage_id, root_origin, link1_length, link2_length):
-        if appendage_id == self.head_id:
-            R = self.body_R
-        elif appendage_id in [self.right_arm_id, self.right_leg_id]:
-            R = self.right_init_R @ self.body_R
-        elif appendage_id in [self.left_arm_id, self.left_leg_id]:
-            R = self.left_init_R @ self.body_R
+        # if appendage_id == self.head_id:
+        #     R = self.body_R
+        # elif appendage_id in [self.right_arm_id, self.right_leg_id]:
+        #     R = self.right_init_R @ self.body_R
+        # elif appendage_id in [self.left_arm_id, self.left_leg_id]:
+        #     R = self.left_init_R @ self.body_R
+        if appendage_id in [self.head_id, self.right_arm_id, self.left_arm_id]:
+            R = self.upper_torso_frame_R
+        elif appendage_id in [self.right_leg_id, self.left_leg_id]:
+            R = self.lower_torso_frame_R
             
         root_tf = np.eye(4)
         root_tf[:3, :3] = R
@@ -687,8 +722,9 @@ class DHModel:
     def get_dh_angles(self, by_dict=False, degree=False):
         if by_dict:
             dh_angles = {}
-            # head
-            dh_angles['h_l1_yaw'],  dh_angles['h_l1_pitch']  = self.head.link1_yaw,  self.head.link1_pitch
+            if self.head_is_dh: # add head angles
+                # head
+                dh_angles['h_l1_yaw'],  dh_angles['h_l1_pitch']  = self.head.link1_yaw,  self.head.link1_pitch
             # right arm
             dh_angles['ra_l1_yaw'], dh_angles['ra_l1_pitch'] = self.right_arm.link1_yaw, self.right_arm.link1_pitch
             dh_angles['ra_l2_yaw'], dh_angles['ra_l2_pitch'] = self.right_arm.link2_yaw, self.right_arm.link2_pitch
@@ -716,7 +752,8 @@ class DHModel:
             dh_angles[10:14] = np.array([self.right_leg.link1_yaw, self.right_leg.link1_pitch, self.right_leg.link2_yaw, self.right_leg.link2_pitch])
             # left leg
             dh_angles[14:18] = np.array([self.left_leg.link1_yaw, self.left_leg.link1_pitch, self.left_leg.link2_yaw, self.left_leg.link2_pitch])
-            
+            if not self.head_is_dh: # remove head angles
+                dh_angles = dh_angles[2:]
             if degree:
                 dh_angles = np.degrees(dh_angles)
         return dh_angles
@@ -724,8 +761,9 @@ class DHModel:
     def get_appendage_length(self, by_dict=False):
         if by_dict:
             appendage_length = {}  
-            appendage_length['h_l1_length']  = self.head.link1_length
-            appendage_length['h_l2_length']  = self.head.link2_length
+            if self.head_is_dh: # add head lengths
+                appendage_length['h_l1_length']  = self.head.link1_length
+                appendage_length['h_l2_length']  = self.head.link2_length
             appendage_length['ra_l1_length'] = self.right_arm.link1_length
             appendage_length['ra_l2_length'] = self.right_arm.link2_length
             appendage_length['la_l1_length'] = self.left_arm.link1_length
@@ -741,9 +779,11 @@ class DHModel:
             appendage_length[4:6] = np.array([self.left_arm.link1_length, self.left_arm.link2_length])
             appendage_length[6:8] = np.array([self.right_leg.link1_length, self.right_leg.link2_length])
             appendage_length[8:10] = np.array([self.left_leg.link1_length, self.left_leg.link2_length])
+            if not self.head_is_dh: # remove head lengths
+                appendage_length = appendage_length[2:]
         return appendage_length
     
-    def get_keypoints(self, by_dict=False):
+    def get_torso_keypoints(self, by_dict=False):
         if by_dict:
             keypoints = {}
             keypoints['pelvis'] = self.pelvis_origin  # 0
@@ -773,12 +813,14 @@ class DHModel:
         return np.mean(np.linalg.norm(self.get_pose_3d() - gt, axis=1))
     
     def draw(self, ax, draw_frame=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False):
-        self.body_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, show_name=show_name, show_axis=show_axis)
+        #self.body_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, show_name=show_name, show_axis=show_axis)
         self.head.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
         self.right_arm.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
         self.left_arm.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
         self.right_leg.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
         self.left_leg.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
+        self.upper_torso_frame.draw3d(scale=scale*1.5, head_length=0.1, color="tab:orange")
+        self.lower_torso_frame.draw3d(scale=scale*1.5, head_length=0.1, color="tab:blue")
         
 # --------------------------------------------------------------------------------
 
@@ -839,53 +881,82 @@ def batch_inverse_tf(batch_tf):
     elif len(batch_tf.shape) == 4:
         batch_inv_tf = batch_inv_tf.unsqueeze(0).unsqueeze(0).repeat(batch_tf.shape[0], batch_tf.shape[1], 1, 1)
         batch_inv_tf[:, :, :3, :3] = batch_tf[:, :, :3, :3].transpose(2, 3)
-        print(batch_tf[:, :, :3, :3].transpose(2, 3).shape, batch_tf[:, :, :3, 3].unsqueeze(-1).shape)
+        #print(batch_tf[:, :, :3, :3].transpose(2, 3).shape, batch_tf[:, :, :3, 3].unsqueeze(-1).shape)
         batch_inv_tf[:, :, :3, 3] = (-batch_tf[:, :, :3, :3].transpose(2, 3) @ batch_tf[:, :, :3, 3].unsqueeze(-1)).squeeze(-1)
     return batch_inv_tf
 
 # torso frame
 
-def get_frame_from_keypoints(kp1, kp2, kp3, kp4):
-    # kp1: left tail, kp2: left head
-    # lower frame
-    left = kp2 - kp1 # [B, F, 3]
-    left = left / np.linalg.norm(left)
-    kp3_to_kp4 = kp4 - kp3 # [B, F, 3]
-    forward = np.cross(left, kp3_to_kp4) # [B, F, 3]
-    forward = forward / np.linalg.norm(forward)
-    up = np.cross(forward, left) # [B, F, 3]
+def get_frame_from_keypoints(kp1, kp2, kp3, kp4, forward_dir='x'):
+    if forward_dir == 'x':
+        # kp1: left tail, kp2: left head
+        left = kp2 - kp1 
+        left = left / np.linalg.norm(left)
+        kp3_to_kp4 = kp4 - kp3 
+        forward = np.cross(left, kp3_to_kp4) 
+        forward = forward / np.linalg.norm(forward)
+        up = np.cross(forward, left) #
+    elif forward_dir == '-z':
+        # kp1: left tail, kp2: left head
+        left = kp2 - kp1
+        left = left / np.linalg.norm(left)
+        kp3_to_kp4 = kp4 - kp3
+        up = np.cross(left, kp3_to_kp4) 
+        up = up / np.linalg.norm(up)
+        forward = np.cross(left, up)
     return forward, left, up
 
-def get_lower_torso_frame_from_pose(pose):
+def get_lower_torso_frame_from_pose(pose, forward_dir='x'):
     r_hip, l_hip, pelvis, torso = get_h36m_keypoints(pose, ['r_hip', 'l_hip', 'pelvis', 'torso'])
-    forward, left, up = get_frame_from_keypoints(r_hip, l_hip, pelvis, torso)
+    forward, left, up = get_frame_from_keypoints(r_hip, l_hip, pelvis, torso, forward_dir)
     lower_origin = pelvis
     lower_frame_R = frame_vec_to_matrix(forward, left, up) # x-axis: [:, 0], y-axis: [:, 1], z-axis: [:, 2]
     return lower_origin, lower_frame_R
 
-def get_upper_torso_frame_from_pose(pose):
+def get_upper_torso_frame_from_pose(pose, forward_dir='x'):
     r_shoulder, l_shoulder, torso, neck = get_h36m_keypoints(pose, ['r_shoulder', 'l_shoulder', 'torso', 'neck'])
-    forward, left, up = get_frame_from_keypoints(r_shoulder, l_shoulder, torso, neck)
+    forward, left, up = get_frame_from_keypoints(r_shoulder, l_shoulder, torso, neck, forward_dir)
     upper_origin = (r_shoulder + l_shoulder)/2
-    upper_frame_R = frame_vec_to_matrix(forward, left, up) # x-axis: [:, 0], y-axis: [:, 1], z-axis: [:, 2]
+    upper_frame_R = frame_vec_to_matrix(forward, left, up) # x-axis: [0], y-axis: [1], z-axis: [2]
     return upper_origin, upper_frame_R
 
 def frame_vec_to_matrix(forward, left, up):
     # forward: x-axis
     # left: y-axis
     # up: z-axis
-    return np.array([forward, left, up]).T
+    return np.array([forward, left, up])
 
-def generate_vis_frame_from_R(origin, R, name=''):
-    forward, left, up = R[:, 0], R[:, 1], R[:, 2]
-    frame = ReferenceFrame(
-        origin=origin,
-        dx=forward,
-        dy=left,
-        dz=up,
+# def generate_vis_frame_from_R(origin, R, name=''):
+#     forward, left, up = R[0], R[1], R[2]
+#     frame = ReferenceFrame(
+#         origin=origin,
+#         dx=forward,
+#         dy=left,
+#         dz=up,
+#         name=name,
+#     )
+#     return frame
+
+# def generate_vis_frame(origin, R, name='dh_frame'):
+#     dh_frame = ReferenceFrame(
+#         origin=origin, 
+#         dx=R[:, 0], 
+#         dy=R[:, 1],
+#         dz=R[:, 2],
+#         name=name,
+#     )
+#     return dh_frame
+
+def generate_vis_frame(origin, R, name='dh_frame'):
+    dh_frame = ReferenceFrame(
+        origin=origin, 
+        dx=R[0], 
+        dy=R[1],
+        dz=R[2],
         name=name,
     )
-    return frame
+    return dh_frame
+
         
 ## Batch tosro frame
 
@@ -934,46 +1005,54 @@ def batch_rot_x_matrix(batch_pitch):
     row3 = torch.concat([m31, m32, m33], dim=-1)
     return torch.stack([row1, row2, row3], dim=-1).transpose(2, 3) # [B, F, 3, 3]
 
-def get_batch_frame_vec_from_keypoints(batch_kp1, batch_kp2, batch_kp3, batch_kp4):
-    # kp1: left tail, kp2: left head
-    # lower frame
-    batch_left = batch_kp2 - batch_kp1 # [B, F, 3]
-    batch_left = batch_left / torch.norm(batch_left, dim=-1, keepdim=True)
-    batch_kp3_to_kp4 = batch_kp4 - batch_kp3 # [B, F, 3]
-    batch_forward = torch.cross(batch_left, batch_kp3_to_kp4) # [B, F, 3]
-    batch_forward = batch_forward / torch.norm(batch_forward, dim=-1, keepdim=True)
-    batch_up = torch.cross(batch_forward, batch_left) # [B, F, 3]
+def get_batch_frame_vec_from_keypoints(batch_kp1, batch_kp2, batch_kp3, batch_kp4, forward_dir='x'):
+    if forward_dir == 'x':
+        # kp1: left tail, kp2: left head
+        batch_left = batch_kp2 - batch_kp1 # [B, F, 3]
+        batch_left = batch_left / torch.norm(batch_left, dim=-1, keepdim=True)
+        batch_kp3_to_kp4 = batch_kp4 - batch_kp3 # [B, F, 3]
+        batch_forward = torch.cross(batch_left, batch_kp3_to_kp4) # [B, F, 3]
+        batch_forward = batch_forward / torch.norm(batch_forward, dim=-1, keepdim=True)
+        batch_up = torch.cross(batch_forward, batch_left) # [B, F, 3]
+    elif forward_dir == '-z':
+        # kp1: left tail, kp2: left head
+        batch_left = batch_kp2 - batch_kp1
+        batch_left = batch_left / torch.norm(batch_left, dim=-1, keepdim=True)
+        batch_kp3_to_kp4 = batch_kp4 - batch_kp3
+        batch_up = torch.cross(batch_left, batch_kp3_to_kp4)
+        batch_up = batch_up / torch.norm(batch_up, dim=-1, keepdim=True)
+        batch_forward = torch.cross(batch_left, batch_up)
     batch_R = torch.stack([batch_forward, batch_left, batch_up], dim=-1) # [B, F, 3, 3]
     return batch_R
     
-def get_batch_lower_torso_frame_from_keypoints(batch_r_hip, batch_l_hip, batch_pelvis, batch_torso):
+def get_batch_lower_torso_frame_from_keypoints(batch_r_hip, batch_l_hip, batch_pelvis, batch_torso, forward_dir='x'):
     batch_lower_frame_origin = batch_pelvis
-    batch_lower_frame_R = get_batch_frame_vec_from_keypoints(batch_r_hip, batch_l_hip, batch_pelvis, batch_torso)
+    batch_lower_frame_R = get_batch_frame_vec_from_keypoints(batch_r_hip, batch_l_hip, batch_pelvis, batch_torso, forward_dir)
     return batch_lower_frame_origin, batch_lower_frame_R
 
-def get_batch_upper_torso_frame_from_keypoints(batch_r_shoulder, batch_l_shoulder, batch_torso, batch_neck):
+def get_batch_upper_torso_frame_from_keypoints(batch_r_shoulder, batch_l_shoulder, batch_torso, batch_neck, forward_dir='x'):
     batch_upper_frame_origin = (batch_r_shoulder + batch_l_shoulder) / 2 # [B, F, 3]
-    batch_upper_frame_R = get_batch_frame_vec_from_keypoints(batch_r_shoulder, batch_l_shoulder, batch_torso, batch_neck)
+    batch_upper_frame_R = get_batch_frame_vec_from_keypoints(batch_r_shoulder, batch_l_shoulder, batch_torso, batch_neck, forward_dir)
     return batch_upper_frame_origin, batch_upper_frame_R
 
-def get_batch_lower_torso_frame_from_pose(batch_pose):
+def get_batch_lower_torso_frame_from_pose(batch_pose, forward_dir='x'):
     output = get_batch_h36m_keypoints(batch_pose, ['r_hip', 'l_hip', 'pelvis', 'torso'])
-    return get_batch_lower_torso_frame_from_keypoints(output[:, :, 0], output[:, :, 1], output[:, :, 2], output[:, :, 3])
+    return get_batch_lower_torso_frame_from_keypoints(output[:, :, 0], output[:, :, 1], output[:, :, 2], output[:, :, 3], forward_dir)
 
-def get_batch_upper_torso_frame_from_pose(batch_pose):
+def get_batch_upper_torso_frame_from_pose(batch_pose, forward_dir='x'):
     output = get_batch_h36m_keypoints(batch_pose, ['r_shoulder', 'l_shoulder', 'torso', 'neck'])
-    return get_batch_upper_torso_frame_from_keypoints(output[:, :, 0], output[:, :, 1], output[:, :, 2], output[:, :, 3])
-
+    return get_batch_upper_torso_frame_from_keypoints(output[:, :, 0], output[:, :, 1], output[:, :, 2], output[:, :, 3], forward_dir)
 
 
 # Batch version of Appendage class
 class BatchAppendage:
     def __init__(self, batch_link1_length, batch_link2_length, batch_link1_yaw_init=None, batch_link1_pitch_init=None, batch_link2_yaw_init=None, batch_link2_pitch_init=None, 
-                 degree=True, batch_root_tf=np.eye(4), device='cuda', data_type=torch.float32):
+                 degree=False, batch_root_tf=np.eye(4), device='cuda', data_type=torch.float32):
         self.batch_size = batch_link1_length.shape[0]
         self.num_frames = batch_link1_length.shape[1]
         self.data_type = data_type
         self.device = device
+        self.degree = degree
         
         if batch_link1_yaw_init   == None: batch_link1_yaw_init   = torch.zeros(self.batch_size, self.num_frames)
         if batch_link1_pitch_init == None: batch_link1_pitch_init = torch.zeros(self.batch_size, self.num_frames)
@@ -997,7 +1076,7 @@ class BatchAppendage:
         self.batch_root_tf      = batch_root_tf.type(data_type).to(device)
         
         # forwad kinematics
-        self.update_batch_link(self.batch_link1_yaw, self.batch_link1_pitch, self.batch_link2_yaw, self.batch_link2_pitch, degree=degree)
+        self.forward_batch_link()
 
     def batch_DH_matrix(self, batch_theta, batch_alpha, batch_d):
         m11  = (torch.cos(batch_theta)*torch.cos(batch_alpha)).unsqueeze(-1)
@@ -1022,29 +1101,78 @@ class BatchAppendage:
         row4 = torch.concat([m41, m42, m43, m44], dim=-1)
         return torch.stack([row1, row2, row3, row4], dim=-1).transpose(2, 3) # [B, F, 4, 4]
     
-    def batch_build_dh_frame(self, batch_yaw, batch_pitch, batch_d, batch_parent_tf, degree=False, name=''): # yaw = theta, pitch = alpha
+    def batch_build_dh_frame(self, batch_yaw, batch_pitch, batch_d, batch_parent_tf, name=''): # yaw = theta, pitch = alpha
         ## input size
         # batch_yaw, batch_pitch, batch_d: [B, F]
         # batch_parent_tf: [B, F, 4, 4]
-        if degree:
+        if self.degree:
             batch_yaw = torch.deg2rad(batch_yaw) 
             batch_pitch = torch.deg2rad(batch_pitch)
         batch_dh_matrix = self.batch_DH_matrix(batch_theta=batch_yaw, batch_alpha=batch_pitch, batch_d=batch_d)
         batch_child_tf = batch_parent_tf @ batch_dh_matrix
+        
         ## output size
         # batch_child_tf, batch_dh_matrix: [B, F, 4, 4]
         return batch_child_tf, batch_dh_matrix
     
-    def generate_vis_frame(self, pos, R, name='dh_frame'):
-        dh_frame = ReferenceFrame(
-            origin=pos, 
-            dx=R[0], 
-            dy=R[1],
-            dz=R[2],
-            name=name,
-        )
-        return dh_frame
+    def set_batch_length(self, batch_link1_length=None, batch_link2_length=None, update_link=True):
+        if type(batch_link1_length) != type(None):
+            self.batch_link1_length = batch_link1_length
+        if type(batch_link2_length) != type(None):
+            self.batch_link2_length = batch_link2_length
+        if update_link:
+            self.forward_batch_link()
     
+    def set_batch_angle(self, batch_link1_yaw=None, batch_link1_pitch=None, batch_link2_yaw=None, batch_link2_pitch=None, degree=False, update_link=True):
+        # update angles
+        if type(batch_link1_yaw) != type(None):
+            self.batch_link1_yaw = batch_link1_yaw
+        if type(batch_link1_pitch) != type(None):
+            self.batch_link1_pitch = batch_link1_pitch
+        if type(batch_link2_yaw) != type(None):
+            self.batch_link2_yaw = batch_link2_yaw
+        if type(batch_link2_pitch) != type(None):
+            self.batch_link2_pitch = batch_link2_pitch
+        self.degree = degree
+        if update_link:
+            self.forward_batch_link()
+
+    def forward_batch_link(self):
+        # link1
+        self.batch_link1_tf, self.batch_link1_dh_mat = self.batch_build_dh_frame(self.batch_link1_yaw, self.batch_link1_pitch, self.batch_link1_length, self.batch_root_tf, name='link1')
+        self.batch_link1_origin = self.batch_root_tf[:, :, :3, 3]
+        self.batch_link1_R = self.batch_link1_tf[:, :, :3, :3]
+        
+        # link2
+        self.batch_link2_tf, self.batch_link2_dh_mat = self.batch_build_dh_frame(self.batch_link2_yaw, self.batch_link2_pitch, self.batch_link2_length, self.batch_link1_tf, name='link2')
+        self.batch_link2_origin = self.batch_link1_tf[:, :, :3, 3]
+        self.batch_link2_R = self.batch_link2_tf[:, :, :3, :3]
+
+        # terminal
+        #self.terminal_tf, self.terminal_frame, self.terminal_dh_mat = self.build_dh_frame(0, 0, 0, self.link2_tf, degree=degree, name='terminal')
+        self.batch_terminal_origin = self.batch_link2_tf[:, :, :3, 3]
+        
+        # vector
+        self.batch_link1_vec = self.batch_link2_origin - self.batch_link1_origin
+        self.batch_link2_vec = self.batch_terminal_origin - self.batch_link2_origin
+    
+    def draw(self, ax, batch_num, frame_num, draw_frame=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False):
+        link1_origin = self.batch_link1_origin[batch_num, frame_num].cpu().detach().numpy()
+        link2_origin = self.batch_link2_origin[batch_num, frame_num].cpu().detach().numpy()
+        terminal_origin = self.batch_terminal_origin[batch_num, frame_num].cpu().detach().numpy()
+        
+        #plt.sca(ax)
+        ax.plot(link1_origin[0], link1_origin[1], link1_origin[2],  '.k') # link1 origin        
+        ax.plot(*np.c_[link1_origin, link2_origin], color="tab:gray", ls='--') # link1
+        ax.plot(link2_origin[0], link2_origin[1], link2_origin[2], '.b') # link2 origin
+        ax.plot(*np.c_[link2_origin, terminal_origin], color="tab:gray", ls='--') # link2 arm
+        ax.plot(terminal_origin[0], terminal_origin[1], terminal_origin[2], '.r') # terminal origin
+        if draw_frame:
+            self.get_vis_frame(batch_num, frame_num, frame_type='root').draw3d(color='k', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name, show_axis=show_axis) # root frame
+            self.get_vis_frame(batch_num, frame_num, frame_type='link1').draw3d(color='tab:red', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name, show_axis=show_axis) # link1 frame
+            self.get_vis_frame(batch_num, frame_num, frame_type='link2').draw3d(color='tab:blue', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name, show_axis=show_axis) # link2 frame
+            
+
     def get_vis_frame(self, batch_num, frame_num, frame_type='root'):
         if frame_type == 'root':
             pos = self.batch_root_tf[batch_num, frame_num, :3, 3]
@@ -1061,71 +1189,28 @@ class BatchAppendage:
         else:
             raise ValueError('frame_type should be root, link1, or link2')
        
-        dh_frame = self.generate_vis_frame(pos.cpu().detach().numpy(), R.cpu().detach().numpy(), name=frame_type)
+        dh_frame = generate_vis_frame(pos.cpu().detach().numpy(), R.cpu().detach().numpy().T, name=frame_type)
         return dh_frame
-    
-    def update_batch_link(self, batch_link1_yaw=None, batch_link1_pitch=None, batch_link2_yaw=None, batch_link2_pitch=None, degree=False):
-        # update angles
-        if batch_link1_yaw != None:
-            self.batch_link1_yaw = batch_link1_yaw
-        if batch_link1_pitch != None:
-            self.batch_link1_pitch = batch_link1_pitch
-        if batch_link2_yaw != None:
-            self.batch_link2_yaw = batch_link2_yaw
-        if batch_link2_pitch != None:
-            self.batch_link2_pitch = batch_link2_pitch
-            
-        # link1
-        self.batch_link1_tf, self.batch_link1_dh_mat = self.batch_build_dh_frame(self.batch_link1_yaw, self.batch_link1_pitch, self.batch_link1_length, self.batch_root_tf, degree=degree, name='link1')
-        self.batch_link1_origin = self.batch_root_tf[:, :, :3, 3]
-        self.batch_link1_R = self.batch_link1_tf[:, :, :3, :3]
-        
-        # link2
-        self.batch_link2_tf, self.batch_link2_dh_mat = self.batch_build_dh_frame(self.batch_link2_yaw, self.batch_link2_pitch, self.batch_link2_length, self.batch_link1_tf, degree=degree, name='link2')
-        self.batch_link2_origin = self.batch_link1_tf[:, :, :3, 3]
-        self.batch_link2_R = self.batch_link2_tf[:, :, :3, :3]
-
-        # terminal
-        #self.terminal_tf, self.terminal_frame, self.terminal_dh_mat = self.build_dh_frame(0, 0, 0, self.link2_tf, degree=degree, name='terminal')
-        self.batch_terminal_origin = self.batch_link2_tf[:, :, :3, 3]
-        
-        # vector
-        self.batch_link1_vec = self.batch_link2_origin - self.batch_link1_origin
-        self.batch_link2_vec = self.batch_terminal_origin - self.batch_link2_origin
-    
-    def draw(self, ax, batch_num, frame_num, draw_frame=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False):
-        link1_origin = self.batch_link1_origin[batch_num, frame_num].cpu().detach().numpy()
-        link2_origin = self.batch_link2_origin[batch_num, frame_num].cpu().detach().numpy()
-        terminal_origin = self.batch_terminal_origin[batch_num, frame_num].cpu().detach().numpy()
-        
-        #plt.sca(ax)
-        ax.plot(link1_origin[0], link1_origin[1], link1_origin[2],  '.k') # link1 origin        
-        ax.plot(*np.c_[link1_origin, link2_origin], color="tab:gray", ls='--') # link1
-        ax.plot(link2_origin[0], link2_origin[1], link2_origin[2], '.b') # link2 origin
-        ax.plot(*np.c_[link2_origin, terminal_origin], color="tab:gray", ls='--') # link2 arm
-        ax.plot(terminal_origin[0], terminal_origin[1], terminal_origin[2], '.r') # terminal origin
-        if draw_frame:
-            self.get_vis_frame(batch_num, frame_num, frame_type='root').draw3d(color='tab:orange', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name) # root frame
-            self.get_vis_frame(batch_num, frame_num, frame_type='link1').draw3d(color='tab:red', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name) # link1 frame
-            self.get_vis_frame(batch_num, frame_num, frame_type='link2').draw3d(color='tab:blue', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name) # link2 frame
-            
             
 # Batch version of DH Model class
 class BatchDHModel:
-    def __init__(self, batch_pose_3d=None, head=False, device='cuda', batch_size=8, num_frames=243, data_type=torch.float32, world_z_direction=[0, 0, 1]) -> None:
-        self.head = head
+    def __init__(self, batch_pose_3d=None, head=False, degree=False, length_type='first', batch_size=16, num_frames=243, data_type=torch.float32, world_z_direction=[0, 0, 1], forward_dir='-z', device='cuda') -> None:
+        self.head_is_dh = head
         self.data_type = data_type
+        self.degree = degree
+        self.length_type = length_type
         self.device = device
         self.batch_size = batch_size
         self.num_frames = num_frames
         self.world_z_direction = world_z_direction
         self.batch_zero = torch.zeros(self.batch_size, self.num_frames, dtype=self.data_type).to(device)
+        self.forward_dir = forward_dir # forward direction of torso frame
         
         # rotation matrices
-        self.left_init_R  = Rotation.from_rotvec( np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
-        self.right_init_R = Rotation.from_rotvec(-np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate  90 deg wrt z-axis
-        self.left_init_R  = torch.tensor(self.left_init_R,  dtype=self.data_type).to(device) # to tensor
-        self.right_init_R = torch.tensor(self.right_init_R, dtype=self.data_type).to(device) # to tensor
+        # self.left_init_R  = Rotation.from_rotvec( np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
+        # self.right_init_R = Rotation.from_rotvec(-np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate  90 deg wrt z-axis
+        # self.left_init_R  = torch.tensor(self.left_init_R,  dtype=self.data_type).to(device) # to tensor
+        # self.right_init_R = torch.tensor(self.right_init_R, dtype=self.data_type).to(device) # to tensor
         
         # appendage id
         self.head_id = 0
@@ -1147,7 +1232,7 @@ class BatchDHModel:
             self.set_batch_dh_model_from_batch_pose(batch_pose_3d)
     # -------------------------------------------------------------------------------------------
     # set functions
-    def set_batch_dh_model_from_batch_pose(self, batch_pose_3d, batch_size=None, num_frames=None, length_type='each'):
+    def set_batch_dh_model_from_batch_pose(self, batch_pose_3d, batch_size=None, num_frames=None):
         ## length type : 'each', 'mean', 'first'
         # if batch_size != None: 
         #     self.batch_size = batch_size
@@ -1162,68 +1247,89 @@ class BatchDHModel:
         if type(batch_pose_3d) == np.ndarray: batch_pose_3d = torch.tensor(batch_pose_3d)
         batch_pose_3d = batch_pose_3d.type(self.data_type).to(self.device)
         # update keypoints
-        self.set_batch_keypoints_from_batch_pose(batch_pose_3d)        
+        self.set_batch_keypoints_from_batch_pose(batch_pose_3d)       
+        # set torso frame
+        self.set_batch_torso_frame() 
         # extract vectors wrt world frame
         self.set_batch_limb_vectors()
         # set lengths
-        self.set_batch_limb_length(length_type) # only for init_pose_3d
+        self.set_batch_limb_length_from_vec() # only for init_pose_3d
         # get body reference frame
         self.set_batch_body_reference_frame()
         ## generate appendages ---------------------------------------------------------------------
         self.generate_all_batch_appendages()
         # extract angles and update appendages
-        if self.head:
-            out = self.extract_and_update_batch_appendage_angles(self.batch_head,      self.batch_neck_to_nose_vector,    self.batch_nose_to_head_vector)
-        out = self.extract_and_update_batch_appendage_angles(self.batch_right_arm, self.batch_right_upper_arm_vector, self.batch_right_lower_arm_vector)
-        self.batch_right_upper_arm_yaw, self.batch_right_lower_arm_pitch, self.batch_right_upper_arm_yaw, self.batch_right_lower_arm_pitch = out
-        out = self.extract_and_update_batch_appendage_angles(self.batch_left_arm,  self.batch_left_upper_arm_vector,  self.batch_left_lower_arm_vector)
-        self.batch_left_upper_arm_yaw,  self.batch_left_lower_arm_pitch,  self.batch_left_upper_arm_yaw,  self.batch_left_lower_arm_pitch  = out
-        out = self.extract_and_update_batch_appendage_angles(self.batch_right_leg, self.batch_right_upper_leg_vector, self.batch_right_lower_leg_vector)
-        self.batch_right_upper_leg_yaw, self.batch_right_lower_leg_pitch, self.batch_right_upper_leg_yaw, self.batch_right_lower_leg_pitch = out
-        out = self.extract_and_update_batch_appendage_angles(self.batch_left_leg,  self.batch_left_upper_leg_vector,  self.batch_left_lower_leg_vector)
-        self.batch_left_upper_leg_yaw,  self.batch_left_lower_leg_pitch,  self.batch_left_upper_leg_yaw,  self.batch_left_lower_leg_pitch  = out
+        self.batch_head_yaw, self.batch_head_pitch, self.batch_head_yaw, self.batch_head_pitch = \
+            self.extract_and_update_batch_appendage_angles(self.batch_head, self.batch_neck_to_nose_vector, self.batch_nose_to_head_vector)
+        self.batch_right_upper_arm_yaw, self.batch_right_lower_arm_pitch, self.batch_right_upper_arm_yaw, self.batch_right_lower_arm_pitch = \
+            self.extract_and_update_batch_appendage_angles(self.batch_right_arm, self.batch_right_upper_arm_vector, self.batch_right_lower_arm_vector)
+        self.batch_left_upper_arm_yaw,  self.batch_left_lower_arm_pitch,  self.batch_left_upper_arm_yaw,  self.batch_left_lower_arm_pitch = \
+            self.extract_and_update_batch_appendage_angles(self.batch_left_arm,  self.batch_left_upper_arm_vector,  self.batch_left_lower_arm_vector)
+        self.batch_right_upper_leg_yaw, self.batch_right_lower_leg_pitch, self.batch_right_upper_leg_yaw, self.batch_right_lower_leg_pitch = \
+            self.extract_and_update_batch_appendage_angles(self.batch_right_leg, self.batch_right_upper_leg_vector, self.batch_right_lower_leg_vector)
+        self.batch_left_upper_leg_yaw,  self.batch_left_lower_leg_pitch,  self.batch_left_upper_leg_yaw,  self.batch_left_lower_leg_pitch = \
+            self.extract_and_update_batch_appendage_angles(self.batch_left_leg,  self.batch_left_upper_leg_vector,  self.batch_left_lower_leg_vector)
         
     def set_batch_keypoints_from_batch_pose(self, batch_pose_3d):
+        # (B, F, 3)
         # get head points
-        self.batch_head_origin       = batch_pose_3d[:, :, 10]
-        self.batch_nose_origin       = batch_pose_3d[:, :, 9]
+        self.batch_head_joint       = batch_pose_3d[:, :, 10] 
+        self.batch_nose_joint       = batch_pose_3d[:, :, 9]
         # get torso points
-        self.batch_pelvis_origin     = batch_pose_3d[:, :, 0]
-        self.batch_r_hip_origin      = batch_pose_3d[:, :, 1]
-        self.batch_l_hip_origin      = batch_pose_3d[:, :, 4]
-        self.batch_torso_origin      = batch_pose_3d[:, :, 7]
-        self.batch_neck_origin       = batch_pose_3d[:, :, 8]
-        self.batch_l_shoulder_origin = batch_pose_3d[:, :, 11]
-        self.batch_r_shoulder_origin = batch_pose_3d[:, :, 14]
+        self.batch_pelvis_joint     = batch_pose_3d[:, :, 0]
+        self.batch_r_hip_joint      = batch_pose_3d[:, :, 1]
+        self.batch_l_hip_joint      = batch_pose_3d[:, :, 4]
+        self.batch_torso_joint      = batch_pose_3d[:, :, 7]
+        self.batch_neck_joint       = batch_pose_3d[:, :, 8]
+        self.batch_l_shoulder_joint = batch_pose_3d[:, :, 11]
+        self.batch_r_shoulder_joint = batch_pose_3d[:, :, 14]
         # get appendage points
-        self.batch_l_elbow_origin    = batch_pose_3d[:, :, 12]
-        self.batch_l_wrist_origin    = batch_pose_3d[:, :, 13]
-        self.batch_r_elbow_origin    = batch_pose_3d[:, :, 15]
-        self.batch_r_wrist_origin    = batch_pose_3d[:, :, 16]
-        self.batch_l_knee_origin     = batch_pose_3d[:, :, 5]
-        self.batch_l_ankle_origin    = batch_pose_3d[:, :, 6]
-        self.batch_r_knee_origin     = batch_pose_3d[:, :, 2]
-        self.batch_r_ankle_origin    = batch_pose_3d[:, :, 3]
+        self.batch_l_elbow_joint    = batch_pose_3d[:, :, 12]
+        self.batch_l_wrist_joint    = batch_pose_3d[:, :, 13]
+        self.batch_r_elbow_joint    = batch_pose_3d[:, :, 15]
+        self.batch_r_wrist_joint    = batch_pose_3d[:, :, 16]
+        self.batch_l_knee_joint     = batch_pose_3d[:, :, 5]
+        self.batch_l_ankle_joint    = batch_pose_3d[:, :, 6]
+        self.batch_r_knee_joint     = batch_pose_3d[:, :, 2]
+        self.batch_r_ankle_joint    = batch_pose_3d[:, :, 3]
+
+    def set_batch_torso_frame(self):
+        # lower torso frame
+        self.batch_lower_torso_origin, self.batch_lower_torso_frame_R = \
+            get_batch_lower_torso_frame_from_keypoints(self.batch_r_hip_joint, 
+                                                       self.batch_l_hip_joint, 
+                                                       self.batch_pelvis_joint, 
+                                                       self.batch_torso_joint, 
+                                                       self.forward_dir) 
+        #get_batch_lower_torso_frame_from_pose(batch_pose_3d, self.forward_dir)
+        # upper torso frame
+        self.batch_upper_torso_origin, self.batch_upper_torso_frame_R = \
+            get_batch_upper_torso_frame_from_keypoints(self.batch_r_shoulder_joint,
+                                                       self.batch_l_shoulder_joint, 
+                                                       self.batch_torso_joint, 
+                                                       self.batch_neck_joint, 
+                                                       self.forward_dir)
+        #self.batch_upper_torso_origin, self.batch_upper_torso_frame_R = get_batch_upper_torso_frame_from_pose(batch_pose_3d, self.forward_dir)
         
     def set_batch_limb_vectors(self):
         # (B, F, 3)
-        self.batch_neck_to_nose_vector    = self.batch_nose_origin    - self.batch_neck_origin
-        self.batch_nose_to_head_vector    = self.batch_head_origin    - self.batch_nose_origin
-        self.batch_left_upper_arm_vector  = self.batch_l_elbow_origin - self.batch_l_shoulder_origin
-        self.batch_left_lower_arm_vector  = self.batch_l_wrist_origin - self.batch_l_elbow_origin
-        self.batch_right_upper_arm_vector = self.batch_r_elbow_origin - self.batch_r_shoulder_origin
-        self.batch_right_lower_arm_vector = self.batch_r_wrist_origin - self.batch_r_elbow_origin
-        self.batch_left_upper_leg_vector  = self.batch_l_knee_origin  - self.batch_l_hip_origin
-        self.batch_left_lower_leg_vector  = self.batch_l_ankle_origin - self.batch_l_knee_origin
-        self.batch_right_upper_leg_vector = self.batch_r_knee_origin  - self.batch_r_hip_origin
-        self.batch_right_lower_leg_vector = self.batch_r_ankle_origin - self.batch_r_knee_origin
+        self.batch_neck_to_nose_vector    = self.batch_nose_joint    - self.batch_neck_joint
+        self.batch_nose_to_head_vector    = self.batch_head_joint    - self.batch_nose_joint
+        self.batch_left_upper_arm_vector  = self.batch_l_elbow_joint - self.batch_l_shoulder_joint
+        self.batch_left_lower_arm_vector  = self.batch_l_wrist_joint - self.batch_l_elbow_joint
+        self.batch_right_upper_arm_vector = self.batch_r_elbow_joint - self.batch_r_shoulder_joint
+        self.batch_right_lower_arm_vector = self.batch_r_wrist_joint - self.batch_r_elbow_joint
+        self.batch_left_upper_leg_vector  = self.batch_l_knee_joint  - self.batch_l_hip_joint
+        self.batch_left_lower_leg_vector  = self.batch_l_ankle_joint - self.batch_l_knee_joint
+        self.batch_right_upper_leg_vector = self.batch_r_knee_joint  - self.batch_r_hip_joint
+        self.batch_right_lower_leg_vector = self.batch_r_ankle_joint - self.batch_r_knee_joint
         
-    def set_batch_limb_length(self, length_type='each'):
+    def set_batch_limb_length_from_vec(self, length_type=None):
         ## length type : 'each', 'mean', 'first'
+        if type(length_type) != type(None): self.length_type = length_type
         # (B, F)
-        if self.head:
-            self.batch_neck_to_nose_length = torch.norm(self.batch_neck_to_nose_vector   , dim=-1) 
-            self.batch_nose_to_head_length = torch.norm(self.batch_nose_to_head_vector   , dim=-1)
+        self.batch_neck_to_nose_length    = torch.norm(self.batch_neck_to_nose_vector   , dim=-1) 
+        self.batch_nose_to_head_length    = torch.norm(self.batch_nose_to_head_vector   , dim=-1)
         self.batch_right_upper_arm_length = torch.norm(self.batch_right_upper_arm_vector, dim=-1) # limb_lens[14]
         self.batch_right_lower_arm_length = torch.norm(self.batch_right_lower_arm_vector, dim=-1) # limb_lens[15]
         self.batch_left_upper_arm_length  = torch.norm(self.batch_left_upper_arm_vector , dim=-1) # limb_lens[11]
@@ -1232,12 +1338,10 @@ class BatchDHModel:
         self.batch_right_lower_leg_length = torch.norm(self.batch_right_lower_leg_vector, dim=-1) # limb_lens[2]
         self.batch_left_upper_leg_length  = torch.norm(self.batch_left_upper_leg_vector , dim=-1) # limb_lens[4]
         self.batch_left_lower_leg_length  = torch.norm(self.batch_left_lower_leg_vector , dim=-1) # limb_lens[5]
-        if length_type == 'each':
-            pass
-        elif length_type == 'mean':
-            if self.head:
-                self.batch_neck_to_nose_length = torch.mean(self.batch_neck_to_nose_length, dim=1).unsqueeze(-1).repeat(1, self.num_frames)
-                self.batch_nose_to_head_length = torch.mean(self.batch_nose_to_head_length, dim=1).unsqueeze(-1).repeat(1, self.num_frames)
+        if self.length_type == 'mean':
+            # (B, F) 
+            self.batch_neck_to_nose_length    = torch.mean(self.batch_neck_to_nose_length, dim=1).unsqueeze(-1).repeat(1, self.num_frames)
+            self.batch_nose_to_head_length    = torch.mean(self.batch_nose_to_head_length, dim=1).unsqueeze(-1).repeat(1, self.num_frames)
             self.batch_right_upper_arm_length = torch.mean(self.batch_right_upper_arm_length, dim=1).unsqueeze(-1).repeat(1, self.num_frames)
             self.batch_right_lower_arm_length = torch.mean(self.batch_right_lower_arm_length, dim=1).unsqueeze(-1).repeat(1, self.num_frames)
             self.batch_left_upper_arm_length  = torch.mean(self.batch_left_upper_arm_length,  dim=1).unsqueeze(-1).repeat(1, self.num_frames)
@@ -1246,10 +1350,10 @@ class BatchDHModel:
             self.batch_right_lower_leg_length = torch.mean(self.batch_right_lower_leg_length, dim=1).unsqueeze(-1).repeat(1, self.num_frames)
             self.batch_left_upper_leg_length  = torch.mean(self.batch_left_upper_leg_length,  dim=1).unsqueeze(-1).repeat(1, self.num_frames)
             self.batch_left_lower_leg_length  = torch.mean(self.batch_left_lower_leg_length,  dim=1).unsqueeze(-1).repeat(1, self.num_frames)
-        elif length_type == 'first':
-            if self.head:
-                self.batch_neck_to_nose_length = self.batch_neck_to_nose_length[:, 0].unsqueeze(-1).repeat(1, self.num_frames)
-                self.batch_nose_to_head_length = self.batch_nose_to_head_length[:, 0].unsqueeze(-1).repeat(1, self.num_frames)
+        elif self.length_type == 'first':
+            # (B, F)
+            self.batch_neck_to_nose_length    = self.batch_neck_to_nose_length[:, 0].unsqueeze(-1).repeat(1, self.num_frames)
+            self.batch_nose_to_head_length    = self.batch_nose_to_head_length[:, 0].unsqueeze(-1).repeat(1, self.num_frames)
             self.batch_right_upper_arm_length = self.batch_right_upper_arm_length[:, 0].unsqueeze(-1).repeat(1, self.num_frames)
             self.batch_right_lower_arm_length = self.batch_right_lower_arm_length[:, 0].unsqueeze(-1).repeat(1, self.num_frames)
             self.batch_left_upper_arm_length  = self.batch_left_upper_arm_length[:,  0].unsqueeze(-1).repeat(1, self.num_frames)
@@ -1263,13 +1367,13 @@ class BatchDHModel:
         ## z axis
         batch_world_z_axis = torch.tensor(self.world_z_direction, dtype=self.data_type).unsqueeze(0).unsqueeze(0).repeat(self.batch_size, self.num_frames, 1).to(self.device) # [B, F, 3]
         # y axis
-        batch_y_axis = self.batch_l_hip_origin - self.batch_pelvis_origin # [B, F, 3]
+        batch_y_axis = self.batch_l_hip_joint - self.batch_pelvis_joint # [B, F, 3]
         batch_y_axis = batch_y_axis.type(self.data_type)
         batch_y_axis[:, :, 2] = 0
         batch_y_axis_mag = torch.norm(batch_y_axis, dim=2).unsqueeze(-1)
         batch_y_axis = batch_y_axis/batch_y_axis_mag # '/=' is inplace operation
         # x axis
-        # batch_pelvis_to_spine = self.batch_torso_origin - self.batch_pelvis_origin # [B, F, 3]
+        # batch_pelvis_to_spine = self.batch_torso_joint - self.batch_pelvis_joint # [B, F, 3]
         # batch_pelvis_to_spine_mag = torch.norm(batch_pelvis_to_spine, dim=2).unsqueeze(-1)
         # batch_pelvis_to_spine = batch_pelvis_to_spine/batch_pelvis_to_spine_mag # '/=' is inplace operation
         # batch_x_axis = torch.cross(batch_y_axis, batch_pelvis_to_spine, dim=2) # [B, F, 3]
@@ -1281,43 +1385,51 @@ class BatchDHModel:
     def generate_batch_appendage(self, appendage_id, root_origin, batch_link1_length, batch_link2_length):
         # if appendage_id == self.head_id:
         #     batch_R = self.batch_body_R
-        # elif appendage_id in [self.right_arm_id, self.right_leg_id]:
+        # elif appendagebatch_link1_length_id in [self.right_arm_id, self.right_leg_id]:
         #     batch_R = self.right_init_R.T @ self.batch_body_R
         # elif appendage_id in [self.left_arm_id, self.left_leg_id]:
         #     batch_R = self.left_init_R.T @ self.batch_body_R
-        batch_R = self.batch_body_R
+        # batch_R = self.batch_body_R
+        if appendage_id in [self.head_id, self.right_arm_id, self.left_arm_id]:
+            batch_R = self.batch_upper_torso_frame_R
+        elif appendage_id in [self.right_leg_id, self.left_leg_id]:
+            batch_R = self.batch_lower_torso_frame_R
+        else:
+            raise ValueError('appendage_id should be head_id, right_arm_id, left_arm_id, right_leg_id, or left_leg_id')
  
         batch_root_tf = torch.eye(4).unsqueeze(0).unsqueeze(0).repeat(self.batch_size, self.num_frames, 1, 1).type(self.data_type).to(self.device)
         batch_root_tf[:, :, :3, :3] = batch_R
         batch_root_tf[:, :, :3, 3] = root_origin
         
-        return BatchAppendage(batch_link1_length, batch_link2_length, degree=True, batch_root_tf=batch_root_tf)
+        return BatchAppendage(batch_link1_length, batch_link2_length, degree=self.degree, batch_root_tf=batch_root_tf)
     
     def generate_all_batch_appendages(self):
-        if self.head:
-            self.batch_head  = self.generate_batch_appendage(self.head_id,      self.batch_neck_origin,       self.batch_neck_to_nose_length,    self.batch_nose_to_head_length)
-        self.batch_right_arm = self.generate_batch_appendage(self.right_arm_id, self.batch_r_shoulder_origin, self.batch_right_upper_arm_length, self.batch_right_lower_arm_length)
-        self.batch_left_arm  = self.generate_batch_appendage(self.left_arm_id,  self.batch_l_shoulder_origin, self.batch_left_upper_arm_length,  self.batch_left_lower_arm_length)
-        self.batch_left_leg  = self.generate_batch_appendage(self.left_leg_id,  self.batch_l_hip_origin,      self.batch_left_upper_leg_length,  self.batch_left_lower_leg_length)
-        self.batch_right_leg = self.generate_batch_appendage(self.right_leg_id, self.batch_r_hip_origin,      self.batch_right_upper_leg_length, self.batch_right_lower_leg_length)
+        if self.head_is_dh:
+            self.batch_head  = self.generate_batch_appendage(self.head_id,      self.batch_neck_joint,       self.batch_neck_to_nose_length,    self.batch_nose_to_head_length)
+        self.batch_right_arm = self.generate_batch_appendage(self.right_arm_id, self.batch_r_shoulder_joint, self.batch_right_upper_arm_length, self.batch_right_lower_arm_length)
+        self.batch_left_arm  = self.generate_batch_appendage(self.left_arm_id,  self.batch_l_shoulder_joint, self.batch_left_upper_arm_length,  self.batch_left_lower_arm_length)
+        self.batch_left_leg  = self.generate_batch_appendage(self.left_leg_id,  self.batch_l_hip_joint,      self.batch_left_upper_leg_length,  self.batch_left_lower_leg_length)
+        self.batch_right_leg = self.generate_batch_appendage(self.right_leg_id, self.batch_r_hip_joint,      self.batch_right_upper_leg_length, self.batch_right_lower_leg_length)
     
     def extract_and_update_batch_appendage_angles(self, batch_appendage, batch_link1_vector, batch_link2_vector):
         # extract angles from predefined vectors (inverse kinematics), and then update appendage angles (forward kinematics)
         # link1
         batch_link1_yaw, batch_link1_pitch = self.get_batch_dh_angle_from_batch_pose_vector(batch_link1_vector, batch_appendage.batch_root_tf)
-        batch_appendage.update_batch_link(batch_link1_yaw, batch_link1_pitch, self.batch_zero, self.batch_zero)
+        batch_appendage.set_batch_angle(batch_link1_yaw, batch_link1_pitch, None, None)
+        batch_appendage.forward_batch_link()
         # link2
         batch_link2_yaw, batch_link2_pitch = self.get_batch_dh_angle_from_batch_pose_vector(batch_link2_vector, batch_appendage.batch_link1_tf)
-        batch_appendage.update_batch_link(batch_link1_yaw, batch_link1_pitch, batch_link2_yaw, batch_link2_pitch)    
+        batch_appendage.set_batch_angle(None, None, batch_link2_yaw, batch_link2_pitch)   
+        batch_appendage.forward_batch_link() 
         return batch_link1_yaw, batch_link1_pitch, batch_link2_yaw, batch_link2_pitch
         
     def get_batch_dh_angle_from_batch_pose_vector(self, batch_vec, batch_root_tf):
-        return self.calculate_batch_azimuth_elevation(batch_vec, batch_root_tf[:, :, :3, :3]) # yaw, pitch
+        return self.calculate_batch_azimuth_elevation(batch_vec, batch_root_tf[:, :, :3, :3], self.degree) # yaw, pitch
     
     def calculate_batch_azimuth_elevation(self, batch_vector, batch_root_R, degrees=False):
-        print(batch_root_R.shape, batch_vector.unsqueeze(-1).shape)
+        #print(batch_root_R.shape, batch_vector.unsqueeze(-1).shape)
         batch_vector = (batch_root_R.transpose(2, 3) @ batch_vector.unsqueeze(-1)).squeeze(-1)
-        print(batch_vector.shape)
+        #print(batch_vector.shape)
         #batch_vector = (batch_root_R @ torch.cat([batch_vector, torch.ones([batch_vector.shape[0], batch_vector.shape[1], 1]).to(batch_vector.device)], dim=2)).squeeze(-1)
 
         batch_x, batch_y, batch_z = batch_vector[:, :, 0], batch_vector[:, :, 1], batch_vector[:, :, 2]
@@ -1329,7 +1441,7 @@ class BatchDHModel:
             return batch_azimuth, batch_elevation  # Converting to degrees for readability
     
     # -------------------------------------------------------------------------------------------
-    def set_dh_model_from_dhdst_output(self, torso_output, right_arm_output, left_arm_output, right_leg_output, left_leg_output, head_output=None):
+    def set_batch_dh_model_from_dhdst_output(self, torso_output, right_arm_output, left_arm_output, right_leg_output, left_leg_output, head_output=None):
         # set keypoints from dhdst output
         self.set_batch_torso(torso_output)
         # set dh angles from dhdst output
@@ -1359,28 +1471,56 @@ class BatchDHModel:
         self.batch_left_upper_leg_length  = left_leg_output[:, :, 4]
         self.batch_left_lower_leg_length  = left_leg_output[:, :, 5] 
         # get body reference frame
-        self.set_batch_body_reference_frame()
+        #self.set_batch_body_reference_frame()
+        # set torso frame
+        self.set_batch_torso_frame()
         # generate appendages
         self.generate_all_batch_appendages()
         # update appendages from dh angles and lengths
-        self.set_batch_appendage_from_batch_angles()
+        self.update_batch_appendage_angle()
+    
     
     def set_batch_torso(self, batch_torso):
         assert batch_torso.shape == (self.batch_size, self.num_frames, 9, 3), 'batch_torso should be (batch_size, num_frames, 9, 3)'
-        self.batch_pelvis_origin     = batch_torso[:, :, 0]
-        self.batch_r_hip_origin      = batch_torso[:, :, 1]
-        self.batch_l_hip_origin      = batch_torso[:, :, 2]
-        self.batch_torso_origin      = batch_torso[:, :, 3]
-        self.batch_neck_origin       = batch_torso[:, :, 4]
-        self.batch_nose_origin       = batch_torso[:, :, 5]
-        self.batch_head_origin       = batch_torso[:, :, 6]
-        self.batch_l_shoulder_origin = batch_torso[:, :, 7]
-        self.batch_r_shoulder_origin = batch_torso[:, :, 8]
+        self.batch_pelvis_joint     = batch_torso[:, :, 0]
+        self.batch_r_hip_joint      = batch_torso[:, :, 1]
+        self.batch_l_hip_joint      = batch_torso[:, :, 2]
+        self.batch_torso_joint      = batch_torso[:, :, 3]
+        self.batch_neck_joint       = batch_torso[:, :, 4]
+        self.batch_nose_joint       = batch_torso[:, :, 5]
+        self.batch_head_joint       = batch_torso[:, :, 6]
+        self.batch_l_shoulder_joint = batch_torso[:, :, 7]
+        self.batch_r_shoulder_joint = batch_torso[:, :, 8]
+
+    def set_batch_length(self, batch_length, update_appendage=False):
+        if len(batch_length.shape) == 3:
+            assert batch_length.shape == (self.batch_size, 2, 4), 'batch_length should be (batch_size, 2, 4)'
+            self.batch_right_upper_arm_length = batch_length[..., 0, 0].unsqueeze(-1).repeat(1, self.num_frames) # [B, F]
+            self.batch_right_lower_arm_length = batch_length[..., 1, 0].unsqueeze(-1).repeat(1, self.num_frames)
+            self.batch_left_upper_arm_length  = batch_length[..., 0, 1].unsqueeze(-1).repeat(1, self.num_frames)
+            self.batch_left_lower_arm_length  = batch_length[..., 1, 1].unsqueeze(-1).repeat(1, self.num_frames)
+            self.batch_right_upper_leg_length = batch_length[..., 0, 2].unsqueeze(-1).repeat(1, self.num_frames)
+            self.batch_right_lower_leg_length = batch_length[..., 1, 2].unsqueeze(-1).repeat(1, self.num_frames)
+            self.batch_left_upper_leg_length  = batch_length[..., 0, 3].unsqueeze(-1).repeat(1, self.num_frames)
+            self.batch_left_lower_leg_length  = batch_length[..., 1, 3].unsqueeze(-1).repeat(1, self.num_frames)
+        elif len(batch_length.shape) == 4:
+            assert batch_length.shape == (self.batch_size, self.num_frames, 2, 4), 'batch_length should be (batch_size, num_frames, 2, 4)'
+            self.batch_right_upper_arm_length = batch_length[..., 0, 0] # [B, F]
+            self.batch_right_lower_arm_length = batch_length[..., 1, 0]
+            self.batch_left_upper_arm_length  = batch_length[..., 0, 1]
+            self.batch_left_lower_arm_length  = batch_length[..., 1, 1]
+            self.batch_right_upper_leg_length = batch_length[..., 0, 2]
+            self.batch_right_lower_leg_length = batch_length[..., 1, 2]
+            self.batch_left_upper_leg_length  = batch_length[..., 0, 3]
+            self.batch_left_lower_leg_length  = batch_length[..., 1, 3]
+        # update appendages
+        if update_appendage:
+            self.update_batch_appendage_length()
         
-    def set_batch_angles(self, batch_angles, by_dict=False, degree=False):
+    def set_batch_angle(self, batch_angles, by_dict=False, degree=False, update_appendage=False):
         # batch_angles: [B, F, 16] or [B, F, 20] (with head)
         if by_dict:
-            if self.head:
+            if self.head_is_dh:
                 self.batch_lower_head_yaw, self.batch_lower_head_pitch = batch_angles['h_l1_yaw'], batch_angles['h_l1_pitch']
                 self.batch_upper_head_yaw, self.batch_upper_head_pitch = batch_angles['h_l2_yaw'], batch_angles['h_l2_pitch']
             self.batch_right_upper_arm_yaw, self.batch_right_upper_arm_pitch = batch_angles['ra_l1_yaw'], batch_angles['ra_l1_pitch']
@@ -1393,21 +1533,31 @@ class BatchDHModel:
             self.batch_left_lower_leg_yaw,  self.batch_left_lower_leg_pitch  = batch_angles['ll_l2_yaw'], batch_angles['ll_l2_pitch']
         else:
             offset = 0
-            if self.head:
-                self.batch_upper_head_yaw, self.batch_upper_head_pitch = batch_angles[:, :, 0:2]
-                self.batch_lower_head_yaw, self.batch_lower_head_pitch = batch_angles[:, :, 2:4]
-                offset = 4
-            self.batch_right_upper_arm_yaw, self.batch_right_upper_arm_pitch = batch_angles[:, :, 0+offset:2+offset]
-            self.batch_right_lower_arm_yaw, self.batch_right_lower_arm_pitch = batch_angles[:, :, 2+offset:4+offset]
-            self.batch_left_upper_arm_yaw,  self.batch_left_upper_arm_pitch  = batch_angles[:, :, 4+offset:6+offset]
-            self.batch_left_lower_arm_yaw,  self.batch_left_lower_arm_pitch  = batch_angles[:, :, 6+offset:8+offset]
-            self.batch_right_upper_leg_yaw, self.batch_right_upper_leg_pitch = batch_angles[:, :, 8+offset:10+offset]
-            self.batch_right_lower_leg_yaw, self.batch_right_lower_leg_pitc  = batch_angles[:, :, 10+offset:12+offset]
-            self.batch_left_upper_leg_yaw,  self.batch_left_upper_leg_pitch  = batch_angles[:, :, 12+offset:14+offset]
-            self.batch_left_lower_leg_yaw,  self.batch_left_lower_leg_pitch  = batch_angles[:, :, 14+offset:16+offset]
+            if self.head_is_dh:
+                self.batch_upper_head_yaw   = batch_angles[:, :, 0]
+                self.batch_upper_head_pitch = batch_angles[:, :, 1]
+                self.batch_lower_head_yaw   = batch_angles[:, :, 2]
+                self.batch_lower_head_pitch = batch_angles[:, :, 3]
+                offset += 4
+            self.batch_right_upper_arm_yaw   = batch_angles[:, :, 0+offset]
+            self.batch_right_upper_arm_pitch = batch_angles[:, :, 1+offset]
+            self.batch_right_lower_arm_yaw   = batch_angles[:, :, 2+offset]
+            self.batch_right_lower_arm_pitch = batch_angles[:, :, 3+offset]
+            self.batch_left_upper_arm_yaw    = batch_angles[:, :, 4+offset]
+            self.batch_left_upper_arm_pitch  = batch_angles[:, :, 5+offset]
+            self.batch_left_lower_arm_yaw    = batch_angles[:, :, 6+offset]
+            self.batch_left_lower_arm_pitch  = batch_angles[:, :, 7+offset]
+            self.batch_right_upper_leg_yaw   = batch_angles[:, :, 8+offset]
+            self.batch_right_upper_leg_pitch = batch_angles[:, :, 9+offset]
+            self.batch_right_lower_leg_yaw   = batch_angles[:, :, 10+offset]
+            self.batch_right_lower_leg_pitc  = batch_angles[:, :, 11+offset]
+            self.batch_left_upper_leg_yaw    = batch_angles[:, :, 12+offset]
+            self.batch_left_upper_leg_pitch  = batch_angles[:, :, 13+offset]
+            self.batch_left_lower_leg_yaw    = batch_angles[:, :, 14+offset]
+            self.batch_left_lower_leg_pitch  = batch_angles[:, :, 15+offset]
         # convert to radian
         if degree: 
-            if self.head:
+            if self.head_is_dh:
                 self.batch_upper_head_yaw, self.batch_upper_head_pitch = torch.deg2rad(self.batch_upper_head_yaw), torch.deg2rad(self.batch_upper_head_pitch)
                 self.batch_lower_head_yaw, self.batch_lower_head_pitch = torch.deg2rad(self.batch_lower_head_yaw), torch.deg2rad(self.batch_lower_head_pitch)
             self.batch_right_upper_arm_yaw, self.batch_right_upper_arm_pitch = torch.deg2rad(self.batch_right_upper_arm_yaw), torch.deg2rad(self.batch_right_upper_arm_pitch)
@@ -1418,20 +1568,40 @@ class BatchDHModel:
             self.batch_right_lower_leg_yaw, self.batch_right_lower_leg_pitc  = torch.deg2rad(self.batch_right_lower_leg_yaw), torch.deg2rad(self.batch_right_lower_leg_pitc)
             self.batch_left_upper_leg_yaw,  self.batch_left_upper_leg_pitch  = torch.deg2rad(self.batch_left_upper_leg_yaw),  torch.deg2rad(self.batch_left_upper_leg_pitch)
             self.batch_left_lower_leg_yaw,  self.batch_left_lower_leg_pitch  = torch.deg2rad(self.batch_left_lower_leg_yaw),  torch.deg2rad(self.batch_left_lower_leg_pitch)
-            
-    def set_batch_appendage_from_batch_angles(self):
-        if self.head:
-            self.batch_head.update_batch_link(self.batch_lower_head_yaw, self.batch_lower_head_pitch, self.batch_upper_head_yaw, self.batch_upper_head_pitch)
-        self.batch_right_arm.update_batch_link(self.batch_right_upper_arm_yaw, self.batch_right_upper_arm_pitch, self.batch_right_lower_arm_yaw, self.batch_right_lower_arm_pitch)
-        self.batch_left_arm.update_batch_link(self.batch_left_upper_arm_yaw, self.batch_left_upper_arm_pitch, self.batch_left_lower_arm_yaw, self.batch_left_lower_arm_pitch)
-        self.batch_right_leg.update_batch_link(self.batch_right_upper_leg_yaw, self.batch_right_upper_leg_pitch, self.batch_right_lower_leg_yaw, self.batch_right_lower_leg_pitch)
-        self.batch_left_leg.update_batch_link(self.batch_left_upper_leg_yaw, self.batch_left_upper_leg_pitch, self.batch_left_lower_leg_yaw, self.batch_left_lower_leg_pitch)    
+        # update appendages
+        if update_appendage:
+            self.update_batch_appendage_angle()    
         
+    def update_batch_appendage_angle(self):
+        if self.head_is_dh:
+            self.batch_head.set_batch_angle(self.batch_lower_head_yaw, self.batch_lower_head_pitch, self.batch_upper_head_yaw, self.batch_upper_head_pitch)
+        self.batch_right_arm.set_batch_angle(self.batch_right_upper_arm_yaw, self.batch_right_upper_arm_pitch, self.batch_right_lower_arm_yaw, self.batch_right_lower_arm_pitch)
+        self.batch_left_arm.set_batch_angle(self.batch_left_upper_arm_yaw, self.batch_left_upper_arm_pitch, self.batch_left_lower_arm_yaw, self.batch_left_lower_arm_pitch)
+        self.batch_right_leg.set_batch_angle(self.batch_right_upper_leg_yaw, self.batch_right_upper_leg_pitch, self.batch_right_lower_leg_yaw, self.batch_right_lower_leg_pitch)
+        self.batch_left_leg.set_batch_angle(self.batch_left_upper_leg_yaw, self.batch_left_upper_leg_pitch, self.batch_left_lower_leg_yaw, self.batch_left_lower_leg_pitch)    
+    
+    def update_batch_appendage_length(self):
+        self.batch_right_arm.set_batch_length(self.batch_right_upper_arm_length, self.batch_right_lower_arm_length)
+        self.batch_left_arm.set_batch_length(self.batch_left_upper_arm_length, self.batch_left_lower_arm_length)
+        self.batch_right_leg.set_batch_length(self.batch_right_upper_leg_length, self.batch_right_lower_leg_length)
+        self.batch_left_leg.set_batch_length(self.batch_left_upper_leg_length, self.batch_left_lower_leg_length)
+
+    def forward_batch_appendage(self):
+        if self.head_is_dh:
+            self.batch_head.forward_batch_link()
+        self.batch_right_arm.forward_batch_link()
+        self.batch_left_arm.forward_batch_link()
+        self.batch_right_leg.forward_batch_link()
+        self.batch_left_leg.forward_batch_link()
+
     # -------------------------------------------------------------------------------------------
     # get functions
-    def get_batch_limb_length(self, by_dict=False):
+    def get_batch_limb_length(self, by_dict=False, head=False):
         if by_dict:
             batch_limb_length = {}
+            if head:
+                batch_limb_length['h_l1']    = self.batch_head.link1_length
+                batch_limb_length['h_l2']    = self.batch_head.link2_length
             batch_limb_length['ra_l1']    = self.batch_right_upper_arm_length
             batch_limb_length['ra_l2']    = self.batch_right_lower_arm_length
             batch_limb_length['la_l1']    = self.batch_left_upper_arm_length
@@ -1441,19 +1611,22 @@ class BatchDHModel:
             batch_limb_length['ll_l1']    = self.batch_left_upper_leg_length
             batch_limb_length['ll_l2']    = self.batch_left_lower_leg_length
         else:
-            self.batch_limb_length = torch.cat([self.batch_right_upper_arm_length.unsqueeze(-1),
-                                                self.batch_right_lower_arm_length.unsqueeze(-1),
-                                                self.batch_left_upper_arm_length.unsqueeze(-1),
-                                                self.batch_left_lower_arm_length.unsqueeze(-1),
-                                                self.batch_right_upper_leg_length.unsqueeze(-1),
-                                                self.batch_right_lower_leg_length.unsqueeze(-1),
-                                                self.batch_left_upper_leg_length.unsqueeze(-1),
-                                                self.batch_left_lower_leg_length.unsqueeze(-1)], dim=-1)
-    
-        return batch_limb_length
+            self.batch_limb_length = torch.cat([
+                self.batch_neck_to_nose_length.unsqueeze(-1),
+                self.batch_right_upper_arm_length.unsqueeze(-1),
+                self.batch_right_lower_arm_length.unsqueeze(-1),
+                self.batch_left_upper_arm_length.unsqueeze(-1),
+                self.batch_left_lower_arm_length.unsqueeze(-1),
+                self.batch_right_upper_leg_length.unsqueeze(-1),
+                self.batch_right_lower_leg_length.unsqueeze(-1),
+                self.batch_left_upper_leg_length.unsqueeze(-1),
+                self.batch_left_lower_leg_length.unsqueeze(-1)], dim=-1).to(self.device)
+            if self.head_is_dh:
+                self.batch_limb_length = self.batch_limb_length[2:]
+        return batch_limb_length # 
         
     def get_body_frame(self, batch_num, frame_num):
-        pelvis_origin = self.batch_pelvis_origin[batch_num, frame_num].cpu().detach().numpy()
+        pelvis_origin = self.batch_pelvis_joint[batch_num, frame_num].cpu().detach().numpy()
         body_R = self.batch_body_R[batch_num, frame_num].cpu().detach().numpy()
         body_frame = ReferenceFrame(
             origin=pelvis_origin, 
@@ -1464,39 +1637,60 @@ class BatchDHModel:
         )
         return body_frame
     
-    def get_batch_dh_angles(self, by_dict=False, degree=False):
+    def get_batch_appendage_angles(self, by_dict=False, degree=False, head=False):
         if by_dict:
             batch_dh_angles = {}
-            # head
-            batch_dh_angles['h_l1_yaw'],  batch_dh_angles['h_l1_pitch']  = self.head.link1_yaw,  self.head.link1_pitch
+            if self.head_is_dh:
+                # head
+                batch_dh_angles['h_l1_yaw'],  batch_dh_angles['h_l1_pitch']  = self.batch_head.batch_link1_yaw,  self.batch_head.batch_link1_pitch
             # right arm
-            batch_dh_angles['ra_l1_yaw'], batch_dh_angles['ra_l1_pitch'] = self.right_arm.link1_yaw, self.right_arm.link1_pitch
-            batch_dh_angles['ra_l2_yaw'], batch_dh_angles['ra_l2_pitch'] = self.right_arm.link2_yaw, self.right_arm.link2_pitch
+            batch_dh_angles['ra_l1_yaw'], batch_dh_angles['ra_l1_pitch'] = self.batch_right_arm.batch_link1_yaw, self.batch_right_arm.batch_link1_pitch
+            batch_dh_angles['ra_l2_yaw'], batch_dh_angles['ra_l2_pitch'] = self.batch_right_arm.batch_link2_yaw, self.batch_right_arm.batch_link2_pitch
             # left arm
-            batch_dh_angles['la_l1_yaw'], batch_dh_angles['la_l1_pitch'] = self.left_arm.link1_yaw, self.left_arm.link1_pitch
-            batch_dh_angles['la_l2_yaw'], batch_dh_angles['la_l2_pitch'] = self.left_arm.link2_yaw, self.left_arm.link2_pitch
+            batch_dh_angles['la_l1_yaw'], batch_dh_angles['la_l1_pitch'] = self.batch_left_arm.batch_link1_yaw, self.batch_left_arm.batch_link1_pitch
+            batch_dh_angles['la_l2_yaw'], batch_dh_angles['la_l2_pitch'] = self.batch_left_arm.batch_link2_yaw, self.batch_left_arm.batch_link2_pitch
             # right leg
-            batch_dh_angles['rl_l1_yaw'], batch_dh_angles['rl_l1_pitch'] = self.right_leg.link1_yaw, self.right_leg.link1_pitch
-            batch_dh_angles['rl_l2_yaw'], batch_dh_angles['rl_l2_pitch'] = self.right_leg.link2_yaw, self.right_leg.link2_pitch
+            batch_dh_angles['rl_l1_yaw'], batch_dh_angles['rl_l1_pitch'] = self.batch_right_leg.batch_link1_yaw, self.batch_right_leg.batch_link1_pitch
+            batch_dh_angles['rl_l2_yaw'], batch_dh_angles['rl_l2_pitch'] = self.batch_right_leg.batch_link2_yaw, self.batch_right_leg.batch_link2_pitch
             # left leg
-            batch_dh_angles['ll_l1_yaw'], batch_dh_angles['ll_l1_pitch'] = self.left_leg.link1_yaw, self.left_leg.link1_pitch
-            batch_dh_angles['ll_l2_yaw'], batch_dh_angles['ll_l2_pitch'] = self.left_leg.link2_yaw, self.left_leg.link2_pitch
+            batch_dh_angles['ll_l1_yaw'], batch_dh_angles['ll_l1_pitch'] = self.batch_left_leg.batch_link1_yaw, self.batch_left_leg.batch_link1_pitch
+            batch_dh_angles['ll_l2_yaw'], batch_dh_angles['ll_l2_pitch'] = self.batch_left_leg.batch_link2_yaw, self.batch_left_leg.batch_link2_pitch
             if degree:
                 for key in batch_dh_angles.keys():
                     batch_dh_angles[key] = torch.rad2deg(batch_dh_angles[key])
         else:
-            batch_dh_angles = np.zeros(18)
-            # head
-            batch_dh_angles[0:2]   = np.array([self.batch_head.link1_yaw,      self.batch_head.link1_pitch])
-            # right arm
-            batch_dh_angles[2:6]   = np.array([self.batch_right_arm.link1_yaw, self.batch_right_arm.link1_pitch, self.batch_right_arm.link2_yaw, self.batch_right_arm.link2_pitch])
-            # left arm
-            batch_dh_angles[6:10]  = np.array([self.batch_left_arm.link1_yaw,  self.batch_left_arm.link1_pitch,  self.batch_left_arm.link2_yaw,  self.batch_left_arm.link2_pitch])
-            # right leg
-            batch_dh_angles[10:14] = np.array([self.batch_right_leg.link1_yaw, self.batch_right_leg.link1_pitch, self.batch_right_leg.link2_yaw, self.batch_right_leg.link2_pitch])
-            # left leg
-            batch_dh_angles[14:18] = np.array([self.batch_left_leg.link1_yaw,  self.batch_left_leg.link1_pitch,  self.batch_left_leg.link2_yaw,  self.batch_left_leg.link2_pitch])
-            
+            # batch_dh_angles = torch.zeros((self.batch_size, self.num_frames, 18)).to(self.device)
+            # batch_dh_angles[..., 0] = self.batch_head.batch_link1_yaw
+            # batch_dh_angles[..., 1] = self.batch_head.batch_link1_pitch 
+            # batch_dh_angles[..., 2] = self.batch_right_arm.batch_link1_yaw
+            # batch_dh_angles[..., 3] = self.batch_right_arm.batch_link1_pitch
+            # batch_dh_angles[..., 4] = self.batch_right_arm.batch_link2_yaw
+            # batch_dh_angles[..., 5] = self.batch_right_arm.batch_link2_pitch
+            # batch_dh_angles[..., 6] = self.batch_left_arm.batch_link1_yaw
+            # batch_dh_angles[..., 7] = self.batch_left_arm.batch_link1_pitch
+            # batch_dh_angles[..., 8] = self.batch_left_arm.batch_link2_yaw
+            # batch_dh_angles[..., 9] = self.batch_left_arm.batch_link2_pitch
+            # batch_dh_angles[..., 10] = self.batch_right_leg.batch_link1_yaw
+            # batch_dh_angles[..., 11] = self.batch_right_leg.batch_link1_pitch
+            # batch_dh_angles[..., 12] = self.batch_right_leg.batch_link2_yaw
+            # batch_dh_angles[..., 13] = self.batch_right_leg.batch_link2_pitch
+            # batch_dh_angles[..., 14] = self.batch_left_leg.batch_link1_yaw
+            # batch_dh_angles[..., 15] = self.batch_left_leg.batch_link1_pitch
+            # batch_dh_angles[..., 16] = self.batch_left_leg.batch_link2_yaw
+            # batch_dh_angles[..., 17] = self.batch_left_leg.batch_link2_pitch
+            # (B, F, 18)
+            batch_dh_angles = torch.cat([self.batch_head.batch_link1_yaw.unsqueeze(-1),  self.batch_head.batch_link1_pitch.unsqueeze(-1),
+                                         self.batch_right_arm.batch_link1_yaw.unsqueeze(-1), self.batch_right_arm.batch_link1_pitch.unsqueeze(-1),
+                                         self.batch_right_arm.batch_link2_yaw.unsqueeze(-1), self.batch_right_arm.batch_link2_pitch.unsqueeze(-1),
+                                         self.batch_left_arm.batch_link1_yaw.unsqueeze(-1),  self.batch_left_arm.batch_link1_pitch.unsqueeze(-1),
+                                         self.batch_left_arm.batch_link2_yaw.unsqueeze(-1),  self.batch_left_arm.batch_link2_pitch.unsqueeze(-1),
+                                         self.batch_right_leg.batch_link1_yaw.unsqueeze(-1), self.batch_right_leg.batch_link1_pitch.unsqueeze(-1),
+                                         self.batch_right_leg.batch_link2_yaw.unsqueeze(-1), self.batch_right_leg.batch_link2_pitch.unsqueeze(-1),
+                                         self.batch_left_leg.batch_link1_yaw.unsqueeze(-1),  self.batch_left_leg.batch_link1_pitch.unsqueeze(-1),
+                                         self.batch_left_leg.batch_link2_yaw.unsqueeze(-1),  self.batch_left_leg.batch_link2_pitch.unsqueeze(-1)], dim=-1)
+                
+            if not head:
+                batch_dh_angles = batch_dh_angles[..., 2:] # (B, F, 16)
             if degree:
                 batch_dh_angles = torch.rad2deg(batch_dh_angles)
         return batch_dh_angles
@@ -1504,8 +1698,9 @@ class BatchDHModel:
     def get_batch_appendage_length(self, by_dict=False, head=False):
         if by_dict:
             batch_appendage_length = {}  
-            # batch_appendage_length['h_l1']  = self.batch_head.link1_length
-            # batch_appendage_length['h_l2']  = self.batch_head.link2_length
+            if self.head_is_dh:
+                batch_appendage_length['h_l1']  = self.batch_head.link1_length
+                batch_appendage_length['h_l2']  = self.batch_head.link2_length
             batch_appendage_length['ra_l1'] = self.batch_right_arm.link1_length
             batch_appendage_length['ra_l2'] = self.batch_right_arm.link2_length
             batch_appendage_length['la_l1'] = self.batch_left_arm.link1_length
@@ -1515,53 +1710,57 @@ class BatchDHModel:
             batch_appendage_length['ll_l1'] = self.batch_left_leg.link1_length
             batch_appendage_length['ll_l2'] = self.batch_left_leg.link2_length
         else:
-            batch_appendage_length = torch.cat([self.batch_right_arm.batch_link1_length.unsqueeze(-1), self.batch_right_arm.batch_link2_length.unsqueeze(-1),
+            # (B, F, 10)
+            batch_appendage_length = torch.cat([self.batch_neck_to_nose_length.unsqueeze(-1), self.batch_nose_to_head_length.unsqueeze(-1),
+                                                self.batch_right_arm.batch_link1_length.unsqueeze(-1), self.batch_right_arm.batch_link2_length.unsqueeze(-1),
                                                 self.batch_left_arm.batch_link1_length.unsqueeze(-1),  self.batch_left_arm.batch_link2_length.unsqueeze(-1),
                                                 self.batch_right_leg.batch_link1_length.unsqueeze(-1), self.batch_right_leg.batch_link2_length.unsqueeze(-1),
                                                 self.batch_left_leg.batch_link1_length.unsqueeze(-1),  self.batch_left_leg.batch_link2_length.unsqueeze(-1)], dim=-1)
+            if not head:
+                batch_appendage_length = batch_appendage_length[..., 2:] # (B, F, 8)
         return batch_appendage_length
     
     def get_batch_keypoints(self, by_dict=False):
         if by_dict:
             batch_keypoints = {}
-            batch_keypoints['pelvis']     = self.batch_pelvis_origin  # 0
-            batch_keypoints['r_hip']      = self.batch_r_hip_origin # 1
-            batch_keypoints['l_hip']      = self.batch_l_hip_origin # 2
-            batch_keypoints['torso']      = self.batch_torso_origin # 3
-            batch_keypoints['neck']       = self.batch_neck_origin # 4
-            batch_keypoints['nose']       = self.batch_nose_origin # 5
-            batch_keypoints['head']       = self.batch_head_origin # 6
-            batch_keypoints['l_shoulder'] = self.batch_l_shoulder_origin  # 7
-            batch_keypoints['r_shoulder'] = self.batch_r_shoulder_origin  # 8
+            batch_keypoints['pelvis']     = self.batch_pelvis_joint  # 0
+            batch_keypoints['r_hip']      = self.batch_r_hip_joint # 1
+            batch_keypoints['l_hip']      = self.batch_l_hip_joint # 2
+            batch_keypoints['torso']      = self.batch_torso_joint # 3
+            batch_keypoints['neck']       = self.batch_neck_joint # 4
+            batch_keypoints['nose']       = self.batch_nose_joint # 5
+            batch_keypoints['head']       = self.batch_head_joint # 6
+            batch_keypoints['l_shoulder'] = self.batch_l_shoulder_joint  # 7
+            batch_keypoints['r_shoulder'] = self.batch_r_shoulder_joint  # 8
         else:
-            batch_keypoints = torch.cat([self.batch_pelvis_origin.unsqueeze(-1),
-                                         self.batch_r_hip_origin.unsqueeze(-1),
-                                         self.batch_l_hip_origin.unsqueeze(-1),
-                                         self.batch_torso_origin.unsqueeze(-1),
-                                         self.batch_neck_origin.unsqueeze(-1),
-                                         self.batch_nose_origin.unsqueeze(-1),
-                                         self.batch_head_origin.unsqueeze(-1),
-                                         self.batch_l_shoulder_origin.unsqueeze(-1),
-                                         self.batch_r_shoulder_origin.unsqueeze(-1)], dim=-1)
+            batch_keypoints = torch.cat([self.batch_pelvis_joint.unsqueeze(-1),
+                                         self.batch_r_hip_joint.unsqueeze(-1),
+                                         self.batch_l_hip_joint.unsqueeze(-1),
+                                         self.batch_torso_joint.unsqueeze(-1),
+                                         self.batch_neck_joint.unsqueeze(-1),
+                                         self.batch_nose_joint.unsqueeze(-1),
+                                         self.batch_head_joint.unsqueeze(-1),
+                                         self.batch_l_shoulder_joint.unsqueeze(-1),
+                                         self.batch_r_shoulder_joint.unsqueeze(-1)], dim=-1).to(self.device)
         return batch_keypoints
     
     def get_batch_pose_3d(self, device=None):
         batch_pose_3d     = torch.zeros((self.batch_size, self.num_frames, 17, 3)).to(self.device)
-        batch_pose_3d[:, :, 0]  = self.batch_pelvis_origin
-        batch_pose_3d[:, :, 1]  = self.batch_r_hip_origin
+        batch_pose_3d[:, :, 0]  = self.batch_pelvis_joint
+        batch_pose_3d[:, :, 1]  = self.batch_r_hip_joint
         batch_pose_3d[:, :, 2]  = self.batch_right_leg.batch_link2_origin 
         batch_pose_3d[:, :, 3]  = self.batch_right_leg.batch_terminal_origin 
-        batch_pose_3d[:, :, 4]  = self.batch_l_hip_origin
+        batch_pose_3d[:, :, 4]  = self.batch_l_hip_joint
         batch_pose_3d[:, :, 5]  = self.batch_left_leg.batch_link2_origin 
         batch_pose_3d[:, :, 6]  = self.batch_left_leg.batch_terminal_origin 
-        batch_pose_3d[:, :, 7]  = self.batch_torso_origin
-        batch_pose_3d[:, :, 8]  = self.batch_neck_origin
-        batch_pose_3d[:, :, 9]  = self.batch_nose_origin # self.batch_head.batch_link2_origin
-        batch_pose_3d[:, :, 10] = self.batch_head_origin # self.batch_head.batch_terminal_origin
-        batch_pose_3d[:, :, 11] = self.batch_l_shoulder_origin
+        batch_pose_3d[:, :, 7]  = self.batch_torso_joint
+        batch_pose_3d[:, :, 8]  = self.batch_neck_joint
+        batch_pose_3d[:, :, 9]  = self.batch_nose_joint # self.batch_head.batch_link2_origin
+        batch_pose_3d[:, :, 10] = self.batch_head_joint # self.batch_head.batch_terminal_origin
+        batch_pose_3d[:, :, 11] = self.batch_l_shoulder_joint
         batch_pose_3d[:, :, 12] = self.batch_left_arm.batch_link2_origin
         batch_pose_3d[:, :, 13] = self.batch_left_arm.batch_terminal_origin
-        batch_pose_3d[:, :, 14] = self.batch_r_shoulder_origin
+        batch_pose_3d[:, :, 14] = self.batch_r_shoulder_joint
         batch_pose_3d[:, :, 15] = self.batch_right_arm.batch_link2_origin
         batch_pose_3d[:, :, 16] = self.batch_right_arm.batch_terminal_origin
         return batch_pose_3d
@@ -1574,17 +1773,26 @@ class BatchDHModel:
         batch_gt = batch_gt.to(self.device)
         return torch.mean(torch.norm(self.get_batch_pose_3d() - batch_gt, dim=-1))
     
-    def draw(self, ax, batch_num, frame_num, draw_frame=False, draw_gt=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False):
+    def draw(self, ax, batch_num, frame_num, draw_frame=False, draw_gt=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False):
         if draw_frame:
-            body_frame = self.get_body_frame(batch_num, frame_num)
-            body_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, show_name=show_name)
-        if self.head:
-            self.batch_head.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name)
-        self.batch_right_arm.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name)
-        self.batch_left_arm.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name)
-        self.batch_right_leg.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name)
-        self.batch_left_leg.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name)
+            #body_frame = self.get_body_frame(batch_num, frame_num)
+            #body_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, show_name=show_name)
+            self.upper_torso_origin = self.batch_upper_torso_origin[batch_num, frame_num].cpu().detach().numpy()
+            self.lower_torso_origin = self.batch_lower_torso_origin[batch_num, frame_num].cpu().detach().numpy()
+            self.upper_torso_frame_R = self.batch_upper_torso_frame_R[batch_num, frame_num].cpu().detach().numpy().T
+            self.lower_torso_frame_R = self.batch_lower_torso_frame_R[batch_num, frame_num].cpu().detach().numpy().T
+            self.upper_torso_frame = generate_vis_frame(self.upper_torso_origin, self.upper_torso_frame_R)
+            self.lower_torso_frame = generate_vis_frame(self.lower_torso_origin, self.lower_torso_frame_R)
+            self.upper_torso_frame.draw3d(scale=scale*1.5, head_length=0.1, color="tab:orange")
+            self.lower_torso_frame.draw3d(scale=scale*1.5, head_length=0.1, color="tab:blue")
+            self.batch_head.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
+
+        self.batch_right_arm.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
+        self.batch_left_arm.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
+        self.batch_right_leg.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
+        self.batch_left_leg.draw(ax, batch_num, frame_num, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
         if draw_gt:
             batch_gt = self.get_batch_pose_3d().cpu().detach().numpy()
             pose = batch_gt[batch_num, frame_num]
             draw_3d_pose(ax, pose)
+

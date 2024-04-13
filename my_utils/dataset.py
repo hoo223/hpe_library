@@ -11,6 +11,10 @@ def load_h36m():
     # camera parameters
     cam_param = readJSON('/home/hrai/codes/hpe_library/data/h36m_camera-parameters.json')
     print('==> Loading 3D data wrt World CS...')
+    try:
+        del h36m_3d_world
+    except:
+        pass
     h36m_3d_world = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)
 
     return h36m_3d_world, cam_param

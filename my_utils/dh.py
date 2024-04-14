@@ -665,11 +665,11 @@ class DHModel:
         
     def set_appendage_from_angles(self, angles):
         if self.head_is_dh:
-            self.head.update_link(angles['h_l1_yaw'], angles['h_l1_pitch'])
-        self.right_arm.update_link(angles['ra_l1_yaw'], angles['ra_l1_pitch'], angles['ra_l2_yaw'], angles['ra_l2_pitch'])
-        self.left_arm.update_link(angles['la_l1_yaw'], angles['la_l1_pitch'], angles['la_l2_yaw'], angles['la_l2_pitch'])
-        self.right_leg.update_link(angles['rl_l1_yaw'], angles['rl_l1_pitch'], angles['rl_l2_yaw'], angles['rl_l2_pitch'])
-        self.left_leg.update_link(angles['ll_l1_yaw'], angles['ll_l1_pitch'], angles['ll_l2_yaw'], angles['ll_l2_pitch'])
+            self.head.update_link(angles['h_l1_azim'], angles['h_l1_elev'])
+        self.right_arm.update_link(angles['ra_l1_azim'], angles['ra_l1_elev'], angles['ra_l2_yaw'], angles['ra_l2_pitch'])
+        self.left_arm.update_link(angles['la_l1_azim'], angles['la_l1_elev'], angles['la_l2_yaw'], angles['la_l2_pitch'])
+        self.right_leg.update_link(angles['rl_l1_azim'], angles['rl_l1_elev'], angles['rl_l2_yaw'], angles['rl_l2_pitch'])
+        self.left_leg.update_link(angles['ll_l1_azim'], angles['ll_l1_elev'], angles['ll_l2_yaw'], angles['ll_l2_pitch'])
         
     def set_dh_model_from_pose(self, pose):
         # update keypoints
@@ -774,18 +774,18 @@ class DHModel:
             dh_angles = {}
             if self.head_is_dh: # add head angles
                 # head
-                dh_angles['h_l1_yaw'],  dh_angles['h_l1_pitch']  = self.head.link1_azim,  self.head.link1_elev
+                dh_angles['h_l1_azim'],  dh_angles['h_l1_elev']  = self.head.link1_azim,  self.head.link1_elev
             # right arm
-            dh_angles['ra_l1_yaw'], dh_angles['ra_l1_pitch'] = self.right_arm.link1_azim, self.right_arm.link1_elev
+            dh_angles['ra_l1_azim'], dh_angles['ra_l1_elev'] = self.right_arm.link1_azim, self.right_arm.link1_elev
             dh_angles['ra_l2_yaw'], dh_angles['ra_l2_pitch'] = self.right_arm.link2_azim, self.right_arm.link2_elev
             # left arm
-            dh_angles['la_l1_yaw'], dh_angles['la_l1_pitch'] = self.left_arm.link1_azim, self.left_arm.link1_elev
+            dh_angles['la_l1_azim'], dh_angles['la_l1_elev'] = self.left_arm.link1_azim, self.left_arm.link1_elev
             dh_angles['la_l2_yaw'], dh_angles['la_l2_pitch'] = self.left_arm.link2_azim, self.left_arm.link2_elev
             # right leg
-            dh_angles['rl_l1_yaw'], dh_angles['rl_l1_pitch'] = self.right_leg.link1_azim, self.right_leg.link1_elev
+            dh_angles['rl_l1_azim'], dh_angles['rl_l1_elev'] = self.right_leg.link1_azim, self.right_leg.link1_elev
             dh_angles['rl_l2_yaw'], dh_angles['rl_l2_pitch'] = self.right_leg.link2_azim, self.right_leg.link2_elev
             # left leg
-            dh_angles['ll_l1_yaw'], dh_angles['ll_l1_pitch'] = self.left_leg.link1_azim, self.left_leg.link1_elev
+            dh_angles['ll_l1_azim'], dh_angles['ll_l1_elev'] = self.left_leg.link1_azim, self.left_leg.link1_elev
             dh_angles['ll_l2_yaw'], dh_angles['ll_l2_pitch'] = self.left_leg.link2_azim, self.left_leg.link2_elev
             if degree:
                 for key in dh_angles.keys():
@@ -1572,15 +1572,15 @@ class BatchDHModel:
         # batch_angles: [B, F, 16] or [B, F, 20] (with head)
         if by_dict:
             if self.head_is_dh:
-                self.batch_lower_head_yaw, self.batch_lower_head_pitch = batch_angles['h_l1_yaw'], batch_angles['h_l1_pitch']
+                self.batch_lower_head_yaw, self.batch_lower_head_pitch = batch_angles['h_l1_azim'], batch_angles['h_l1_elev']
                 self.batch_upper_head_yaw, self.batch_upper_head_pitch = batch_angles['h_l2_yaw'], batch_angles['h_l2_pitch']
-            self.batch_right_upper_arm_yaw, self.batch_right_upper_arm_pitch = batch_angles['ra_l1_yaw'], batch_angles['ra_l1_pitch']
+            self.batch_right_upper_arm_yaw, self.batch_right_upper_arm_pitch = batch_angles['ra_l1_azim'], batch_angles['ra_l1_elev']
             self.batch_right_lower_arm_yaw, self.batch_right_lower_arm_pitch = batch_angles['ra_l2_yaw'], batch_angles['ra_l2_pitch']
-            self.batch_left_upper_arm_yaw,  self.batch_left_upper_arm_pitch  = batch_angles['la_l1_yaw'], batch_angles['la_l1_pitch']
+            self.batch_left_upper_arm_yaw,  self.batch_left_upper_arm_pitch  = batch_angles['la_l1_azim'], batch_angles['la_l1_elev']
             self.batch_left_lower_arm_yaw,  self.batch_left_lower_arm_pitch  = batch_angles['la_l2_yaw'], batch_angles['la_l2_pitch']
-            self.batch_right_upper_leg_yaw, self.batch_right_upper_leg_pitch = batch_angles['rl_l1_yaw'], batch_angles['rl_l1_pitch']
+            self.batch_right_upper_leg_yaw, self.batch_right_upper_leg_pitch = batch_angles['rl_l1_azim'], batch_angles['rl_l1_elev']
             self.batch_right_lower_leg_yaw, self.batch_right_lower_leg_pitc  = batch_angles['rl_l2_yaw'], batch_angles['rl_l2_pitch']
-            self.batch_left_upper_leg_yaw,  self.batch_left_upper_leg_pitch  = batch_angles['ll_l1_yaw'], batch_angles['ll_l1_pitch']
+            self.batch_left_upper_leg_yaw,  self.batch_left_upper_leg_pitch  = batch_angles['ll_l1_azim'], batch_angles['ll_l1_elev']
             self.batch_left_lower_leg_yaw,  self.batch_left_lower_leg_pitch  = batch_angles['ll_l2_yaw'], batch_angles['ll_l2_pitch']
         else:
             offset = 0
@@ -1693,18 +1693,18 @@ class BatchDHModel:
             batch_dh_angles = {}
             if self.head_is_dh:
                 # head
-                batch_dh_angles['h_l1_yaw'],  batch_dh_angles['h_l1_pitch']  = self.batch_head.batch_link1_azim,  self.batch_head.batch_link1_elev
+                batch_dh_angles['h_l1_azim'],  batch_dh_angles['h_l1_elev']  = self.batch_head.batch_link1_azim,  self.batch_head.batch_link1_elev
             # right arm
-            batch_dh_angles['ra_l1_yaw'], batch_dh_angles['ra_l1_pitch'] = self.batch_right_arm.batch_link1_azim, self.batch_right_arm.batch_link1_elev
+            batch_dh_angles['ra_l1_azim'], batch_dh_angles['ra_l1_elev'] = self.batch_right_arm.batch_link1_azim, self.batch_right_arm.batch_link1_elev
             batch_dh_angles['ra_l2_yaw'], batch_dh_angles['ra_l2_pitch'] = self.batch_right_arm.batch_link2_azim, self.batch_right_arm.batch_link2_elev
             # left arm
-            batch_dh_angles['la_l1_yaw'], batch_dh_angles['la_l1_pitch'] = self.batch_left_arm.batch_link1_azim, self.batch_left_arm.batch_link1_elev
+            batch_dh_angles['la_l1_azim'], batch_dh_angles['la_l1_elev'] = self.batch_left_arm.batch_link1_azim, self.batch_left_arm.batch_link1_elev
             batch_dh_angles['la_l2_yaw'], batch_dh_angles['la_l2_pitch'] = self.batch_left_arm.batch_link2_azim, self.batch_left_arm.batch_link2_elev
             # right leg
-            batch_dh_angles['rl_l1_yaw'], batch_dh_angles['rl_l1_pitch'] = self.batch_right_leg.batch_link1_azim, self.batch_right_leg.batch_link1_elev
+            batch_dh_angles['rl_l1_azim'], batch_dh_angles['rl_l1_elev'] = self.batch_right_leg.batch_link1_azim, self.batch_right_leg.batch_link1_elev
             batch_dh_angles['rl_l2_yaw'], batch_dh_angles['rl_l2_pitch'] = self.batch_right_leg.batch_link2_azim, self.batch_right_leg.batch_link2_elev
             # left leg
-            batch_dh_angles['ll_l1_yaw'], batch_dh_angles['ll_l1_pitch'] = self.batch_left_leg.batch_link1_azim, self.batch_left_leg.batch_link1_elev
+            batch_dh_angles['ll_l1_azim'], batch_dh_angles['ll_l1_elev'] = self.batch_left_leg.batch_link1_azim, self.batch_left_leg.batch_link1_elev
             batch_dh_angles['ll_l2_yaw'], batch_dh_angles['ll_l2_pitch'] = self.batch_left_leg.batch_link2_azim, self.batch_left_leg.batch_link2_elev
             if degree:
                 for key in batch_dh_angles.keys():

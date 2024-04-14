@@ -451,7 +451,9 @@ def batch_azim_elev_to_vec(batch_azim, batch_elev, batch_magnitude, batch_origin
     return batch_cam_origin
     
 class Appendage:
-    def __init__(self, link1_length, link2_length, link1_azim_init, link1_elev_init, link2_azim_init, link2_elev_init, degree=True, root_tf=np.eye(4)):
+    def __init__(self, link1_length, link2_length, link1_azim_init, link1_elev_init, link2_azim_init, link2_elev_init, degree=True, root_tf=np.eye(4), use_global_frame=False):
+        self.use_global_frame = use_global_frame
+        if use_global_frame: self.global_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 1, 0])).as_matrix() # np.eye(3)
         # length
         self.link1_length = link1_length
         self.link2_length = link2_length
@@ -460,6 +462,10 @@ class Appendage:
         self.link1_elev = link1_elev_init
         self.link2_azim = link2_azim_init
         self.link2_elev = link2_elev_init
+        # self.link1_azim_prev = link1_azim_init
+        # self.link1_elev_prev = link1_elev_init
+        # self.link2_azim_prev = link2_azim_init
+        # self.link2_elev_prev = link2_elev_init
         # root frame
         self.root_tf = root_tf
         self.root_origin = self.root_tf[:3, 3]
@@ -489,42 +495,50 @@ class Appendage:
         return child_tf, dh_matrix
 
     
-    def update_link(self, link1_azim=None, link1_elev=None, link2_azim=None, link2_elev=None, degree=False):
-
+    def update_link(self, link1_azim=None, link1_elev=None, link2_azim=None, link2_elev=None, degree=False, mode='all'):
         # update angles
-        if link1_azim != None: self.link1_azim = link1_azim
-        if link1_elev != None: self.link1_elev = link1_elev
-        if link2_azim != None: self.link2_azim = link2_azim
-        if link2_elev != None: self.link2_elev = link2_elev
-            
-        # link1
-        self.link1_tf, self.link1_dh_mat = self.build_dh_frame(self.link1_azim, self.link1_elev, self.link1_length, self.root_tf, degree=degree, name='link1')
-        
-        # link2
-        self.link2_tf, self.link2_dh_mat = self.build_dh_frame(self.link2_azim, self.link2_elev, self.link2_length, self.link1_tf, degree=degree, name='link2')
-        
-        # terminal
-        #self.terminal_tf, self.terminal_frame, self.terminal_dh_mat = self.build_dh_frame(0, 0, 0, self.link2_tf, degree=degree, name='terminal')
+        # self.link1_azim_prev = self.link1_azim
+        # self.link1_elev_prev = self.link1_elev
+        # self.link2_azim_prev = self.link2_azim
+        # self.link2_elev_prev = self.link2_elev
+        if mode == 'all' or mode == 'link1':
+            if link1_azim != None: self.link1_azim = link1_azim
+            if link1_elev != None: self.link1_elev = link1_elev
+        if mode == 'all' or mode == 'link2':
+            if link2_azim != None: self.link2_azim = link2_azim
+            if link2_elev != None: self.link2_elev = link2_elev
+        # build dh frames
+        if mode == 'all' or mode == 'link1':
+            self.link1_tf, self.link1_dh_mat = self.build_dh_frame(self.link1_azim, self.link1_elev, self.link1_length, self.root_tf, degree=degree, name='link1') # link1
+        if mode == 'all' or mode == 'link2':
+            if self.use_global_frame: self.link1_tf[:3, :3] = self.global_R.copy()
+            self.link2_tf, self.link2_dh_mat = self.build_dh_frame(self.link2_azim, self.link2_elev, self.link2_length, self.link1_tf, degree=degree, name='link2') # link2
+        # self.terminal_tf, self.terminal_frame, self.terminal_dh_mat = self.build_dh_frame(0, 0, 0, self.link2_tf, degree=degree, name='terminal') # terminal
+        # get origin, rotation matrix
+        if mode == 'all' or mode == 'link1':
+            self.link1_origin = self.root_tf[:3, 3]
+            self.link1_R = self.link1_tf[:3, :3]
+        if mode == 'all' or mode == 'link2':
+            self.link2_origin = self.link1_tf[:3, 3]
+            self.link2_R = self.link2_tf[:3, :3]
+        if mode == 'all':
+            self.terminal_origin = self.link2_tf[:3, 3]
+        # get link vectors
+        if mode == 'all' or mode == 'link1':
+            self.link1_vec = self.link2_origin - self.link1_origin
+        if mode == 'all' or mode == 'link2':
+            self.link2_vec = self.terminal_origin - self.link2_origin
+        # update vis frame
+        self.update_frame(mode)
 
-        self.link1_origin = self.root_tf[:3, 3]
-        self.link1_R = self.link1_tf[:3, :3]
-        self.link2_origin = self.link1_tf[:3, 3]
-        self.link2_R = self.link2_tf[:3, :3]
-        self.terminal_origin = self.link2_tf[:3, 3]
-
-        # vector
-        self.link1_vec = self.link2_origin - self.link1_origin
-        self.link2_vec = self.terminal_origin - self.link2_origin
-
-        # update frame
-        self.update_frame()
-
-    def update_frame(self):
-        self.link1_frame = generate_vis_frame(self.link1_origin, self.link1_R, name='link1')
-        self.link2_frame = generate_vis_frame(self.link2_origin, self.link2_R, name='link2')
-        self.link1_baseframe = copy.deepcopy(self.root_frame)
-        self.link2_baseframe = copy.deepcopy(self.link1_frame)
-        self.link2_baseframe.origin = self.link2_origin
+    def update_frame(self, mode='all'):
+        if mode == 'all' or mode == 'link1':
+            self.link1_frame = generate_vis_frame(self.link1_origin, self.link1_R, name='link1')
+            self.link1_baseframe = copy.deepcopy(self.root_frame)
+        if mode == 'all' or mode == 'link2':
+            self.link2_frame = generate_vis_frame(self.link2_origin, self.link2_R, name='link2')
+            self.link2_baseframe = copy.deepcopy(self.link1_frame)
+            self.link2_baseframe.origin = self.link2_origin
     
     def draw(self, ax, draw_frame=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False):
         #plt.sca(ax)
@@ -541,10 +555,12 @@ class Appendage:
             
 
 class DHModel:
-    def __init__(self, init_pose_3d, head_is_dh=False, forward_dir='x') -> None:
+    def __init__(self, init_pose_3d, head_is_dh=False, forward_dir='x', use_global_frame=False) -> None:
         # rotation matrices
         #self.left_init_R = Rotation.from_rotvec(-np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
         #self.right_init_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
+        self.use_global_frame = use_global_frame
+        if use_global_frame: self.global_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 1, 0])).as_matrix() # np.eye(3)
         self.forward_dir = forward_dir
         self.head_is_dh = head_is_dh
         
@@ -555,18 +571,10 @@ class DHModel:
         self.right_leg_id = 3
         self.left_leg_id = 4
         
-        # set keypoints
-        self.set_keypoints_from_pose(init_pose_3d)
-        # set torso frame
-        self.set_torso_frame_from_pose(init_pose_3d)
-        # extract vectors wrt world frame
-        self.set_limb_vectors()
-        # set lengths
-        self.set_limb_length() # only for init_pose_3d
-        # set dh model
-        self.set_dh_model_from_pose(init_pose_3d)
+        # init dh model
+        self.init_dh_model_from_pose(init_pose_3d)
         
-    def set_keypoints_from_pose(self, pose):
+    def get_keypoints_from_pose(self, pose):
         # get head points
         self.head_origin = pose[10]
         self.nose_origin = pose[9]
@@ -590,7 +598,7 @@ class DHModel:
         self.r_knee_origin  = pose[2]
         self.r_ankle_origin = pose[3]
     
-    def set_torso_frame_from_pose(self, ref_pose):
+    def get_torso_frame_from_pose(self, ref_pose):
         # lower frame
         self.lower_torso_frame_origin, self.lower_torso_frame_R = get_lower_torso_frame_from_pose(ref_pose, self.forward_dir)
         self.lower_torso_frame = generate_vis_frame(self.lower_torso_frame_origin, self.lower_torso_frame_R, name='lower')
@@ -599,7 +607,7 @@ class DHModel:
         self.upper_torso_frame_origin, self.upper_torso_frame_R = get_upper_torso_frame_from_pose(ref_pose, self.forward_dir)
         self.upper_torso_frame = generate_vis_frame(self.upper_torso_frame_origin, self.upper_torso_frame_R, name='upper')
         
-    def set_limb_vectors(self):
+    def get_limb_vectors_from_keypoints(self):
         self.neck_to_nose_vector    = self.nose_origin    - self.neck_origin
         self.nose_to_head_vector    = self.head_origin    - self.nose_origin
         self.left_upper_arm_vector  = self.l_elbow_origin - self.l_shoulder_origin
@@ -611,7 +619,7 @@ class DHModel:
         self.right_upper_leg_vector = self.r_knee_origin  - self.r_hip_origin
         self.right_lower_leg_vector = self.r_ankle_origin - self.r_knee_origin
         
-    def set_limb_length(self):
+    def get_limb_length_from_limb_vector(self):
         self.neck_to_nose_length    = np.linalg.norm(self.neck_to_nose_vector)
         self.nose_to_head_length    = np.linalg.norm(self.nose_to_head_vector)
         self.left_upper_arm_length  = np.linalg.norm(self.left_upper_arm_vector ) # limb_lens[11]
@@ -648,20 +656,24 @@ class DHModel:
             limb_length['ll_l1_length']    = self.left_upper_leg_length
             limb_length['ll_l2_length']    = self.left_lower_leg_length
         else:
-            if self.head_is_dh:
-                limb_length = self.limb_length
-            else:
-                limb_length = self.limb_length[2:]
+            if self.head_is_dh: limb_length = self.limb_length
+            else: limb_length = self.limb_length[2:]
         return limb_length
         
-    def set_torso(self, torso):
-        self.pelvis_origin      = torso[0]
-        self.r_hip_origin      = torso[1]
-        self.l_hip_origin      = torso[2]
-        self.torso_origin      = torso[3]
-        self.neck_origin       = torso[4]
-        self.l_shoulder_origin = torso[5]
-        self.r_shoulder_origin = torso[6]
+    def set_torso(self, torso, head_in_torso=True):
+        self.pelvis_origin         = torso[0]
+        self.r_hip_origin          = torso[1]
+        self.l_hip_origin          = torso[2]
+        self.torso_origin          = torso[3]
+        self.neck_origin           = torso[4]
+        if head_in_torso:
+            self.nose_origin       = torso[5]
+            self.head_origin       = torso[6]
+            self.l_shoulder_origin = torso[7]
+            self.r_shoulder_origin = torso[8]
+        else:
+            self.l_shoulder_origin = torso[5]
+            self.r_shoulder_origin = torso[6]
         
     def set_appendage_from_angles(self, angles):
         if self.head_is_dh:
@@ -670,28 +682,68 @@ class DHModel:
         self.left_arm.update_link(angles['la_l1_azim'], angles['la_l1_elev'], angles['la_l2_yaw'], angles['la_l2_pitch'])
         self.right_leg.update_link(angles['rl_l1_azim'], angles['rl_l1_elev'], angles['rl_l2_yaw'], angles['rl_l2_pitch'])
         self.left_leg.update_link(angles['ll_l1_azim'], angles['ll_l1_elev'], angles['ll_l2_yaw'], angles['ll_l2_pitch'])
-        
-    def set_dh_model_from_pose(self, pose):
-        # update keypoints
-        self.set_keypoints_from_pose(pose)        
-        # set body reference frame
-        self.set_body_reference_frame()
-        # set torso frame
-        self.set_torso_frame_from_pose(pose)
-        # extract vectors wrt world frame
-        self.set_limb_vectors()
-        ## generate appendages ---------------------------------------------------------------------
-        self.head      = self.generate_appendage(self.head_id,      self.neck_origin,       self.neck_to_nose_length,    self.nose_to_head_length)
+
+    def generate_all_appendage(self):
+        # assert self.neck_origin
+        # assert self.neck_to_nose_length
+        # assert self.nose_to_head_length
+        # assert self.r_shoulder_origin
+        # assert self.right_upper_arm_length
+        # assert self.right_lower_arm_length
+        # assert self.l_shoulder_origin
+        # assert self.left_upper_arm_length
+        # assert self.left_lower_arm_length
+        # assert self.l_hip_origin
+        # assert self.left_upper_leg_length
+        # assert self.left_lower_leg_length
+        # assert self.r_hip_origin
+        # assert self.right_upper_leg_length
+        # assert self.right_lower_leg_length
+        if self.head_is_dh:
+            self.head      = self.generate_appendage(self.head_id,      self.neck_origin,       self.neck_to_nose_length,    self.nose_to_head_length)
         self.right_arm = self.generate_appendage(self.right_arm_id, self.r_shoulder_origin, self.right_upper_arm_length, self.right_lower_arm_length)
         self.left_arm  = self.generate_appendage(self.left_arm_id,  self.l_shoulder_origin, self.left_upper_arm_length,  self.left_lower_arm_length)
         self.left_leg  = self.generate_appendage(self.left_leg_id,  self.l_hip_origin,      self.left_upper_leg_length,  self.left_lower_leg_length)
         self.right_leg = self.generate_appendage(self.right_leg_id, self.r_hip_origin,      self.right_upper_leg_length, self.right_lower_leg_length)
-        # extract angles and update appendages
-        self.extract_and_update_appendage_angles(self.head,      self.neck_to_nose_vector,    self.nose_to_head_vector)
-        self.extract_and_update_appendage_angles(self.right_arm, self.right_upper_arm_vector, self.right_lower_arm_vector)
-        self.extract_and_update_appendage_angles(self.left_arm,  self.left_upper_arm_vector,  self.left_lower_arm_vector)
-        self.extract_and_update_appendage_angles(self.right_leg, self.right_upper_leg_vector, self.right_lower_leg_vector)
-        self.extract_and_update_appendage_angles(self.left_leg,  self.left_upper_leg_vector,  self.left_lower_leg_vector)
+        
+    def init_dh_model_from_pose(self, pose):
+        # update keypoints
+        self.get_keypoints_from_pose(pose)        
+        # set body reference frame
+        #self.set_body_reference_frame()
+        # set torso frame
+        self.get_torso_frame_from_pose(pose)
+        # extract vectors wrt world frame
+        self.get_limb_vectors_from_keypoints()
+        # generate all appendages 
+        self.generate_all_appendage()
+        # update dh model from pose
+        self.update_dh_model_from_vector(pose)
+
+    def update_dh_model_from_vector(self):
+        # update appendages angles from vectors
+        if self.head_is_dh: self.update_appendage_angles_from_vectors(
+            appendage=self.head,      link1_vector=self.neck_to_nose_vector,    link2_vector=self.nose_to_head_vector)
+        self.update_appendage_angles_from_vectors(
+            appendage=self.right_arm, link1_vector=self.right_upper_arm_vector, link2_vector=self.right_lower_arm_vector)
+        self.update_appendage_angles_from_vectors(
+            appendage=self.left_arm,  link1_vector=self.left_upper_arm_vector,  link2_vector=self.left_lower_arm_vector)
+        self.update_appendage_angles_from_vectors(
+            appendage=self.right_leg, link1_vector=self.right_upper_leg_vector, link2_vector=self.right_lower_leg_vector)
+        self.update_appendage_angles_from_vectors(
+            appendage=self.left_leg,  link1_vector=self.left_upper_leg_vector,  link2_vector=self.left_lower_leg_vector)
+        
+    def update_dh_model_from_pose(self, pose):
+        # update keypoints
+        self.get_keypoints_from_pose(pose)        
+        # set body reference frame
+        #self.set_body_reference_frame()
+        # set torso frame
+        self.get_torso_frame_from_pose(pose)
+        # extract vectors wrt world frame
+        self.get_limb_vectors_from_keypoints()
+        # update dh model from pose
+        self.update_dh_model_from_vector(pose)
         
     def set_body_reference_frame(self):
         self.z_axis = np.array([0, 0, 1])
@@ -715,35 +767,46 @@ class DHModel:
         #     R = self.right_init_R @ self.body_R
         # elif appendage_id in [self.left_arm_id, self.left_leg_id]:
         #     R = self.left_init_R @ self.body_R
-        if appendage_id in [self.head_id, self.right_arm_id, self.left_arm_id]:
-            R = self.upper_torso_frame_R
-        elif appendage_id in [self.right_leg_id, self.left_leg_id]:
-            R = self.lower_torso_frame_R
+        if self.use_global_frame: # use global frame as root frame for appendages
+            R = self.global_R
+        else: # use torso upper/lower frame as root frame for appendages
+            if appendage_id in [self.head_id, self.right_arm_id, self.left_arm_id]:
+                R = self.upper_torso_frame_R
+            elif appendage_id in [self.right_leg_id, self.left_leg_id]:
+                R = self.lower_torso_frame_R
             
         root_tf = np.eye(4)
         root_tf[:3, :3] = R
-        root_tf[:3, 3] = root_origin
-        return Appendage(link1_length, link2_length, 0, 0, 0, 0, degree=True, root_tf=root_tf)
+        root_tf[:3, 3] = root_origin.copy()
+        return Appendage(link1_length, link2_length, 
+                         link1_azim_init=0, link1_elev_init=0, link2_azim_init=0, link2_elev_init=0, 
+                         degree=False, root_tf=root_tf, use_global_frame=self.use_global_frame)
     
-    def extract_and_update_appendage_angles(self, appendage, link1_vector, link2_vector):
+    def update_appendage_angles_from_vectors(self, appendage, link1_vector, link2_vector):
         # extract angles from predefined vectors (inverse kinematics), and then update appendage angles (forward kinematics)
         # link1
-        link1_azim, link1_elev = self.get_dh_angle_from_pose_vector(link1_vector, appendage, mode='link1')
-        appendage.update_link(link1_azim, link1_elev, 0, 0)
+        link1_azim, link1_elev = self.get_dh_angles_from_vector(link1_vector, appendage, mode='link1')
+        appendage.update_link(link1_azim=link1_azim, link1_elev=link1_elev, mode='link1') # update link1 frame
         # link2
-        link2_azim, link2_elev = self.get_dh_angle_from_pose_vector(link2_vector, appendage, mode='link2')
-        appendage.update_link(link1_azim, link1_elev, link2_azim, link2_elev)
+        link2_azim, link2_elev = self.get_dh_angles_from_vector(link2_vector, appendage, mode='link2')
+        appendage.update_link(link1_azim, link1_elev, link2_azim, link2_elev, mode='all')
     
-    # def get_dh_angle_from_pose_vector(self, vec, root_tf):
+    # def get_dh_angles_from_vector(self, vec, root_tf):
     #     return self.calculate_azimuth_elevation(vec, root_tf[:3, :3]) # yaw, pitch
 
-    def get_dh_angle_from_pose_vector(self, vec, appendage, mode):
+    def get_dh_angles_from_vector(self, vec, appendage, mode):
         if mode == 'link1':
-            return get_optimal_azimuth_elevation(vec, appendage.root_R, appendage.link1_azim, appendage.link1_elev)
+            prev_azim = appendage.link1_azim
+            prev_elev = appendage.link1_elev
+            root_R = appendage.root_R.copy()
         elif mode == 'link2':
-            return get_optimal_azimuth_elevation(vec, appendage.link1_R, appendage.link2_azim, appendage.link2_elev)
+            prev_azim = appendage.link2_azim
+            prev_elev = appendage.link2_elev
+            root_R = appendage.link1_R.copy()
         else:
             raise NotImplementedError("mode should be either 'link1' or 'link2'")
+        if self.use_global_frame: root_R = self.global_R.copy()
+        return get_optimal_azimuth_elevation(vec, root_R, prev_azim, prev_elev) # return optimal azim, elev that minimizes the distance between the previous angles
     
     #def calculate_azimuth_elevation(self, vector, root_R, degrees=False, multi_sol=False):
     #    return calculate_azimuth_elevation(vector, root_R, degrees, multi_sol)
@@ -759,8 +822,12 @@ class DHModel:
         pose_3d[6]  = self.left_leg.terminal_origin # self.l_ankle_origin
         pose_3d[7]  = self.torso_origin
         pose_3d[8]  = self.neck_origin
-        pose_3d[9]  = self.head.link2_origin # self.nose_origin
-        pose_3d[10] = self.head.terminal_origin # self.head_origin
+        if self.head_is_dh:
+            pose_3d[9]  = self.head.link2_origin # self.nose_origin
+            pose_3d[10] = self.head.terminal_origin # self.head_origin
+        else:
+            pose_3d[9]  = self.nose_origin
+            pose_3d[10] = self.head_origin
         pose_3d[11] = self.l_shoulder_origin
         pose_3d[12] = self.left_arm.link2_origin # self.l_elbow_origin
         pose_3d[13] = self.left_arm.terminal_origin # self.l_wrist_origin
@@ -792,8 +859,9 @@ class DHModel:
                     dh_angles[key] = math.degrees(dh_angles[key])
         else:
             dh_angles = np.zeros(18)
-            # head
-            dh_angles[0:2] = np.array([self.head.link1_azim, self.head.link1_elev])
+            # 
+            if self.head_is_dh: # add head angles
+                dh_angles[0:2] = np.array([self.head.link1_azim, self.head.link1_elev])
             # right arm
             dh_angles[2:6] = np.array([self.right_arm.link1_azim, self.right_arm.link1_elev, self.right_arm.link2_azim, self.right_arm.link2_elev])
             # left arm
@@ -864,7 +932,7 @@ class DHModel:
     
     def draw(self, ax, draw_frame=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False):
         #self.body_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, show_name=show_name, show_axis=show_axis)
-        self.head.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
+        if self.head_is_dh: self.head.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
         self.right_arm.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
         self.left_arm.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
         self.right_leg.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)

@@ -3,6 +3,21 @@ from my_utils import *
 from .test_utils import get_h36m_keypoint_index, get_h36m_keypoints, get_batch_h36m_keypoints
 #from .visualization import draw_3d_pose
 
+def rotation_distance(rot1, rot2, quat=False):
+    if quat:
+        # 두 쿼터니언을 Rotation 객체로 변환
+        rot1 = Rotation.from_quat(rot1)
+        rot2 = Rotation.from_quat(rot2)
+    else:
+        rot1 = Rotation.from_matrix(rot1)
+        rot2 = Rotation.from_matrix(rot2)
+    # 두 Rotation 간의 상대적 Rotation을 계산
+    relative_rotation = rot1.inv() * rot2
+    # 상대적 Rotation의 로드리게스 매개변수를 사용하여 각도 차이를 계산
+    angle = np.linalg.norm(relative_rotation.as_rotvec())
+    return angle
+
+
 def generate_world_frame():
     world_origin = np.zeros(3)
     #print(world_origin.shape)
@@ -316,6 +331,25 @@ def DH_matrix(theta, alpha, d):
     ]
     return np.array(dh_matrix)
 
+def rotation_matrix_from_angle(azim, elev, degrees=False):
+    if degrees:
+        azim = radians(azim)
+        elev = radians(elev)
+    R = [
+        [cos(azim)*cos(elev), -sin(azim), -cos(azim)*sin(elev)],
+        [sin(azim)*cos(elev), cos(azim), -sin(azim)*sin(elev)],
+        [sin(elev), 0, cos(elev)]
+    ]
+    return np.array(R)
+
+def build_dh_frame(azim, elev, l, parent_tf, degrees=False): # yaw = theta, pitch = alpha
+    if degrees:
+        azim = radians(azim)
+        elev = radians(elev)
+    dh_matrix = DH_matrix(theta=azim, alpha=elev, d=l)
+    child_tf = parent_tf @ dh_matrix
+    return child_tf, dh_matrix
+
 def dist_between_points(p1, p2):
     return np.linalg.norm(np.array(p1) - np.array(p2))
 
@@ -358,20 +392,26 @@ def generate_two_link(link1_azim, link1_elev, link2_azim, link2_elev, l1, l2, ro
 
 def calculate_azimuth_elevation(vector, root_R=np.eye(3), degrees=False, multi_sol=False):
     # x, y, z should be expressed wrt local frame. If the vector is already expressed wrt local frame, root_R should be an identity matrix
-    x, y, z = root_R.T @ vector # express vector wrt rotated frame
+    x, y, z = root_R.T @ vector # express vector wrt local frame
     azim1 = math.atan2(y, x)
     elev1 = math.atan2(z, math.sqrt(x**2 + y**2))
+    #elev1 = math.atan2(z, y)
 
-    if y >= 0: 
-        azim2 = azim1 - math.pi
-        if z >= 0: elev2 = math.pi - elev1
-        else: elev2 = -(math.pi + elev1)
-    else:
-        azim2 = azim1 + math.pi
-        if z >= 0: elev2 = math.pi - elev1
-        else: elev2 = -(math.pi + elev1)
+    # if y >= 0: 
+    #     azim2 = azim1 - math.pi
+    #     if z >= 0: elev2 = math.pi - elev1
+    #     else: elev2 = -(math.pi + elev1)
+    # else:
+    #     azim2 = azim1 + math.pi
+    #     if z >= 0: elev2 = math.pi - elev1
+    #     else: elev2 = -(math.pi + elev1)
 
-    if degrees: # Converting to degrees for readability
+    if y >= 0: azim2 = azim1 - math.pi
+    else: azim2 = azim1 + math.pi
+    if z >= 0: elev2 = math.pi - elev1
+    else: elev2 = -(math.pi + elev1)
+
+    if degrees: # radian to degree
         azim1, elev1, azim2, elev2 = math.degrees(azim1), math.degrees(elev1), math.degrees(azim2), math.degrees(elev2) 
     
     if multi_sol: # return both solutions
@@ -379,12 +419,29 @@ def calculate_azimuth_elevation(vector, root_R=np.eye(3), degrees=False, multi_s
     else:
         return azim1, elev1
     
+def distance_between_azim_elev(azim1, elev1, azim2, elev2, degrees=False):
+    if degrees:
+        azim1 = radians(azim1)
+        elev1 = radians(elev1)
+        azim2 = radians(azim2)
+        elev2 = radians(elev2)
+    R1 = rotation_matrix_from_angle(azim1, elev1, degrees=degrees)
+    R2 = rotation_matrix_from_angle(azim2, elev2, degrees=degrees)
+    return rotation_distance(R1, R2)
+    
 def get_optimal_azimuth_elevation(vector, root_R=np.eye(3), prev_azim=0, prev_elev=0, degrees=False):
-    azim1, elev1, azim2, elev2 = calculate_azimuth_elevation(vector, root_R, degrees, multi_sol=True)
-    d1 = dist_between_points([azim1, elev1], [prev_azim, prev_elev])
-    d2 = dist_between_points([azim2, elev2], [prev_azim, prev_elev])
-    if d1 > d2: return azim2, elev2
-    else: return azim1, elev1
+    azim1, elev1, azim2, elev2 = calculate_azimuth_elevation(vector, root_R, degrees=degrees, multi_sol=True)
+    d1 = distance_between_azim_elev(azim1, elev1, prev_azim, prev_elev, degrees=degrees)
+    d2 = distance_between_azim_elev(azim2, elev2, prev_azim, prev_elev, degrees=degrees)
+    #d1 = dist_between_points([azim1, elev1], [prev_azim, prev_elev])
+    #d2 = dist_between_points([azim2, elev2], [prev_azim, prev_elev])
+    print(f"d1 {d1}, d2 {d2} azim1 {math.degrees(azim1):.2f}, elev1 {math.degrees(elev1):.2f}, azim2 {math.degrees(azim2):.2f}, elev2 {math.degrees(elev2):.2f} prev_azim {math.degrees(prev_azim):.2f}, prev_elev {math.degrees(prev_elev):.2f}")
+    # select the solution with the smaller distance
+    if d1 > d2: azim, elev =  azim2, elev2
+    else: azim, elev = azim1, elev1
+    # if the elevation is 90 or -90, keep the previous azimuth
+    if abs(elev) == 90.0: azim = prev_azim 
+    return azim, elev
     
 def calculate_batch_azimuth_elevation(batch_vector, batch_root_R=torch.eye(3).unsqueeze(0).unsqueeze(0), degrees=False):
     # batch_vector: [B, F, 3]
@@ -429,6 +486,9 @@ def azim_elev_to_vec(azim, elev, magnitude=1, origin=[0, 0, 0], degrees=False):
     x = magnitude * np.cos(azim) * np.cos(elev) + origin[0]
     y = magnitude * np.sin(azim) * np.cos(elev) + origin[1]
     z = magnitude * np.sin(elev) + origin[2]
+    if abs(x) < 1e-8: x = 0
+    if abs(y) < 1e-8: y = 0
+    if abs(z) < 1e-8: z = 0
     return np.array([x,y,z])
 
 def batch_azim_elev_to_vec(batch_azim, batch_elev, batch_magnitude, batch_origin, degrees=False):
@@ -451,9 +511,12 @@ def batch_azim_elev_to_vec(batch_azim, batch_elev, batch_magnitude, batch_origin
     return batch_cam_origin
     
 class Appendage:
-    def __init__(self, link1_length, link2_length, link1_azim_init, link1_elev_init, link2_azim_init, link2_elev_init, degree=True, root_tf=np.eye(4), use_global_frame=False):
+    def __init__(self, link1_length, link2_length, link1_azim_init, link1_elev_init, link2_azim_init, link2_elev_init, degrees=True, root_tf=np.eye(4), forward_dir='x', use_global_frame=False):
+        self.degrees = degrees
         self.use_global_frame = use_global_frame
-        if use_global_frame: self.global_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 1, 0])).as_matrix() # np.eye(3)
+        if use_global_frame: 
+            if forward_dir == 'x': self.global_R = np.eye(3)
+            elif forward_dir == '-z':  self.global_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 1, 0])).as_matrix() 
         # length
         self.link1_length = link1_length
         self.link2_length = link2_length
@@ -462,85 +525,126 @@ class Appendage:
         self.link1_elev = link1_elev_init
         self.link2_azim = link2_azim_init
         self.link2_elev = link2_elev_init
-        # self.link1_azim_prev = link1_azim_init
-        # self.link1_elev_prev = link1_elev_init
-        # self.link2_azim_prev = link2_azim_init
-        # self.link2_elev_prev = link2_elev_init
+        self.link1_azim_prev = link1_azim_init
+        self.link1_elev_prev = link1_elev_init
+        self.link2_azim_prev = link2_azim_init
+        self.link2_elev_prev = link2_elev_init
         # root frame
         self.root_tf = root_tf
         self.root_origin = self.root_tf[:3, 3]
         self.root_R = self.root_tf[:3, :3]
-        self.root_frame = generate_vis_frame(self.root_tf[:3, 3], self.root_tf[:3, :3], name='root')
 
-        self.update_link(self.link1_azim, self.link1_elev, self.link2_azim, self.link2_elev, degree=degree)
+        self.update_link_from_angle(self.link1_azim, self.link1_elev, self.link2_azim, self.link2_elev, degrees=degrees)
 
-    def DH_matrix(self, theta, alpha, d):
+    def DH_matrix(self, theta, alpha, l):
         # dh_matrix = [
         #     [cos(theta)*cos(alpha), -sin(theta), -cos(theta)*sin(alpha), d*cos(alpha)*cos(theta)],
         #     [sin(theta)*cos(alpha), cos(theta), -sin(theta)*sin(alpha), d*sin(theta)*cos(alpha)],
         #     [sin(alpha), 0, cos(alpha), d*sin(alpha)],
         #     [0, 0, 0, 1]
         # ]
-        return DH_matrix(theta, alpha, d)
+        return DH_matrix(theta, alpha, l)
     
-    def build_dh_frame(self, yaw, pitch, d, parent_tf, degree=False, name=''): # yaw = theta, pitch = alpha
-        if degree:
-            yaw = radians(yaw)
-            pitch = radians(pitch)
-        dh_matrix = self.DH_matrix(theta=yaw, alpha=pitch, d=d)
-        child_tf = parent_tf @ dh_matrix
-        # parent_origin = parent_tf[:3, 3]
-        # child_rot = child_tf[:3, :3]
-        # child_frame = generate_vis_frame(parent_origin, child_rot, name)
-        return child_tf, dh_matrix
+    def build_dh_frame(self, azim, elev, l, parent_tf, degrees=False): # yaw = theta, pitch = alpha
+        # if degrees:
+        #     azim = radians(azim)
+        #     elev = radians(elev)
+        # dh_matrix = self.DH_matrix(theta=azim, alpha=elev, l=l)
+        # child_tf = parent_tf @ dh_matrix
+        return build_dh_frame(azim, elev, l, parent_tf, degrees=degrees)
 
     
-    def update_link(self, link1_azim=None, link1_elev=None, link2_azim=None, link2_elev=None, degree=False, mode='all'):
+    def update_link_from_angle(self, link1_azim=None, link1_elev=None, link2_azim=None, link2_elev=None, root_tf=None, degrees=False, mode='all'):
         # update angles
-        # self.link1_azim_prev = self.link1_azim
-        # self.link1_elev_prev = self.link1_elev
-        # self.link2_azim_prev = self.link2_azim
-        # self.link2_elev_prev = self.link2_elev
-        if mode == 'all' or mode == 'link1':
-            if link1_azim != None: self.link1_azim = link1_azim
-            if link1_elev != None: self.link1_elev = link1_elev
-        if mode == 'all' or mode == 'link2':
-            if link2_azim != None: self.link2_azim = link2_azim
-            if link2_elev != None: self.link2_elev = link2_elev
-        # build dh frames
-        if mode == 'all' or mode == 'link1':
-            self.link1_tf, self.link1_dh_mat = self.build_dh_frame(self.link1_azim, self.link1_elev, self.link1_length, self.root_tf, degree=degree, name='link1') # link1
-        if mode == 'all' or mode == 'link2':
-            if self.use_global_frame: self.link1_tf[:3, :3] = self.global_R.copy()
-            self.link2_tf, self.link2_dh_mat = self.build_dh_frame(self.link2_azim, self.link2_elev, self.link2_length, self.link1_tf, degree=degree, name='link2') # link2
-        # self.terminal_tf, self.terminal_frame, self.terminal_dh_mat = self.build_dh_frame(0, 0, 0, self.link2_tf, degree=degree, name='terminal') # terminal
-        # get origin, rotation matrix
-        if mode == 'all' or mode == 'link1':
-            self.link1_origin = self.root_tf[:3, 3]
-            self.link1_R = self.link1_tf[:3, :3]
-        if mode == 'all' or mode == 'link2':
-            self.link2_origin = self.link1_tf[:3, 3]
-            self.link2_R = self.link2_tf[:3, :3]
-        if mode == 'all':
-            self.terminal_origin = self.link2_tf[:3, 3]
-        # get link vectors
-        if mode == 'all' or mode == 'link1':
-            self.link1_vec = self.link2_origin - self.link1_origin
-        if mode == 'all' or mode == 'link2':
-            self.link2_vec = self.terminal_origin - self.link2_origin
-        # update vis frame
-        self.update_frame(mode)
+        if type(root_tf) == type(None): root_tf = self.root_tf
+        self.root_tf = root_tf.copy()
+        self.root_R  = root_tf[:3, :3].copy()
+        if type(link1_azim) == type(None): link1_azim = self.link1_azim
+        if type(link1_elev) == type(None): link1_elev = self.link1_elev
+        if type(link2_azim) == type(None): link2_azim = self.link2_azim
+        if type(link2_elev) == type(None): link2_elev = self.link2_elev
+        
+        # FK - link1
+        if self.use_global_frame: root_tf[:3, :3] = self.global_R.copy()
+        link1_tf, link1_dh_mat = self.build_dh_frame(link1_azim, link1_elev, self.link1_length, root_tf, degrees=degrees) # link1
+        self.link1_tf = link1_tf.copy()
+        self.link1_R = link1_tf[:3, :3].copy()
 
-    def update_frame(self, mode='all'):
-        if mode == 'all' or mode == 'link1':
-            self.link1_frame = generate_vis_frame(self.link1_origin, self.link1_R, name='link1')
-            self.link1_baseframe = copy.deepcopy(self.root_frame)
-        if mode == 'all' or mode == 'link2':
-            self.link2_frame = generate_vis_frame(self.link2_origin, self.link2_R, name='link2')
-            self.link2_baseframe = copy.deepcopy(self.link1_frame)
-            self.link2_baseframe.origin = self.link2_origin
+        # FK - link2
+        if self.use_global_frame: link1_tf[:3, :3] = self.global_R.copy()
+        link2_tf, link2_dh_mat = self.build_dh_frame(link2_azim, link2_elev, self.link2_length, link1_tf, degrees=degrees) # link2
+        self.link2_tf = link2_tf.copy()
+        self.link2_R = link2_tf[:3, :3].copy()
+        # self.terminal_tf, self.terminal_frame, self.terminal_dh_mat = self.build_dh_frame(0, 0, 0, self.link2_tf, degrees=degree, name='terminal') # terminal
+        
+        # update tf, origin, rotation matrix
+        self.root_origin = root_tf[:3, 3].copy()
+        self.link1_origin = root_tf[:3, 3].copy()
+        self.link2_origin = link1_tf[:3, 3].copy()
+        self.terminal_origin = link2_tf[:3, 3].copy()
+        
+        # get link vectors
+        self.link1_vec = self.link2_origin - self.link1_origin
+        self.link2_vec = self.terminal_origin - self.link2_origin
+
+        # update vis frame
+        self.update_frame()
+        
+    def update_link_from_vector(self, link1_vec_global, link2_vec_global, root_tf=None):
+        # update angles
+        if type(root_tf) == type(None): root_tf = self.root_tf
+        self.root_tf = root_tf.copy()
+        self.root_R  = root_tf[:3, :3].copy()
+        # Link 1
+        if self.use_global_frame: root_tf[:3, :3] = self.global_R.copy()
+        link1_azim, link1_elev = get_optimal_azimuth_elevation(link1_vec_global, root_tf[:3, :3], self.link1_azim, self.link1_elev, degrees=self.degrees) # IK
+        link1_tf, link1_dh_mat = self.build_dh_frame(link1_azim, link1_elev, self.link1_length, root_tf, degrees=self.degrees) # FK
+        self.link1_tf = link1_tf.copy()
+        self.link1_R = link1_tf[:3, :3].copy()
+        # Link 2
+        if self.use_global_frame: link1_tf[:3, :3] = self.global_R.copy()
+        link2_azim, link2_elev = get_optimal_azimuth_elevation(link2_vec_global, link1_tf[:3, :3], self.link2_azim, self.link2_elev, degrees=self.degrees) # IK
+        link2_tf, link2_dh_mat = self.build_dh_frame(link2_azim, link2_elev, self.link2_length, link1_tf, degrees=self.degrees) # FK
+        self.link2_tf = link2_tf.copy()
+        self.link2_R = link2_tf[:3, :3].copy()
+
+        # update tf, origin, rotation matrix
+        self.root_origin = root_tf[:3, 3].copy()
+        self.link1_origin = root_tf[:3, 3].copy()
+        self.link2_origin = link1_tf[:3, 3].copy()
+        self.terminal_origin = link2_tf[:3, 3].copy()
+        
+        # get link vectors
+        self.link1_vec = link1_vec_global # self.link2_origin - self.link1_origin
+        self.link2_vec = link2_vec_global # self.terminal_origin - self.link2_origin
+
+        # update angles
+        self.link1_azim, self.link1_elev = link1_azim, link1_elev
+        self.link2_azim, self.link2_elev = link2_azim, link2_elev
+        self.link1_azim_prev, self.link1_elev_prev = link1_azim, link1_elev
+        self.link2_azim_prev, self.link2_elev_prev = link2_azim, link2_elev
+
+        # update vis frame
+        self.update_frame()
+
+
+    def get_dh_angles_from_vector(self, vec, root_tf, prev_azim, prev_elev):
+        root_R = root_tf[:3, :3]
+        return get_optimal_azimuth_elevation(vec, root_R, prev_azim, prev_elev, degrees=self.degrees) # return optimal azim, elev that minimizes the distance between the previous angles
     
-    def draw(self, ax, draw_frame=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False):
+
+    def update_frame(self):
+        self.root_frame = generate_vis_frame(self.root_origin, self.root_R, name='root')
+        self.link1_frame = generate_vis_frame(self.link1_origin, self.link1_R, name='link1')
+        self.link2_frame = generate_vis_frame(self.link2_origin, self.link2_R, name='link2')
+        if self.use_global_frame:
+            self.link1_baseframe = generate_vis_frame(self.link1_origin, self.global_R, name='link1_base')
+            self.link2_baseframe = generate_vis_frame(self.link2_origin, self.global_R, name='link2_base')
+        else:
+            self.link1_baseframe = generate_vis_frame(self.link1_origin, self.root_R, name='link1_base')
+            self.link2_baseframe = generate_vis_frame(self.link2_origin, self.link1_R, name='link2_base')
+    
+    def draw(self, ax, draw_frame=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False, show_angle=False):
         #plt.sca(ax)
         ax.plot(self.link1_origin[0], self.link1_origin[1], self.link1_origin[2],  '.k') # link1 origin        
         ax.plot(*np.c_[self.link1_origin, self.link2_origin], color="tab:gray", ls='--') # link1
@@ -552,6 +656,9 @@ class Appendage:
             self.link2_baseframe.draw3d(color='k', head_length=head_length, scale=scale, fontsize=fontsize, show_name=False, show_axis=show_axis) # link2 baseframe
             self.link1_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name, show_axis=show_axis) # link1 frame
             self.link2_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, fontsize=fontsize, show_name=show_name, show_axis=show_axis) # link2 frame
+        if show_angle:
+            ax.text(self.link1_origin[0], self.link1_origin[1], self.link1_origin[2]+0.05, f"{math.degrees(self.link1_azim):.2f}, {math.degrees(self.link1_elev):.2f}", fontsize=20, color='k')
+            ax.text(self.link2_origin[0], self.link2_origin[1], self.link2_origin[2]+0.05, f"{math.degrees(self.link2_azim):.2f}, {math.degrees(self.link2_elev):.2f}", fontsize=20, color='k')
             
 
 class DHModel:
@@ -560,7 +667,10 @@ class DHModel:
         #self.left_init_R = Rotation.from_rotvec(-np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
         #self.right_init_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 0, 1])).as_matrix() # rotate -90 deg wrt z-axis
         self.use_global_frame = use_global_frame
-        if use_global_frame: self.global_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 1, 0])).as_matrix() # np.eye(3)
+        if use_global_frame: 
+            if forward_dir == 'x': self.global_R = np.eye(3)
+            elif forward_dir == '-z': self.global_R = Rotation.from_rotvec(np.pi/2 * np.array([0, 1, 0])).as_matrix()
+            else: raise ValueError("Invalid forward direction")
         self.forward_dir = forward_dir
         self.head_is_dh = head_is_dh
         
@@ -573,6 +683,40 @@ class DHModel:
         
         # init dh model
         self.init_dh_model_from_pose(init_pose_3d)
+
+    def init_dh_model_from_pose(self, pose):
+        # update keypoints
+        self.get_keypoints_from_pose(pose)        
+        # set body reference frame
+        #self.set_body_reference_frame()
+        # set torso frame
+        self.get_torso_frame_from_pose(pose)
+        # extract vectors wrt world frame
+        self.get_limb_vectors_from_keypoints()
+        # extract limb lengths from vectors
+        self.get_limb_length_from_limb_vector()
+        # generate all appendages 
+        self.generate_all_appendage()
+        # update appendage root tf
+        self.get_appendage_root_tf()
+        # update dh model from pose
+        self.update_all_appendage_angles_from_vector()
+
+    def update_dh_model_from_pose(self, pose):
+        # update keypoints
+        self.get_keypoints_from_pose(pose)        
+        # set body reference frame
+        #self.set_body_reference_frame()
+        # set torso frame
+        self.get_torso_frame_from_pose(pose)
+        # extract vectors wrt world frame
+        self.get_limb_vectors_from_keypoints()
+        # extract limb lengths from vectors
+        self.get_limb_length_from_limb_vector()
+        # update appendage root tf
+        self.get_appendage_root_tf()
+        # update dh model from pose
+        self.update_all_appendage_angles_from_vector()
         
     def get_keypoints_from_pose(self, pose):
         # get head points
@@ -677,11 +821,11 @@ class DHModel:
         
     def set_appendage_from_angles(self, angles):
         if self.head_is_dh:
-            self.head.update_link(angles['h_l1_azim'], angles['h_l1_elev'])
-        self.right_arm.update_link(angles['ra_l1_azim'], angles['ra_l1_elev'], angles['ra_l2_yaw'], angles['ra_l2_pitch'])
-        self.left_arm.update_link(angles['la_l1_azim'], angles['la_l1_elev'], angles['la_l2_yaw'], angles['la_l2_pitch'])
-        self.right_leg.update_link(angles['rl_l1_azim'], angles['rl_l1_elev'], angles['rl_l2_yaw'], angles['rl_l2_pitch'])
-        self.left_leg.update_link(angles['ll_l1_azim'], angles['ll_l1_elev'], angles['ll_l2_yaw'], angles['ll_l2_pitch'])
+            self.head.update_link_from_angle(angles['h_l1_azim'], angles['h_l1_elev'])
+        self.right_arm.update_link_from_angle(angles['ra_l1_azim'], angles['ra_l1_elev'], angles['ra_l2_yaw'], angles['ra_l2_pitch'])
+        self.left_arm.update_link_from_angle(angles['la_l1_azim'], angles['la_l1_elev'], angles['la_l2_yaw'], angles['la_l2_pitch'])
+        self.right_leg.update_link_from_angle(angles['rl_l1_azim'], angles['rl_l1_elev'], angles['rl_l2_yaw'], angles['rl_l2_pitch'])
+        self.left_leg.update_link_from_angle(angles['ll_l1_azim'], angles['ll_l1_elev'], angles['ll_l2_yaw'], angles['ll_l2_pitch'])
 
     def generate_all_appendage(self):
         # assert self.neck_origin
@@ -699,51 +843,38 @@ class DHModel:
         # assert self.r_hip_origin
         # assert self.right_upper_leg_length
         # assert self.right_lower_leg_length
+        self.appendage_list = []
         if self.head_is_dh:
             self.head      = self.generate_appendage(self.head_id,      self.neck_origin,       self.neck_to_nose_length,    self.nose_to_head_length)
+            self.appendage_list.append(self.head)
+        else:
+            self.appendage_list.append(None)
         self.right_arm = self.generate_appendage(self.right_arm_id, self.r_shoulder_origin, self.right_upper_arm_length, self.right_lower_arm_length)
         self.left_arm  = self.generate_appendage(self.left_arm_id,  self.l_shoulder_origin, self.left_upper_arm_length,  self.left_lower_arm_length)
         self.left_leg  = self.generate_appendage(self.left_leg_id,  self.l_hip_origin,      self.left_upper_leg_length,  self.left_lower_leg_length)
         self.right_leg = self.generate_appendage(self.right_leg_id, self.r_hip_origin,      self.right_upper_leg_length, self.right_lower_leg_length)
-        
-    def init_dh_model_from_pose(self, pose):
-        # update keypoints
-        self.get_keypoints_from_pose(pose)        
-        # set body reference frame
-        #self.set_body_reference_frame()
-        # set torso frame
-        self.get_torso_frame_from_pose(pose)
-        # extract vectors wrt world frame
-        self.get_limb_vectors_from_keypoints()
-        # generate all appendages 
-        self.generate_all_appendage()
-        # update dh model from pose
-        self.update_dh_model_from_vector(pose)
+        self.appendage_list.extend([self.right_arm, self.left_arm, self.right_leg, self.left_leg])
 
-    def update_dh_model_from_vector(self):
+    def get_appendage_root_tf(self):
+        if self.head_is_dh: 
+            self.root_tf_head =  self.generate_appendage_root_tf(self.head_id, self.neck_origin)
+        self.root_tf_right_arm = self.generate_appendage_root_tf(self.right_arm_id, self.r_shoulder_origin)
+        self.root_tf_left_arm  = self.generate_appendage_root_tf(self.left_arm_id,  self.l_shoulder_origin)
+        self.root_tf_right_leg = self.generate_appendage_root_tf(self.right_leg_id, self.r_hip_origin)
+        self.root_tf_left_leg  = self.generate_appendage_root_tf(self.left_leg_id,  self.l_hip_origin)
+
+    def update_all_appendage_angles_from_vector(self):
         # update appendages angles from vectors
         if self.head_is_dh: self.update_appendage_angles_from_vectors(
-            appendage=self.head,      link1_vector=self.neck_to_nose_vector,    link2_vector=self.nose_to_head_vector)
+            appendage_id=self.head_id,      link1_vector=self.neck_to_nose_vector,    link2_vector=self.nose_to_head_vector)
         self.update_appendage_angles_from_vectors(
-            appendage=self.right_arm, link1_vector=self.right_upper_arm_vector, link2_vector=self.right_lower_arm_vector)
+            appendage_id=self.right_arm_id, link1_vector=self.right_upper_arm_vector, link2_vector=self.right_lower_arm_vector)
         self.update_appendage_angles_from_vectors(
-            appendage=self.left_arm,  link1_vector=self.left_upper_arm_vector,  link2_vector=self.left_lower_arm_vector)
+            appendage_id=self.left_arm_id,  link1_vector=self.left_upper_arm_vector,  link2_vector=self.left_lower_arm_vector)
         self.update_appendage_angles_from_vectors(
-            appendage=self.right_leg, link1_vector=self.right_upper_leg_vector, link2_vector=self.right_lower_leg_vector)
+            appendage_id=self.right_leg_id, link1_vector=self.right_upper_leg_vector, link2_vector=self.right_lower_leg_vector)
         self.update_appendage_angles_from_vectors(
-            appendage=self.left_leg,  link1_vector=self.left_upper_leg_vector,  link2_vector=self.left_lower_leg_vector)
-        
-    def update_dh_model_from_pose(self, pose):
-        # update keypoints
-        self.get_keypoints_from_pose(pose)        
-        # set body reference frame
-        #self.set_body_reference_frame()
-        # set torso frame
-        self.get_torso_frame_from_pose(pose)
-        # extract vectors wrt world frame
-        self.get_limb_vectors_from_keypoints()
-        # update dh model from pose
-        self.update_dh_model_from_vector(pose)
+            appendage_id=self.left_leg_id,  link1_vector=self.left_upper_leg_vector,  link2_vector=self.left_lower_leg_vector)
         
     def set_body_reference_frame(self):
         self.z_axis = np.array([0, 0, 1])
@@ -759,8 +890,8 @@ class DHModel:
             dz=self.body_R[2],
             name='body',
         )
-        
-    def generate_appendage(self, appendage_id, root_origin, link1_length, link2_length):
+
+    def generate_appendage_root_tf(self, appendage_id, root_origin):
         # if appendage_id == self.head_id:
         #     R = self.body_R
         # elif appendage_id in [self.right_arm_id, self.right_leg_id]:
@@ -773,25 +904,38 @@ class DHModel:
             if appendage_id in [self.head_id, self.right_arm_id, self.left_arm_id]:
                 R = self.upper_torso_frame_R
             elif appendage_id in [self.right_leg_id, self.left_leg_id]:
-                R = self.lower_torso_frame_R
-            
+                R = self.lower_torso_frame_R 
         root_tf = np.eye(4)
         root_tf[:3, :3] = R
         root_tf[:3, 3] = root_origin.copy()
+        return root_tf
+
+    def generate_appendage(self, appendage_id, root_origin, link1_length, link2_length):
+        root_tf = self.generate_appendage_root_tf(appendage_id, root_origin)
         return Appendage(link1_length, link2_length, 
                          link1_azim_init=0, link1_elev_init=0, link2_azim_init=0, link2_elev_init=0, 
-                         degree=False, root_tf=root_tf, use_global_frame=self.use_global_frame)
+                         degrees=False, root_tf=root_tf, forward_dir=self.forward_dir, use_global_frame=self.use_global_frame)
     
-    def update_appendage_angles_from_vectors(self, appendage, link1_vector, link2_vector):
+    def update_appendage_angles_from_vectors(self, appendage_id, link1_vector, link2_vector):
         # extract angles from predefined vectors (inverse kinematics), and then update appendage angles (forward kinematics)
+        #appendage = self.appendage_list[appendage_id]
+        if appendage_id == self.head_id: root_tf = self.root_tf_head
+        elif appendage_id == self.right_arm_id: root_tf = self.root_tf_right_arm
+        elif appendage_id == self.left_arm_id: root_tf = self.root_tf_left_arm
+        elif appendage_id == self.right_leg_id: root_tf = self.root_tf_right_leg
+        elif appendage_id == self.left_leg_id: root_tf = self.root_tf_left_leg
+        else: raise NotImplementedError("appendage_id should be one of [0, 1, 2, 3, 4]")
+        print(appendage_id)
+        self.appendage_list[appendage_id].update_link_from_vector(link1_vector, link2_vector, root_tf=root_tf)
         # link1
-        link1_azim, link1_elev = self.get_dh_angles_from_vector(link1_vector, appendage, mode='link1')
-        appendage.update_link(link1_azim=link1_azim, link1_elev=link1_elev, mode='link1') # update link1 frame
+        #link1_azim, link1_elev = self.get_dh_angles_from_vector(link1_vector, appendage, mode='link1')
+        #appendage.update_link_from_angle(link1_azim=link1_azim, link1_elev=link1_elev, root_tf=root_tf, mode='link1') # update link1 frame
         # link2
-        link2_azim, link2_elev = self.get_dh_angles_from_vector(link2_vector, appendage, mode='link2')
-        appendage.update_link(link1_azim, link1_elev, link2_azim, link2_elev, mode='all')
+        #link2_azim, link2_elev = self.get_dh_angles_from_vector(link2_vector, appendage, mode='link2')
+        #appendage.update_link_from_angle(link1_azim, link1_elev, link2_azim, link2_elev, root_tf=root_tf, mode='all')
+         
     
-    # def get_dh_angles_from_vector(self, vec, root_tf):
+    # def get_dh_angles_from_vector(self, vec,vector1root_tf):
     #     return self.calculate_azimuth_elevation(vec, root_tf[:3, :3]) # yaw, pitch
 
     def get_dh_angles_from_vector(self, vec, appendage, mode):
@@ -836,7 +980,7 @@ class DHModel:
         pose_3d[16] = self.right_arm.terminal_origin # self.r_wrist_origin
         return pose_3d
     
-    def get_dh_angles(self, by_dict=False, degree=False):
+    def get_dh_angles(self, by_dict=False, degrees=False):
         if by_dict:
             dh_angles = {}
             if self.head_is_dh: # add head angles
@@ -854,7 +998,7 @@ class DHModel:
             # left leg
             dh_angles['ll_l1_azim'], dh_angles['ll_l1_elev'] = self.left_leg.link1_azim, self.left_leg.link1_elev
             dh_angles['ll_l2_yaw'], dh_angles['ll_l2_pitch'] = self.left_leg.link2_azim, self.left_leg.link2_elev
-            if degree:
+            if degrees:
                 for key in dh_angles.keys():
                     dh_angles[key] = math.degrees(dh_angles[key])
         else:
@@ -872,7 +1016,7 @@ class DHModel:
             dh_angles[14:18] = np.array([self.left_leg.link1_azim, self.left_leg.link1_elev, self.left_leg.link2_azim, self.left_leg.link2_elev])
             if not self.head_is_dh: # remove head angles
                 dh_angles = dh_angles[2:]
-            if degree:
+            if degrees:
                 dh_angles = np.degrees(dh_angles)
         return dh_angles
     
@@ -930,13 +1074,13 @@ class DHModel:
     def mpjpe(self, gt):
         return np.mean(np.linalg.norm(self.get_pose_3d() - gt, axis=1))
     
-    def draw(self, ax, draw_frame=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False):
+    def draw(self, ax, draw_frame=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False, show_angle=False):
         #self.body_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, show_name=show_name, show_axis=show_axis)
         if self.head_is_dh: self.head.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
-        self.right_arm.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
-        self.left_arm.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
-        self.right_leg.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
-        self.left_leg.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis)
+        self.right_arm.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis, show_angle=show_angle)
+        self.left_arm.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis, show_angle=show_angle)
+        self.right_leg.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis, show_angle=show_angle)
+        self.left_leg.draw(ax, draw_frame, head_length, scale, fontsize, show_name, show_axis=show_axis, show_angle=show_angle)
         self.upper_torso_frame.draw3d(scale=scale*1.5, head_length=0.1, color="tab:orange")
         self.lower_torso_frame.draw3d(scale=scale*1.5, head_length=0.1, color="tab:blue")
         
@@ -1166,12 +1310,12 @@ def get_batch_upper_torso_frame_from_pose(batch_pose, forward_dir='x'):
 # Batch version of Appendage class
 class BatchAppendage:
     def __init__(self, batch_link1_length, batch_link2_length, batch_link1_azim_init=None, batch_link1_elev_init=None, batch_link2_azim_init=None, batch_link2_elev_init=None, 
-                 degree=False, batch_root_tf=np.eye(4), device='cuda', data_type=torch.float32):
+                 degrees=False, batch_root_tf=np.eye(4), device='cuda', data_type=torch.float32):
         self.batch_size = batch_link1_length.shape[0]
         self.num_frames = batch_link1_length.shape[1]
         self.data_type = data_type
         self.device = device
-        self.degree = degree
+        self.degrees = degrees
         
         if batch_link1_azim_init   == None: batch_link1_azim_init   = torch.zeros(self.batch_size, self.num_frames)
         if batch_link1_elev_init == None: batch_link1_elev_init = torch.zeros(self.batch_size, self.num_frames)
@@ -1224,7 +1368,7 @@ class BatchAppendage:
         ## input size
         # batch_yaw, batch_pitch, batch_d: [B, F]
         # batch_parent_tf: [B, F, 4, 4]
-        if self.degree:
+        if self.degrees:
             batch_yaw = torch.deg2rad(batch_yaw) 
             batch_pitch = torch.deg2rad(batch_pitch)
         batch_dh_matrix = self.batch_DH_matrix(batch_theta=batch_yaw, batch_alpha=batch_pitch, batch_d=batch_d)
@@ -1242,7 +1386,7 @@ class BatchAppendage:
         if update_link:
             self.forward_batch_link()
     
-    def set_batch_angle(self, batch_link1_azim=None, batch_link1_elev=None, batch_link2_azim=None, batch_link2_elev=None, degree=False, update_link=True):
+    def set_batch_angle(self, batch_link1_azim=None, batch_link1_elev=None, batch_link2_azim=None, batch_link2_elev=None, degrees=False, update_link=True):
         # update angles
         if type(batch_link1_azim) != type(None):
             self.batch_link1_azim = batch_link1_azim
@@ -1252,7 +1396,7 @@ class BatchAppendage:
             self.batch_link2_azim = batch_link2_azim
         if type(batch_link2_elev) != type(None):
             self.batch_link2_elev = batch_link2_elev
-        self.degree = degree
+        self.degrees = degrees
         if update_link:
             self.forward_batch_link()
 
@@ -1268,7 +1412,7 @@ class BatchAppendage:
         self.batch_link2_R = self.batch_link2_tf[:, :, :3, :3]
 
         # terminal
-        #self.terminal_tf, self.terminal_frame, self.terminal_dh_mat = self.build_dh_frame(0, 0, 0, self.link2_tf, degree=degree, name='terminal')
+        #self.terminal_tf, self.terminal_frame, self.terminal_dh_mat = self.build_dh_frame(0, 0, 0, self.link2_tf, degrees=degrees, name='terminal')
         self.batch_terminal_origin = self.batch_link2_tf[:, :, :3, 3]
         
         # vector
@@ -1313,10 +1457,10 @@ class BatchAppendage:
             
 # Batch version of DH Model class
 class BatchDHModel:
-    def __init__(self, batch_pose_3d=None, head=False, degree=False, length_type='first', batch_size=16, num_frames=243, data_type=torch.float32, world_z_direction=[0, 0, 1], forward_dir='-z', device='cuda') -> None:
+    def __init__(self, batch_pose_3d=None, head=False, degrees=False, length_type='first', batch_size=16, num_frames=243, data_type=torch.float32, world_z_direction=[0, 0, 1], forward_dir='-z', device='cuda') -> None:
         self.head_is_dh = head
         self.data_type = data_type
-        self.degree = degree
+        self.degrees = degrees
         self.length_type = length_type
         self.device = device
         self.batch_size = batch_size
@@ -1520,7 +1664,7 @@ class BatchDHModel:
         batch_root_tf[:, :, :3, :3] = batch_R
         batch_root_tf[:, :, :3, 3] = root_origin
         
-        return BatchAppendage(batch_link1_length, batch_link2_length, degree=self.degree, batch_root_tf=batch_root_tf)
+        return BatchAppendage(batch_link1_length, batch_link2_length, degrees=self.degrees, batch_root_tf=batch_root_tf)
     
     def generate_all_batch_appendages(self):
         if self.head_is_dh:
@@ -1543,7 +1687,7 @@ class BatchDHModel:
         return batch_link1_azim, batch_link1_elev, batch_link2_azim, batch_link2_elev
         
     def get_batch_dh_angle_from_batch_pose_vector(self, batch_vec, batch_root_tf):
-        return self.calculate_batch_azimuth_elevation(batch_vec, batch_root_tf[:, :, :3, :3], self.degree) # yaw, pitch
+        return self.calculate_batch_azimuth_elevation(batch_vec, batch_root_tf[:, :, :3, :3], self.degrees) # yaw, pitch
     
     def calculate_batch_azimuth_elevation(self, batch_vector, batch_root_R, degrees=False):
         #print(batch_root_R.shape, batch_vector.unsqueeze(-1).shape)
@@ -1636,7 +1780,7 @@ class BatchDHModel:
         if update_appendage:
             self.update_batch_appendage_length()
         
-    def set_batch_angle(self, batch_angles, by_dict=False, degree=False, update_appendage=False):
+    def set_batch_angle(self, batch_angles, by_dict=False, degrees=False, update_appendage=False):
         # batch_angles: [B, F, 16] or [B, F, 20] (with head)
         if by_dict:
             if self.head_is_dh:
@@ -1675,7 +1819,7 @@ class BatchDHModel:
             self.batch_left_lower_leg_yaw    = batch_angles[:, :, 14+offset]
             self.batch_left_lower_leg_pitch  = batch_angles[:, :, 15+offset]
         # convert to radian
-        if degree: 
+        if degrees: 
             if self.head_is_dh:
                 self.batch_upper_head_yaw, self.batch_upper_head_pitch = torch.deg2rad(self.batch_upper_head_yaw), torch.deg2rad(self.batch_upper_head_pitch)
                 self.batch_lower_head_yaw, self.batch_lower_head_pitch = torch.deg2rad(self.batch_lower_head_yaw), torch.deg2rad(self.batch_lower_head_pitch)
@@ -1756,7 +1900,7 @@ class BatchDHModel:
         )
         return body_frame
     
-    def get_batch_appendage_angles(self, by_dict=False, degree=False, head=False):
+    def get_batch_appendage_angles(self, by_dict=False, degrees=False, head=False):
         if by_dict:
             batch_dh_angles = {}
             if self.head_is_dh:
@@ -1774,7 +1918,7 @@ class BatchDHModel:
             # left leg
             batch_dh_angles['ll_l1_azim'], batch_dh_angles['ll_l1_elev'] = self.batch_left_leg.batch_link1_azim, self.batch_left_leg.batch_link1_elev
             batch_dh_angles['ll_l2_yaw'], batch_dh_angles['ll_l2_pitch'] = self.batch_left_leg.batch_link2_azim, self.batch_left_leg.batch_link2_elev
-            if degree:
+            if degrees:
                 for key in batch_dh_angles.keys():
                     batch_dh_angles[key] = torch.rad2deg(batch_dh_angles[key])
         else:
@@ -1810,7 +1954,7 @@ class BatchDHModel:
                 
             if not head:
                 batch_dh_angles = batch_dh_angles[..., 2:] # (B, F, 16)
-            if degree:
+            if degrees:
                 batch_dh_angles = torch.rad2deg(batch_dh_angles)
         return batch_dh_angles
     

@@ -1813,7 +1813,7 @@ class BatchDHModel:
             self.batch_right_upper_leg_yaw   = batch_angles[:, :, 8+offset]
             self.batch_right_upper_leg_pitch = batch_angles[:, :, 9+offset]
             self.batch_right_lower_leg_yaw   = batch_angles[:, :, 10+offset]
-            self.batch_right_lower_leg_pitc  = batch_angles[:, :, 11+offset]
+            self.batch_right_lower_leg_pitch = batch_angles[:, :, 11+offset]
             self.batch_left_upper_leg_yaw    = batch_angles[:, :, 12+offset]
             self.batch_left_upper_leg_pitch  = batch_angles[:, :, 13+offset]
             self.batch_left_lower_leg_yaw    = batch_angles[:, :, 14+offset]

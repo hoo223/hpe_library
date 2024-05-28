@@ -90,40 +90,40 @@ h36m_connections = [
 len_ids = {
     'R_HIP' : 0,
     'R_UPPER_LEG' : 1,
-    'R_UNDER_LEG' : 2,
+    'R_LOWER_LEG' : 2,
     'L_HIP' : 3,
     'L_UPPER_LEG' : 4,
-    'L_UNDER_LEG' : 5,
-    'UNDER_TORSO' : 6,
+    'L_LOWER_LEG' : 5,
+    'LOWER_TORSO' : 6,
     'UPPER_TORSO' : 7,
-    'UNDER_FACE' : 8,
+    'LOWER_FACE' : 8,
     'UPPER_FACE' : 9,
     'L_SHOULDER' : 10,
     'L_UPPER_ARM' : 11,
-    'L_UNDER_ARM' : 12,
+    'L_LOWER_ARM' : 12,
     'R_SHOULDER' : 13,
     'R_UPPER_ARM' : 14,
-    'R_UNDER_ARM' : 15
+    'R_LOWER_ARM' : 15
 }
 
 
 # len_id_names = {
 #     0: 'R_HIP',
 #     1: 'R_UPPER_LEG',
-#     2: 'R_UNDER_LEG',
+#     2: 'R_LOWER_LEG',
 #     3: 'L_HIP',
 #     4: 'L_UPPER_LEG',
-#     5: 'L_UNDER_LEG',
-#     6: 'UNDER_TORSO',
+#     5: 'L_LOWER_LEG',
+#     6: 'LOWER_TORSO',
 #     7: 'UPPER_TORSO',
-#     8: 'UNDER_FACE',
+#     8: 'LOWER_FACE',
 #     9: 'UPPER_FACE',
 #     10: 'L_SHOULDER',
 #     11: 'L_UPPER_ARM',
-#     12: 'L_UNDER_ARM',
+#     12: 'L_LOWER_ARM',
 #     13: 'R_SHOULDER',
 #     14: 'R_UPPER_ARM',
-#     15: 'R_UNDER_ARM'
+#     15: 'R_LOWER_ARM'
 # }
 
 part_ids = {
@@ -158,7 +158,8 @@ def get_h36m_limb_lens(x):
         Input: (F, 17, 3)
         Output: (F, 16)
     '''
-    assert type(x) == np.ndarray, 'x should be np.ndarray'
+    #assert type(x) == np.ndarray, 'x should be np.ndarray'
+    if type(x) == torch.Tensor: x = x.cpu().detach().numpy()
     if len(x.shape) == 2:
         V, C = x.shape
         T = 1

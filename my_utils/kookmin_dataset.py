@@ -71,6 +71,9 @@ def load_pose3d_kookmin(subject, action, phase, origin=np.zeros(3), root='/home/
         pose_3d_list.append(pose_3d)
     
     pose_3d_list = np.array(pose_3d_list)
+    # fix Hallux Toe z value
+    pose_3d_list[:, 24, 2] = pose_3d_list[:, 22, 2].copy() # Little Toe-L z -> Hallux Toe-L z
+    pose_3d_list[:, 25, 2] = pose_3d_list[:, 23, 2].copy() # Little Toe-R z -> Hallux Toe-R z
     if h36m:
         if with_nose:
             pose_3d_list = kookmin2h36m_with_nose(pose_3d_list)

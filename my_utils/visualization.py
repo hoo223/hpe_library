@@ -141,6 +141,10 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         joint_pairs = [[0, 1], [1, 2], [1, 3], [1, 4], [3, 5], [5, 7], [7, 9], [4, 6], [6, 8], [8, 10], [2, 11], [2, 12], [11, 13], [12, 14], [13, 14], [13, 15], [15, 17], [15, 19], [17, 19], [17, 21], [19, 23], [14, 16], [16, 18], [16, 20], [18, 20], [18, 22], [20, 24]]
         joint_pairs_left = [[1, 3], [3, 5], [5, 7], [7, 9], [2, 11], [11, 13], [13, 15], [15, 17], [15, 19], [17, 19], [17, 21], [19, 23]]
         joint_pairs_right = [[1, 4], [4, 6], [6, 8], [8, 10], [2, 12], [12, 14], [14, 16], [16, 18], [16, 20], [18, 20], [18, 22], [20, 24]]
+    elif dataset == 'kookmin2':
+        joint_pairs = [[0, 1], [1, 2],  [2, 3],  [2, 4],  [2, 5],  [5, 7],  [7, 9],  [9, 11], [4, 6],  [6, 8],  [8, 10], [3, 12], [3, 13], [12, 14], [13, 15], [14, 15], [14, 16], [16, 18], [16, 20], [18, 20], [18, 22], [20, 24], [15, 17], [17, 19], [17, 21], [19, 21], [19, 23], [21, 25] ]
+        joint_pairs_left  = [[2, 4], [4, 6], [6, 8], [8, 10], [3, 12], [12, 14], [14, 16], [16, 18], [16, 20], [18, 20], [18, 22], [20, 24]]
+        joint_pairs_right = [[2, 5], [5, 7], [7, 9], [9, 11], [3, 13], [13, 15], [15, 17], [17, 19], [17, 21], [19, 21], [19, 23], [21, 25]]
     elif dataset == 'h36m_without_pelvis':
         joint_pairs = [[1, 2], [2, 3], [4, 5], [5, 6], [7, 8], [8, 9], [8, 11], [8, 14], [9, 10], [11, 12], [12, 13], [14, 15], [15, 16]]
         joint_pairs_left = [[8, 11], [11, 12], [12, 13], [4, 5], [5, 6]]
@@ -176,7 +180,7 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
             # xs *= -1
             # ys *= -1
             # zs *= -1
-        elif dataset in ['aihub', 'h36m_world', 'h36m_torso', 'torso', 'base', 'fit3d', 'h36m', 'kookmin', 'dhdst_torso', 'limb', 'h36m_without_pelvis', 'h36m_without_nose', 'vector', 'torso_small']:
+        elif dataset in ['aihub', 'h36m_world', 'h36m_torso', 'torso', 'base', 'fit3d', 'h36m', 'kookmin', 'kookmin2', 'dhdst_torso', 'limb', 'h36m_without_pelvis', 'h36m_without_nose', 'vector', 'torso_small']:
             xs, ys, zs = [np.array([j3d[limb[0], j], j3d[limb[1], j]]) for j in range(3)]
         if joint_pairs[i] in joint_pairs_left:
             ax.plot(xs, ys, zs, color=color_left, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha) 
@@ -253,7 +257,7 @@ def get_2d_pose_image(kps, img=None, H=1080, W=1920, box=None, thickness=10, dat
 
     return img
 
-def draw_2d_pose(ax, pose2d, img=None, H=1080, W=1920, box=None, thickness=10, dataset='h36m', normalize=False):
+def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, dataset='h36m', normalize=False):
     # if not normalize:
     #     img = get_2d_pose_image(pose2d, img=img, H=H, W=W, box=box, thickness=thickness, dataset=dataset)
     #     ax.imshow(img)

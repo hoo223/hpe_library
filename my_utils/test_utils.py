@@ -222,37 +222,8 @@ kookmin_keypoints = {
     25 : 'Hallux Toe-R'
 }
 
-kookmin_keypoints_with_nose = {
-    1  : 'Head-top',
-    2  : 'Nose',
-    3  : 'Neck',
-    4  : 'Spine',
-    5  : 'Shoulder-L',
-    6  : 'Shoulder-R',
-    7  : 'Elbow-L',
-    8  : 'Elbow-R',
-    9  : 'Wrist-L',
-    10 : 'Wrist-R',
-    11 : 'Middle Finger Tip-L',
-    12 : 'Middle Finger Tip-R',
-    13 : 'Upper Hip-L',
-    14 : 'Upper Hip-R',
-    15 : 'Under Hip-L',
-    16 : 'Under Hip-R',
-    17 : 'Knee-L',
-    18 : 'Knee-R',
-    19 : 'Lateral malleolus-L',
-    20 : 'Lateral malleolus-R',
-    21 : 'Medial malleolus-L',
-    22 : 'Medial malleolus-R',
-    23 : 'Little Toe-L',
-    24 : 'Little Toe-R',
-    25 : 'Hallux Toe-L',
-    26 : 'Hallux Toe-R',
-}
-
 kookmin_connections = [
-    [0, 0], 
+    [0, 1], 
     [1, 2], 
     [1, 3], 
     [1, 4], 
@@ -279,6 +250,66 @@ kookmin_connections = [
     [18, 20],
     [18, 22],
     [20, 24]
+]
+
+kookmin2_keypoints = {
+    1  : 'Head-top',             # 0
+    2  : 'Nose',                 # 1 
+    3  : 'Neck',                 # 2 
+    4  : 'Spine',                # 3  
+    5  : 'Shoulder-L',           # 4
+    6  : 'Shoulder-R',           # 5 
+    7  : 'Elbow-L',              # 6 
+    8  : 'Elbow-R',              # 7 
+    9  : 'Wrist-L',              # 8 
+    10 : 'Wrist-R',              # 9 
+    11 : 'Middle Finger Tip-L',  # 10
+    12 : 'Middle Finger Tip-R',  # 11
+    13 : 'Upper Hip-L',          # 12
+    14 : 'Upper Hip-R',          # 13
+    15 : 'Under Hip-L',          # 14
+    16 : 'Under Hip-R',          # 15
+    17 : 'Knee-L',               # 16
+    18 : 'Knee-R',               # 17
+    19 : 'Lateral malleolu18s-L',   # 18
+    20 : 'Lateral malleolus-R',     # 19
+    21 : 'Medial malleolus-L',      # 20
+    22 : 'Medial malleolus-R',      # 21
+    23 : 'Little Toe-L',         # 22
+    24 : 'Little Toe-R',         # 23
+    25 : 'Hallux Toe-L',         # 24
+    26 : 'Hallux Toe-R',         # 25
+}
+
+kookmin2_connections = [
+    [0, 1],   # Head-top -> Nose
+    [1, 2],   # Nose -> Neck
+    [2, 3],   # Neck -> Spine
+    [2, 5],   # Neck -> Shoulder-R
+    [5, 7],   # Shoulder-R -> Elbow-R
+    [7, 9],   # Elbow-R -> Wrist-R
+    [9, 11],  # Wrist-R -> Middle Finger Tip-R
+    [2, 4],   # Neck -> Shoulder-L
+    [4, 6],   # Shoulder-L -> Elbow-L
+    [6, 8],   # Elbow-L -> Wrist-L
+    [8, 10],  # Wrist-L -> Middle Finger Tip-L
+    [3, 12],  # Spine -> Upper Hip-L
+    [3, 13],  # Spine -> Upper Hip-R
+    [12, 14], # Upper Hip-L -> Under Hip-L
+    [13, 15], # Upper Hip-R -> Under Hip-R
+    [14, 15], # Under Hip-L -> Under Hip-R
+    [14, 16], # Under Hip-L -> Knee-L
+    [16, 18], # Knee-L -> Lateral malleolus-L
+    [16, 20], # Knee-L -> Medial malleolus-L
+    [18, 20], # Lateral malleolus-L -> Medial malleolus-L
+    [18, 22], # Lateral malleolus-L -> Little Toe-L
+    [20, 24], # Medial malleolus-L -> Hallux Toe-L
+    [15, 17], # Under Hip-R -> Knee-R
+    [17, 19], # Knee-R -> Lateral malleolus-R
+    [17, 21], # Knee-R -> Medial malleolus-R
+    [19, 21], # Lateral malleolus-R -> Medial malleolus-R
+    [19, 23], # Lateral malleolus-R -> Little Toe-R
+    [21, 25]  # Medial malleolus-R -> Hallux Toe-R
 ]
 
 # https://github.com/chaneyddtt/Generating-Multiple-Hypotheses-for-3D-Human-Pose-Estimation-with-Mixture-Density-Network/issues/12

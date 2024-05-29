@@ -286,7 +286,7 @@ def generate_kookmin_pkl_for_each_video(pose3d_list, available_frames, subject, 
 #         img_3d_hat = get_rootrel_pose(img_3d) # (17, 3) # root-relative pose 
 
 #         # 2.5d factor
-#         pred_lambda = optimize_scaling_factor(img_3d_hat, cam_3d_hat) # x,y,z 사용
+#         pred_lambda, losses = optimize_scaling_factor(img_3d_hat, cam_3d_hat) # x,y,z 사용
 
 #         # joint 2.5d image
 #         img_25d = img_3d * pred_lambda

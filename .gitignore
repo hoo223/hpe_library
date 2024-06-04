@@ -8,3 +8,5 @@ data/data_3d_h36m.npz
 data/h36m_camera-parameters.json
 
 *.pyc
+
+*.mp4

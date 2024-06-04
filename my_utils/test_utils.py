@@ -345,22 +345,22 @@ def mpi_inf_3dhp2h36m(x):
         T, V, C = x.shape
     y = np.zeros([T,17,C])
     y[:,0,:] = x[:,14,:]  # Pelvis
-    y[:,1,:] = x[:,2,:]   # R_Hip
-    y[:,2,:] = x[:,1,:]   # R_Knee
-    y[:,3,:] = x[:,0,:]   # R_Ankle
-    y[:,4,:] = x[:,3,:]   # L_Hip
-    y[:,5,:] = x[:,4,:]   # L_Knee
-    y[:,6,:] = x[:,5,:]   # L_Ankle
+    y[:,1,:] = x[:,8,:]   # R_Hip
+    y[:,2,:] = x[:,9,:]   # R_Knee
+    y[:,3,:] = x[:,10,:]   # R_Ankle
+    y[:,4,:] = x[:,11,:]   # L_Hip
+    y[:,5,:] = x[:,12,:]   # L_Knee
+    y[:,6,:] = x[:,13,:]   # L_Ankle
     y[:,7,:] = x[:,15,:]   # Torso
-    y[:,8,:] = x[:,12,:]   # Neck
-    y[:,9,:] = (x[:,12,:] + x[:,13,:]) * 0.5 # Nose
-    y[:,10,:] = x[:,13,:] # Head
-    y[:,11,:] = x[:,9,:] # L_Shoulder
-    y[:,12,:] = x[:,10,:] # L_Elbow
-    y[:,13,:] = x[:,11,:] # L_Wrist
-    y[:,14,:] = x[:,8,:] # R_Shoulder
-    y[:,15,:] = x[:,7,:] # R_Elbow
-    y[:,16,:] = x[:,6,:] # R_Wrist
+    y[:,8,:] = x[:,1,:]   # Neck
+    y[:,9,:] = x[:,16,:]  # Nose
+    y[:,10,:] = x[:,0,:] # Head
+    y[:,11,:] = x[:,5,:] # L_Shoulder
+    y[:,12,:] = x[:,6,:] # L_Elbow
+    y[:,13,:] = x[:,7,:] # L_Wrist
+    y[:,14,:] = x[:,2,:] # R_Shoulder
+    y[:,15,:] = x[:,3,:] # R_Elbow
+    y[:,16,:] = x[:,4,:] # R_Wrist
     return y
 
 def kookmin2h36m(x):

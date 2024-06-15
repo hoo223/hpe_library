@@ -312,6 +312,54 @@ kookmin2_connections = [
     [21, 25]  # Medial malleolus-R -> Hallux Toe-R
 ]
 
+def mpi_inf_3dhp_original2posynda(x):
+    # x: 3D pose (T x V x C) or (V x C)
+    '''
+    posynda kp 0  <- original kp 7
+    posynda kp 1  <- original kp 5
+    posynda kp 2  <- original kp 14
+    posynda kp 3  <- original kp 15
+    posynda kp 4  <- original kp 16
+    posynda kp 5  <- original kp 9
+    posynda kp 6  <- original kp 10
+    posynda kp 7  <- original kp 11
+    posynda kp 8  <- original kp 23
+    posynda kp 9  <- original kp 24
+    posynda kp 10 <- original kp 25
+    posynda kp 11 <- original kp 18
+    posynda kp 12 <- original kp 19
+    posynda kp 13 <- original kp 20
+    posynda kp 14 <- original kp 4
+    posynda kp 15 <- original kp 3
+    posynda kp 16 <- original kp 6
+    '''
+    if len(x.shape) == 2:
+        V, C = x.shape
+        T = 1
+        x = x.reshape(T, V, C)
+    else:
+        T, V, C = x.shape
+    y = np.zeros([T,17,C])
+    y[:,0,:] = x[:,7,:]  # Pelvis
+    y[:,1,:] = x[:,5,:]  # R_Hip
+    y[:,2,:] = x[:,14,:]  # R_Knee
+    y[:,3,:] = x[:,15,:]  # R_Ankle
+    y[:,4,:] = x[:,16,:]  # L_Hip
+    y[:,5,:] = x[:,9,:]  # L_Knee
+    y[:,6,:] = x[:,10,:]  # L_Ankle
+    y[:,7,:] = x[:,11,:]  # Torso
+    y[:,8,:] = x[:,23,:]  # Neck
+    y[:,9,:] = x[:,24,:]  # Nose
+    y[:,10,:] = x[:,25,:]  # Head
+    y[:,11,:] = x[:,18,:]  # L_Shoulder
+    y[:,12,:] = x[:,19,:]  # L_Elbow
+    y[:,13,:] = x[:,20,:]  # L_Wrist
+    y[:,14,:] = x[:,4,:]  # R_Shoulder
+    y[:,15,:] = x[:,3,:]  # R_Elbow
+    y[:,16,:] = x[:,6,:]  # R_Wrist
+    return y
+    
+
 # https://github.com/chaneyddtt/Generating-Multiple-Hypotheses-for-3D-Human-Pose-Estimation-with-Mixture-Density-Network/issues/12
 def mpi_inf_3dhp2h36m(x):
     '''
@@ -343,7 +391,13 @@ def mpi_inf_3dhp2h36m(x):
         x = x.reshape(T, V, C)
     else:
         T, V, C = x.shape
+    
     y = np.zeros([T,17,C])
+    if V == 17: # posynda mpi_inf_3dhp
+        pass
+    elif V == 28: # original mpi_inf_3dhp
+        x = mpi_inf_3dhp_original2posynda(x)
+        assert x.shape == (T, 17, C), 'x shape is wrong'
     y[:,0,:] = x[:,14,:]  # Pelvis
     y[:,1,:] = x[:,8,:]   # R_Hip
     y[:,2,:] = x[:,9,:]   # R_Knee
@@ -361,6 +415,7 @@ def mpi_inf_3dhp2h36m(x):
     y[:,14,:] = x[:,2,:] # R_Shoulder
     y[:,15,:] = x[:,3,:] # R_Elbow
     y[:,16,:] = x[:,4,:] # R_Wrist
+    
     return y
 
 def kookmin2h36m(x):

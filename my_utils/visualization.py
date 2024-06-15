@@ -130,6 +130,7 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         joint_pairs_left = []
         joint_pairs_right = []
     elif dataset == 'base':
+        # 0: pelvis, 1: l_hip, 2: r_hip
         joint_pairs = [[0, 1], [0, 2]]
         joint_pairs_left = [[0, 1]]
         joint_pairs_right = [[0, 2]]

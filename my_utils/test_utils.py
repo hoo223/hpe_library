@@ -789,6 +789,18 @@ def getNumFromImgName(img): # 이미지 파일명에서 프레임 번호 추출
 def normalize(data, max, min):
     return (data - min) / (max - min)
 
+def normalize_screen_coordinates(X, w, h):
+    assert X.shape[-1] == 2
+
+    # Normalize so that [0, w] is mapped to [-1, 1], while preserving the aspect ratio
+    return X / w * 2 - [1, h / w]
+
+def image_coordinates(X, w, h):
+    assert X.shape[-1] == 2
+
+    # Reverse camera frame normalization
+    return (X + [1, h / w]) * w / 2
+
 def array2dict(array, keypoints, verbose=False):
     # input: array (N, 2), keypoints (N,)
     # output: points_dict (dict) = {'keypoint1': array([x1, y1]), 'keypoint2': array([x2, y2]), ...}

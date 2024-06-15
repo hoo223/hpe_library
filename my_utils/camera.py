@@ -40,7 +40,9 @@ class Camera:
         self.C = self.origin
 
         # projection matrix
-        self.cam_proj = self.intrinsic @ np.hstack([self.R, self.t*mm_to_m])
+        self.ext_mat = np.hstack([self.R, self.t*mm_to_m]) # 3 x 4
+        self.extrinsic = np.hstack([self.R, self.t*mm_to_m])
+        self.cam_proj = self.intrinsic @ self.ext_mat
         self.IMAGE_HEIGHT = IMAGE_HEIGHT
         self.IMAGE_WIDTH = IMAGE_WIDTH
 
@@ -120,6 +122,7 @@ class Camera:
         self.R = (self.rot_z @ self.rot_y @ self.rot_x).T @ self.cam_default_R
         self.t = (- self.R @ self.C).reshape(-1,1) * m_to_mm # [mm]
         self.extrinsic = {'R': self.R, 't': self.t}
+        self.ext_mat = np.hstack([self.R, self.t*mm_to_m]) # 3 x 4
         self.R = np.array(self.extrinsic['R']) #
         self.t = np.array(self.extrinsic['t']) # [mm]
         
@@ -129,7 +132,7 @@ class Camera:
         self.C = self.origin
 
         # projection matrix
-        self.cam_proj = self.intrinsic @ np.hstack([self.R, self.t*mm_to_m])
+        self.cam_proj = self.intrinsic @ self.ext_mat
         
         # for drawing
         fx = self.intrinsic[0][0]

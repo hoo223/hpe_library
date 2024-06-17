@@ -805,6 +805,9 @@ def getAIHubCameraParameter(cam_json, trans_scale=1.0, W=1920):
 def World2CameraCoordinate(pos, extrinsic_properties):
     # input: pos (N, 4) -> (x, y, z, 1), extrinsic_properties (3, 4)
     # output: pos (N, 3) -> (x, y, z)
+    if len(pos.shape) == 1: 
+        C = pos.shape[0]
+        pos = pos.reshape(1, C)
     if pos.shape[1] == 3:
         pos = np.concatenate([pos, np.ones([pos.shape[0], 1])], axis=1)
     return np.matmul(extrinsic_properties, pos.T).T # World coordinate -> Camera coordinate
@@ -1356,7 +1359,9 @@ def infer_box(pose3d, camera, rootIdx):
                          camera['cy']).flatten()
     return np.array([tl2d[0], tl2d[1], br2d[0], br2d[1]])
 
-def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.00001, stop_tolerance=0.0001):
+def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.00001, stop_tolerance=0.0001, gpus='0, 1'):
+    os.environ['CUDA_VISIBLE_DEVICES'] = gpus
+
     # https://towardsdatascience.com/linear-regression-with-pytorch-eb6dedead817
     import torch
     from torch.autograd import Variable
@@ -1708,3 +1713,40 @@ def procrustes_align(predicted, target):
     
     # Return MPJPE
     return predicted_aligned
+
+def T_to_C(R, T):
+    R = np.array(R)
+    T = np.array(T).reshape(-1)
+    assert R.shape == (3, 3)
+    assert T.shape == (3,)
+    return - R.T @ T
+    
+def C_to_T(R, C):
+    R = np.array(R)
+    C = np.array(C).reshape(-1)
+    assert R.shape == (3, 3)
+    assert C.shape == (3,)
+    return - R @ C
+
+def rotation_matrix_from_vectors(vec1, vec2):
+    """
+    Returns the rotation matrix that aligns vec1 to vec2
+    :param vec1: A 3d "source" vector
+    :param vec2: A 3d "destination" vector
+    :return mat: A transformation matrix (3x3) which when applied to vec1, aligns it with vec2.
+    """
+    # Normalize the input vectors
+    a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+    v = np.cross(a, b)
+    c = np.dot(a, b)
+    s = np.linalg.norm(v)
+    
+    # Compute the skew-symmetric cross-product matrix of v
+    kmat = np.array([[0, -v[2], v[1]],
+                     [v[2], 0, -v[0]],
+                     [-v[1], v[0], 0]])
+    
+    # Compute the rotation matrix
+    rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
+    
+    return rotation_matrix

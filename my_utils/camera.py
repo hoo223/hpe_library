@@ -14,6 +14,7 @@ class Camera:
             self.cam_default_R = np.array([left, up, forward]) # default camera orientation
         else:
             self.cam_default_R = cam_default_R
+            
         # intrinsic parameter
         self.intrinsic = calib_mat
         # extrinsic parameter

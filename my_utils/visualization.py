@@ -258,7 +258,7 @@ def get_2d_pose_image(kps, img=None, H=1080, W=1920, box=None, thickness=10, dat
 
     return img
 
-def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, dataset='h36m', normalize=False):
+def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, dataset='h36m', normalize=False, color=None):
     # if not normalize:
     #     img = get_2d_pose_image(pose2d, img=img, H=H, W=W, box=box, thickness=thickness, dataset=dataset)
     #     ax.imshow(img)
@@ -313,10 +313,13 @@ def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, d
                     1, 1, # right leg
                     ], dtype=bool)
         
-    lcolor = 'b' # (255, 0, 0)
-    rcolor = 'r' # (0, 0, 255)
-    mcolor = 'k' # (0, 0, 0)
-    colors = [lcolor, rcolor, mcolor]
+    if type(color) != None:
+        colors = [color, color, color]
+    else:
+        lcolor = 'b' # (255, 0, 0)
+        rcolor = 'r' # (0, 0, 255)
+        mcolor = 'k' # (0, 0, 0)
+        colors = [lcolor, rcolor, mcolor]
 
     if type(img) != type(None):
         ax.imshow(img)

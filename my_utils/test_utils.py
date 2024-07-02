@@ -1750,3 +1750,15 @@ def rotation_matrix_from_vectors(vec1, vec2):
     rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
     
     return rotation_matrix
+
+def get_canonical_3d_same_z(world_3d, cam_3d, C, R):
+    num_frames = len(world_3d)
+    canonical_3d = world_3d.copy()
+    pelvis_z_in_cam_frame = cam_3d[:, 0, 2].copy() # (F,)
+    cam_origin = C.copy()
+    pelvis = world_3d[:, 0].copy()
+    mag_cam_origin_to_pelvis = np.expand_dims(pelvis_z_in_cam_frame, axis=1).repeat(3, axis=1) # (F, 3)
+    vec_cam_forward = np.multiply(np.expand_dims(R[2], 0).repeat(num_frames, axis=0),  mag_cam_origin_to_pelvis)
+    canonical_pelvis = cam_origin + vec_cam_forward
+    canonical_3d = canonical_3d - np.expand_dims(pelvis, 1) + np.expand_dims(canonical_pelvis, 1)
+    return canonical_3d

@@ -441,19 +441,24 @@ def show2Dtrajectory(traj, ax, final_step, recent=200):
     #ax.legend()
     return ax
 
-def draw_trajectory(ax, traj, final_step, recent=200, dim='3d'):
+def draw_trajectory(ax, traj, final_step, color=None, recent=200, dim='3d', linewidth=0.1):
     if final_step < recent:
+        if color == None: color = '0.0'
         if dim == '3d':
-            ax.plot(traj[:final_step, 0], traj[:final_step, 1], traj[:final_step, 2], color='0.0', label='recent 200 step')
+            ax.plot(traj[:final_step, 0], traj[:final_step, 1], traj[:final_step, 2], color=color, label='recent 200 step', linewidth=linewidth)
         elif dim == '2d':
-            ax.plot(traj[:final_step, 0], traj[:final_step, 1], color='0.0', label='recent 200 step')
+            ax.plot(traj[:final_step, 0], traj[:final_step, 1], color=color, label='recent 200 step', linewidth=linewidth)
     elif final_step >= recent:
         if dim == '3d':
-            ax.plot(traj[:(final_step-recent), 0], traj[:(final_step-recent), 1], traj[:(final_step-recent), 2], color='0.5', label='total traj')
-            ax.plot(traj[(final_step-recent):final_step, 0], traj[(final_step-recent):final_step, 1], traj[(final_step-recent):final_step, 2], color='0.0', label='recent {} step'.format(recent))
+            if color == None: color = '0.5'
+            ax.plot(traj[:(final_step-recent), 0], traj[:(final_step-recent), 1], traj[:(final_step-recent), 2], color=color, label='total traj', linewidth=linewidth)
+            if color == None: color = '0.0'
+            ax.plot(traj[(final_step-recent):final_step, 0], traj[(final_step-recent):final_step, 1], traj[(final_step-recent):final_step, 2], color=color, label='recent {} step'.format(recent), linewidth=linewidth)
         elif dim == '2d':
-            ax.plot(traj[:(final_step-recent), 0], traj[:(final_step-recent), 1], color='0.5', label='total traj')
-            ax.plot(traj[(final_step-recent):final_step, 0], traj[(final_step-recent):final_step, 1], color='0.0', label='recent 200 step')
+            if color == None: color = '0.5'
+            ax.plot(traj[:(final_step-recent), 0], traj[:(final_step-recent), 1], color=color, label='total traj', linewidth=linewidth)
+            if color == None: color = '0.0'
+            ax.plot(traj[(final_step-recent):final_step, 0], traj[(final_step-recent):final_step, 1], color=color, label='recent 200 step', linewidth=linewidth)
         # if i > 0:
         #     ax.quiver(traj[i-1], traj[i][0])
     #ax.legend()

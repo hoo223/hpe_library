@@ -36,7 +36,7 @@ class Camera:
             self.t = np.array(cam_ext['t']) # [mm]
         
         # camera frame
-        self.cam_frame = self.generate_camera_frame(self.extrinsic, cam_name)
+        self.cam_frame = self.generate_camera_frame(self.extrinsic, name=self.cam_name)
         self.origin = self.cam_frame.origin
         self.C = self.origin
 
@@ -128,7 +128,7 @@ class Camera:
         self.t = np.array(self.extrinsic['t']) # [mm]
         
         # camera frame
-        self.cam_frame = self.generate_camera_frame(self.extrinsic, self.cam_name)
+        self.cam_frame = self.generate_camera_frame(self.extrinsic, name=self.cam_name)
         self.origin = self.cam_frame.origin
         self.C = self.origin
 

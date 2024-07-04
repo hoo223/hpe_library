@@ -258,7 +258,7 @@ def get_2d_pose_image(kps, img=None, H=1080, W=1920, box=None, thickness=10, dat
 
     return img
 
-def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, dataset='h36m', normalize=False, color=None):
+def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, dataset='h36m', normalize=False, color=None, label=''):
     # if not normalize:
     #     img = get_2d_pose_image(pose2d, img=img, H=H, W=W, box=box, thickness=thickness, dataset=dataset)
     #     ax.imshow(img)
@@ -330,7 +330,7 @@ def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, d
         end = map(float, kps[c[1]])
         start = list(start)
         end = list(end)
-        ax.plot([start[0], end[0]], [start[1], end[1]], '-', color=colors[LR[j]], linewidth=1.5)
+        ax.plot([start[0], end[0]], [start[1], end[1]], '-', color=colors[LR[j]], linewidth=1.5, label=label)
 
 
 def show_2d_3d(fig_idx, 

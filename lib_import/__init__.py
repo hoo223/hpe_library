@@ -30,11 +30,12 @@ from mpl_toolkits.mplot3d import Axes3D
 import plotly.graph_objects as go
 from ipywidgets import interact
 from tqdm import tqdm
+import scipy
 from scipy.spatial.transform import Rotation
 from scipy.spatial import distance
 from scipy.linalg import null_space
 import pandas as pd
-lib_third_party = ['np', 'cv2', 'matplotlib', 'plt', 'gridspec', 'Axes3D', 'interact', 'tqdm', 'Rotation', 'distance', 'go', 'pd', 'random', 'null_space', 'FigureCanvas', 'imageio', 'patches']
+lib_third_party = ['np', 'cv2', 'scipy', 'matplotlib', 'plt', 'gridspec', 'Axes3D', 'interact', 'tqdm', 'Rotation', 'distance', 'go', 'pd', 'random', 'null_space', 'FigureCanvas', 'imageio', 'patches']
 
 # camera-models library
 sys.path.append('/home/hrai/codes/camera-models/')

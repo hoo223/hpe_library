@@ -1,7 +1,7 @@
 from lib_import import *
 from .dh import rotate_torso_by_R, get_torso_direction, rotation_matrix_to_vector_align, projection, get_torso_rotation_matrix, calculate_batch_azimuth_elevation
 from .test_utils import readJSON, halpe2h36m, get_video_info, get_bbox_area_from_pose2d, get_bbox_from_pose2d, change_bbox_convention, get_bbox_area
-from .test_utils import get_h36m_keypoint_index
+from .test_utils import get_h36m_keypoint_index, mpi_inf_3dhp2h36m
 from .test_utils import World2CameraCoordinate, get_rootrel_pose, optimize_scaling_factor, infer_box, camera_to_image_frame
 
 ## for general
@@ -18,6 +18,20 @@ def load_h36m():
     h36m_3d_world = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)
 
     return h36m_3d_world, cam_param
+
+def load_3dhp_original(data_type='test'):
+    user = getpass.getuser()
+    folder = f'/home/{user}/Datasets/HAAI/3DHP/original/{data_type}'
+    data_dict = {}
+    for subject in natsorted(os.listdir(folder)):
+        if 'TS' not in subject: continue
+        data_dict[subject] = {}
+        data = scipy.io.loadmat(f'/home/{user}/Datasets/HAAI/3DHP/original/test/{subject}/annot_data.mat')
+        data_dict[subject]['annot2'] = mpi_inf_3dhp2h36m(np.transpose(data['annot2'][:, :, 0, :], (2, 1, 0))).copy()
+        data_dict[subject]['annot3'] = mpi_inf_3dhp2h36m(np.transpose(data['annot3'][:, :, 0, :], (2, 1, 0))).copy()
+        data_dict[subject]['valid_frame'] = data['valid_frame'][0].copy()
+        print(subject, data_dict[subject]['annot2'].shape, data_dict[subject]['annot3'].shape, data_dict[subject]['valid_frame'].shape)
+    return data_dict
 
 def get_cam_param(camera_sub_act, subject, cam_params):
     cam_param_for_sub_act = {}

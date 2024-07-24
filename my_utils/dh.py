@@ -240,7 +240,7 @@ def calculate_rotation_quaternion(vec1, vec2):
     n = np.cross(v1, v2)
     theta = np.arccos(np.dot(v1, v2))
     
-    if np.isclose(theta, 0):
+    if np.allclose(theta, 0):
         # If the vectors are nearly parallel, return an identity quaternion
         return np.array([1.0, 0.0, 0.0, 0.0])
     

@@ -20,6 +20,7 @@ lib_standard = ['os', 'sys', 'pickle', 'time', 'argparse', 'ast', 'logging', 'co
 import numpy as np
 import cv2
 import random
+import yaml
 import matplotlib
 import imageio
 import matplotlib.pyplot as plt
@@ -35,7 +36,7 @@ from scipy.spatial.transform import Rotation
 from scipy.spatial import distance
 from scipy.linalg import null_space
 import pandas as pd
-lib_third_party = ['np', 'cv2', 'scipy', 'matplotlib', 'plt', 'gridspec', 'Axes3D', 'interact', 'tqdm', 'Rotation', 'distance', 'go', 'pd', 'random', 'null_space', 'FigureCanvas', 'imageio', 'patches']
+lib_third_party = ['np', 'cv2', 'scipy', 'matplotlib', 'plt', 'gridspec', 'Axes3D', 'interact', 'tqdm', 'Rotation', 'distance', 'go', 'pd', 'random', 'null_space', 'FigureCanvas', 'imageio', 'patches', 'yaml']
 
 # camera-models library
 sys.path.append('/home/hrai/codes/camera-models/')

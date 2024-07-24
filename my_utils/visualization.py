@@ -64,6 +64,7 @@ def axes_2d(fig=None, rect=None, loc=111, W=1000, H=1000, xlim=None, ylim=None, 
     if not show_axis:
         ax.axes.xaxis.set_visible(False)
         ax.axes.yaxis.set_visible(False)
+
     return ax
 
 def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True, ax=None, grid=True, normalize=False):
@@ -81,9 +82,6 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.set_zlim(zlim)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_zlabel(zlabel)
     ax.set_aspect('equal', 'box')
     ax.set_title(title)
     ax.view_init(view[0], view[1])
@@ -93,6 +91,10 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
         # ax.axes.zaxis.set_visible(False)
         for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
             axis.set_ticklabels([])
+    else:
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_zlabel(zlabel)
 
     if not grid:
         ax.grid('off')
@@ -313,7 +315,7 @@ def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, d
                     1, 1, # right leg
                     ], dtype=bool)
         
-    if type(color) != None:
+    if type(color) != type(None):
         colors = [color, color, color]
     else:
         lcolor = 'b' # (255, 0, 0)

@@ -1,37 +1,706 @@
+from math import e
+from re import S
 from lib_import import *
 from .dh import rotate_torso_by_R, get_torso_direction, rotation_matrix_to_vector_align, projection, get_torso_rotation_matrix, calculate_batch_azimuth_elevation
-from .test_utils import readJSON, halpe2h36m, get_video_info, get_bbox_area_from_pose2d, get_bbox_from_pose2d, change_bbox_convention, get_bbox_area
+from .test_utils import readJSON, readpkl, savepkl, halpe2h36m, get_video_info, get_video_frame, get_bbox_area_from_pose2d, get_bbox_from_pose2d, change_bbox_convention, get_bbox_area
 from .test_utils import get_h36m_keypoint_index, mpi_inf_3dhp2h36m
 from .test_utils import World2CameraCoordinate, get_rootrel_pose, optimize_scaling_factor, infer_box, camera_to_image_frame
+from posynda_utils import Human36mDataset
 
 ## for general
 
+dt_file_mapping = {
+    'H36M-GT': 'h36m_gt',
+    'H36M-GT-CAM_NO_FACTOR': 'h36m_gt',
+    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_DIST': 'h36m_gt_canonical_3d_same_dist',
+    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_DIST-S15678_TR_54138969_TS_OTHERS': 'h36m_gt_canonical_3d_same_dist_s15678_tr_54138969_ts_others',
+    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_DIST-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_same_dist_tr_s1_ts_s5678',
+    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z': 'h36m_gt_canonical_3d_same_z',
+    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_same_z_tr_s1_ts_s5678',
+    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S1_TS_S5678_BY_CANON1_6_PRED': 'h36m_gt_canonical_3d_same_z_tr_s1_ts_s5678',
+    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S1_TS_S5678_BY_CANON2_2_PRED': 'h36m_gt_canonical_3d_same_z_tr_s1_ts_s5678',
+    'H36M-GT-CAM_NO_FACTOR-S15678_TR_54138969_TS_OTHERS': 'h36m_gt_s15678_tr_54138969_ts_others',
+    'H36M-GT-CAM_NO_FACTOR-TR_S1_TS_S5678': 'h36m_gt_tr_s1_ts_s5678',
+    'H36M-GT-INPUT_FROM_3D_CANONICAL_SAME_DIST-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_same_dist_tr_s1_ts_s5678',
+    'H36M-GT-TR_S1_TS_S5678': 'h36m_gt_tr_s1_ts_s5678',
+    'H36M-GT-WORLD_NO_FACTOR': 'h36m_gt',
+    'H36M-SH': 'h36m_sh_conf_cam_source_final',
+    'H36M_CANONICALIZATION-GT-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_same_z_tr_s1_ts_s5678',
+    'FIT3D-GT-ALL_TEST': 'fit3d_gt_all_test',
+    'FIT3D-GT-CAM_NO_FACTOR-ALL_TEST': 'fit3d_gt_all_test',
+    'FIT3D-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-ALL_TEST': 'fit3d_gt_canonical_3d_same_z_all_test',
+    'FIT3D-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S03': 'fit3d_gt_canonical_3d_same_z_tr_s03',
+    'FIT3D-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TS_S4710': 'fit3d_gt_canonical_3d_same_z_ts_s4710',
+    'FIT3D-GT-CAM_NO_FACTOR-TS_S4710': 'fit3d_gt_ts_s4710',
+    'FIT3D-GT-TS_S4710': 'fit3d_gt_ts_s4710',
+    'FIT3D-GT-CAM_NO_FACTOR-TR_S03': 'fit3d_gt_tr_s03',
+    '3DHP-GT-CAM_NO_FACTOR-POSEAUG_TEST_2929': 'poseaug_3dhp_test',
+    '3DHP-GT-CAM_NO_FACTOR-POSYNDA_TESTSET': '3dhp_gt_test',
+    '3DHP-GT-CAM_NO_FACTOR-TEST_ALL_TRAIN': '3dhp_gt_test_all_train',
+    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TEST_ALL_TRAIN': '3dhp_gt_canonical_3d_same_z_test_all_train',
+    '3DHP-GT-CAM_NO_FACTOR-TEST_TS1_4': '3dhp_gt_test_TS1_4',
+    '3DHP-GT-CAM_NO_FACTOR-TEST_TS1_6': '3dhp_gt_test_TS1_6',
+    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TEST_TS1_4': '3dhp_gt_test_canonical_3d_from_same_z_TS1_4',
+    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TEST_TS1_6': '3dhp_gt_test_canonical_3d_from_same_z_TS1_6',
+    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5': 'h36m_gt_canonical_3d_fixed_dist_5',
+    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_fixed_dist_5_tr_s1_ts_s5678',
+    'FIT3D-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5-ALL_TEST': 'fit3d_gt_canonical_3d_fixed_dist_5_all_test',
+    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5-TEST_TS1_6': '3dhp_gt_test_canonical_3d_from_fixed_dist_5_TS1_6',
+    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5-TEST_ALL_TRAIN': '3dhp_gt_canonical_3d_fixed_dist_5_test_all_train'
+}
+
+def split_source_name(source, dataset_name):
+    if dataset_name == 'h36m':
+        subject, cam_id, action = source.split('_')
+        return subject, cam_id, action
+    elif dataset_name == 'fit3d':
+        splited = source.split('_')
+        subject = splited[0]
+        cam_id = splited[1]
+        action = '_'.join(splited[2:])
+        return subject, cam_id, action
+    elif dataset_name == '3dhp':
+        try:
+            subject, cam_id, seq = source.split('_')
+            if cam_id == 'None': cam_id = None # only for test data
+            if seq == 'None': seq = None # only for test data
+            return subject, cam_id, seq
+        except: # for test data
+            subject = source
+            return subject, None, None
+    else:
+        raise ValueError(f'{dataset_name} not found')
+
+def load_plot_configs(dataset_name):
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_plot_configs = os.path.join(save_root, f'{dataset_name}_plot_configs.yaml')
+    with open(save_path_plot_configs, 'r') as file:
+        plot_configs = yaml.safe_load(file)
+    return plot_configs
+    
+def load_source_list(dataset_name, overwrite=False):
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+    if os.path.exists(save_path_source_list) and not overwrite:
+        source_list = readpkl(save_path_source_list)
+        #print(f'{dataset_name} source_list loaded\n')
+    else:
+        source_list = []
+        if dataset_name == 'h36m':
+            try: del h36m_dataset
+            except: pass
+            h36m_dataset = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
+            subject_list = h36m_dataset.keys()
+            cam_list = ['54138969', '60457274', '55011271', '58860488']
+            for subject in subject_list:
+                action_list = h36m_dataset[subject].keys()
+                for action in action_list:
+                    for cam_id in cam_list:
+                        source_list.append(f'{subject}_{cam_id}_{action}')
+        elif dataset_name == 'fit3d':
+            fit3d_root = f'/home/{user}/Datasets/HAAI/Fit3D/train'
+            subject_list = os.listdir(fit3d_root)
+            subject_list.remove('counts')
+            for subject in tqdm(subject_list):
+                subject_root = os.path.join(fit3d_root, subject)
+                gt_3d_root = os.path.join(subject_root, 'joints3d_25')
+                cam_root = os.path.join(subject_root, 'camera_parameters')
+                action_list = [action.split('.')[0] for action in os.listdir(gt_3d_root)]
+                cam_list = [cam_id for cam_id in os.listdir(cam_root)]
+                for action in action_list:
+                    for cam_id in cam_list:
+                        source_list.append(f'{subject}_{cam_id}_{action}')
+        elif dataset_name == '3dhp':
+            data_dict_3dhp_train, cam_param_3dhp_train = load_3dhp_original('train')
+            data_dict_3dhp_test, cam_param_3dhp_test = load_3dhp_original('test')
+            data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
+            for source in data_dict_3dhp.keys():
+                subject, seq, cam_id = split_source_name(source, '3dhp')
+                source_list.append(f'{subject}_{cam_id}_{seq}')
+        else:
+            raise ValueError(f'{dataset_name} not found')
+        savepkl(source_list, save_path_source_list)
+        #print(f'{dataset_name} source_list generated and saved\n')
+    
+    return source_list
+
+def load_cam_params(dataset_name, overwrite=False, only_valid_frame=False):
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+    if os.path.exists(save_path_cam_params) and not overwrite:
+        cam_params = readpkl(save_path_cam_params)
+        #print(f'{dataset_name} cam_params loaded\n')
+    else:
+        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        source_list = readpkl(save_path_source_list)
+        cam_params = {}    
+        if dataset_name == 'h36m':
+            try: del h36m_dataset
+            except: pass
+            h36m_dataset = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
+            cam_params_h36m = readJSON('/home/hrai/codes/hpe_library/data/h36m_camera-parameters.json')
+            for source in tqdm(source_list):
+                subject, cam_id, action = split_source_name(source, dataset_name)
+                if subject not in cam_params.keys():         cam_params[subject] = {}
+                if action not in cam_params[subject].keys(): cam_params[subject][action] = {}
+                intrinsic = np.array(cam_params_h36m['intrinsics'][cam_id]['calibration_matrix']) # (3, 3)
+                R = np.array(cam_params_h36m['extrinsics'][subject][cam_id]['R']) # (3, 3)
+                t = np.array(cam_params_h36m['extrinsics'][subject][cam_id]['t']).reshape(-1)/1000 # unit: m, (3,)
+                extrinsic = np.hstack([R, t.reshape(-1, 1)]) # (3, 4)
+                C = -R.T @ t # (3,)
+                if cam_id in ['54138969', '60457274']:   W, H = 1000, 1002
+                elif cam_id in ['55011271', '58860488']: W, H = 1000, 1000
+                else: raise ValueError(f'cam_id {cam_id} not found')
+                num_frames = h36m_dataset[subject][action]['positions'].shape[0]
+                cam_params[subject][action][cam_id] = {
+                    'intrinsic': intrinsic,
+                    'extrinsic': extrinsic,
+                    'C': C,
+                    'R': R,
+                    't': t,
+                    'W': W,
+                    'H': H,
+                    'num_frames': num_frames
+                }
+        elif dataset_name == 'fit3d':
+            fit3d_root = f'/home/{user}/Datasets/HAAI/Fit3D/train'
+            for source in tqdm(source_list):
+                subject, cam_id, action = split_source_name(source, dataset_name)
+                if subject not in cam_params.keys():         cam_params[subject] = {}
+                if action not in cam_params[subject].keys(): cam_params[subject][action] = {}
+                subject_root = os.path.join(fit3d_root, subject)
+                gt_3d_path = os.path.join(fit3d_root, subject, 'joints3d_25', action+'.json')
+                cam_path = os.path.join(subject_root, 'camera_parameters', cam_id, action+'.json')
+                cam_param = readJSON(cam_path)
+                R = np.array(cam_param['extrinsics']['R']) # (3, 3)
+                C = np.array(cam_param['extrinsics']['T'])[0] # unit: m
+                t = -R @ C
+                cx, cy = cam_param['intrinsics_wo_distortion']['c']
+                fx, fy = cam_param['intrinsics_wo_distortion']['f']
+                intrinsic = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]]) # (3, 3)
+                extrinsic = np.hstack([R, t.reshape(-1, 1)]) # (3, 4)
+                video_path = os.path.join(subject_root, 'videos', cam_id, action+'.mp4')
+                W, H, _, fps = get_video_info(video_path)
+                num_frames = len(np.array(readJSON(gt_3d_path)['joints3d_25'])[:, :17])
+                cam_params[subject][action][cam_id] = {
+                    'intrinsic': intrinsic,
+                    'extrinsic': extrinsic,
+                    'C': C,
+                    'R': R,
+                    't': t,
+                    'W': W,
+                    'H': H,
+                    'num_frames': num_frames,
+                    'fps': fps
+                }
+        elif dataset_name == '3dhp':
+            data_dict_3dhp_train, cam_param_3dhp_train = load_3dhp_original('train')
+            data_dict_3dhp_test, cam_param_3dhp_test = load_3dhp_original('test')
+            data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
+            cam_param_3dhp = {**cam_param_3dhp_train, **cam_param_3dhp_test}
+            print(cam_param_3dhp.keys())
+            for source in tqdm(source_list):
+                subject, cam_id, seq = split_source_name(source, dataset_name)
+                if subject not in cam_params.keys():      cam_params[subject] = {}
+                if seq not in cam_params[subject].keys(): cam_params[subject][seq] = {}
+                
+                if cam_id == None: 
+                    if only_valid_frame:
+                        num_frames = data_dict_3dhp[f'{subject}']['valid_frame'].sum()
+                    else:
+                        num_frames = data_dict_3dhp[f'{subject}']['annot3'].shape[0] # test data
+                    cam_params[subject][seq][cam_id] = cam_param_3dhp[subject].copy() # copy 안하면 원본 데이터가 바뀜
+                else:
+                    if only_valid_frame:
+                        num_frames = data_dict_3dhp[f'{subject}_{seq}_{cam_id}']['valid_frame'].sum()
+                    else:      
+                        num_frames = data_dict_3dhp[f'{subject}_{seq}_{cam_id}']['annot3'].shape[0] # train data
+                    cam_params[subject][seq][cam_id] = cam_param_3dhp[cam_id].copy() # copy 안하면 원본 데이터가 바뀜
+                
+                    
+                cam_params[subject][seq][cam_id]['num_frames'] = num_frames
+        else:
+            raise ValueError(f'{dataset_name} not found')
+        savepkl(cam_params, save_path_cam_params)
+        #print(f'{dataset_name} cam_params generated and saved\n')
+    
+    return cam_params
+
+def load_image_frame(dataset_name, source, frame_num):
+    subject, cam_id, action = split_source_name(source, dataset_name)
+    cam_params = load_cam_params(dataset_name)
+    num_frames = cam_params[subject][action][cam_id]['num_frames']
+    # get video frame
+    if dataset_name == '3dhp':
+        if frame_num < 0: frame_num = num_frames + frame_num
+        if 'TS' in subject: # testset
+            img = cv2.imread(f'/home/hrai/Datasets/HAAI/3DHP/original/test/{subject}/imageSequence/img_{frame_num+1:06d}.jpg')
+        else: # trainset
+            video_path = f'/home/hrai/Datasets/HAAI/3DHP/original/train/{subject}/{action}/imageSequence/video_{cam_id.split("cam")[1]}.avi'
+            img = get_video_frame(video_path, frame_num)
+    elif dataset_name == 'fit3d':
+        video_path = f'/home/hrai/Datasets/HAAI/Fit3D/train/{subject}/videos/{cam_id}/{action}.mp4'
+        img = get_video_frame(video_path, frame_num)
+    else:
+        img = None
+    
+    return img
+    
+def load_cam_3d(dataset_name, overwrite=False, only_valid_frame=False):
+    # assert dataset_name not in blacklist, f'cam_3d is from original {dataset_name} dataset'
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+    assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+    source_list = readpkl(save_path_source_list)
+    
+    # target
+    save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
+    if os.path.exists(save_path_cam_3d) and not overwrite:
+        cam_3ds = readpkl(save_path_cam_3d)
+        #print(f'{dataset_name} cam_3d loaded\n')
+    else:
+        cam_3ds = {}
+        if dataset_name == '3dhp':
+            data_dict_3dhp_train, _ = load_3dhp_original('train')
+            data_dict_3dhp_test, _ = load_3dhp_original('test')
+            data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
+            num_frames = 0
+            for source in tqdm(source_list):
+                subject, cam_id, seq = split_source_name(source, '3dhp')
+                if seq is not None: source = f'{subject}_{seq}_{cam_id}'
+                else: source = subject
+                if subject not in cam_3ds.keys():      cam_3ds[subject] = {}
+                if seq not in cam_3ds[subject].keys(): cam_3ds[subject][seq] = {}
+                if only_valid_frame:
+                    valid_frame = data_dict_3dhp[source]['valid_frame']
+                    cam_3ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot3'][valid_frame]/1000
+                else:
+                    cam_3ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot3']/1000
+                num_frames += len(cam_3ds[subject][seq][cam_id])
+        else:
+            # prerequisites
+            save_path_world_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_world_3d.pkl')
+            save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+            assert os.path.exists(save_path_world_3d), f'No world_3d found for {dataset_name}'
+            assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+            world_3ds = readpkl(save_path_world_3d)
+            cam_params = readpkl(save_path_cam_params)
+            for source in tqdm(source_list):
+                subject, cam_id, action = split_source_name(source, dataset_name)
+                if subject not in cam_3ds:          cam_3ds[subject] = {}
+                if action  not in cam_3ds[subject]: cam_3ds[subject][action] = {}
+                # world_3d
+                world_3d = world_3ds[subject][action]
+                # cam_param
+                cam_param = cam_params[subject][action][cam_id]
+                R, t, C, W, H = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H']
+                intrinsic = np.array(cam_param['intrinsic'])
+                # world to cam 
+                cam_3d = np.einsum('ijk,kl->ijl', world_3d, R.T) + t # (N, 17, 3)
+                # store
+                cam_3ds[subject][action][cam_id] = cam_3d.copy()
+        savepkl(cam_3ds, save_path_cam_3d)
+        #print(f'{dataset_name} cam_3d generated and saved\n')
+    return cam_3ds
+
+def load_cam_3d_canonical(dataset_name, canonical_type, overwrite=False):
+    assert canonical_type is not None, 'canonical_type is None'
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_cam_3d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_canonical_{canonical_type}.pkl')
+    if os.path.exists(save_path_cam_3d_canonical) and not overwrite:
+        cam_3d_canonicals = readpkl(save_path_cam_3d_canonical)
+    else:
+        save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
+        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        
+        cam_3ds = readpkl(save_path_cam_3d)
+        source_list = readpkl(save_path_source_list)
+        cam_3d_canonicals = {}
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            if subject not in cam_3d_canonicals:          cam_3d_canonicals[subject] = {}
+            if action  not in cam_3d_canonicals[subject]: cam_3d_canonicals[subject][action] = {}
+            cam_3d = cam_3ds[subject][action][cam_id]
+            if canonical_type == 'same_z':
+                dist = cam_3d[:, 0, 2] # z value of pelvis joint for each frame
+            elif canonical_type == 'same_dist':
+                dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame
+            elif 'fixed_dist' in canonical_type:
+                dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d))
+            else:
+                raise ValueError(f'canonical type {canonical_type} not found')
+            cam_3d_canonical = cam_3d.copy() - cam_3d[:, 0:1] # move to cam origin
+            cam_3d_canonical[..., 2] += dist[:, None]
+            #print(dist[:, None].shape, cam_3d_canonical.shape)
+            cam_3d_canonicals[subject][action][cam_id] = cam_3d_canonical
+        savepkl(cam_3d_canonicals, save_path_cam_3d_canonical)
+    return cam_3d_canonicals
+
+def load_img_2d_canonical(dataset_name, canonical_type, overwrite=False):
+    assert canonical_type is not None, 'canonical_type is None'
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_img_2d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d_canonical_{canonical_type}.pkl')
+    if os.path.exists(save_path_img_2d_canonical) and not overwrite:
+        img_2d_canonicals = readpkl(save_path_img_2d_canonical)
+    else:
+        save_path_cam_3d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_canonical_{canonical_type}.pkl')
+        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+        assert os.path.exists(save_path_cam_3d_canonical), f'No cam_3d_canonical found for {dataset_name}'
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+        
+        cam_3d_canonicals = readpkl(save_path_cam_3d_canonical)
+        source_list = readpkl(save_path_source_list)
+        cam_params = readpkl(save_path_cam_params)
+        img_2d_canonicals = {}
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            if subject not in img_2d_canonicals:          img_2d_canonicals[subject] = {}
+            if action  not in img_2d_canonicals[subject]: img_2d_canonicals[subject][action] = {}
+            cam_3d_canonical = cam_3d_canonicals[subject][action][cam_id]
+            cam_param = cam_params[subject][action][cam_id]
+            R, t, C, W, H = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H']
+            intrinsic = np.array(cam_param['intrinsic'])
+            img_2d_canonical = np.einsum('ijk,kl->ijl', cam_3d_canonical, intrinsic.T) # (N, 17, 2)
+            img_2d_canonical = img_2d_canonical / img_2d_canonical[:, :, 2:] # (N, 17, 2)
+            img_2d_canonicals[subject][action][cam_id] = img_2d_canonical[...,:2]
+        savepkl(img_2d_canonicals, save_path_img_2d_canonical)
+        
+    return img_2d_canonicals
+
+def load_world_3d(dataset_name, overwrite=False):
+    #assert dataset_name not in blacklist, f'world_3d is from original {dataset_name} dataset'
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+    assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+    source_list = readpkl(save_path_source_list)
+    
+    # target
+    save_path_world_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_world_3d.pkl')
+    if os.path.exists(save_path_world_3d) and not overwrite:
+        world_3ds = readpkl(save_path_world_3d)
+        #print(f'{dataset_name} world_3d loaded\n')
+    else:
+        world_3ds = {}
+        if dataset_name == 'h36m':
+            try: del h36m_dataset
+            except: pass
+            h36m_dataset = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
+            for source in source_list:
+                subject, cam_id, action = split_source_name(source, dataset_name)
+                if subject not in world_3ds.keys(): world_3ds[subject] = {}
+                world_3ds[subject][action] = h36m_dataset[subject][action]['positions'].copy()      
+        elif dataset_name == 'fit3d':
+            fit3d_root = f'/home/{user}/Datasets/HAAI/Fit3D/train'
+            for source in tqdm(source_list):
+                subject, cam_id, action = split_source_name(source, dataset_name)
+                if subject not in world_3ds.keys(): world_3ds[subject] = {}
+                gt_3d_path = os.path.join(fit3d_root, subject, 'joints3d_25', action+'.json')
+                gt_3d = np.array(readJSON(gt_3d_path)['joints3d_25'])[:, :17] # (F, 17, 3)
+                world_3ds[subject][action] = gt_3d
+        elif dataset_name == '3dhp':
+            # prerequisites
+            save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
+            save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+            assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
+            assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+            cam_3ds = readpkl(save_path_cam_3d)
+            cam_params = readpkl(save_path_cam_params)
+            for source in tqdm(source_list):
+                subject, cam_id, action = split_source_name(source, dataset_name)
+                if subject not in world_3ds: world_3ds[subject] = {}
+                if action in world_3ds[subject]: continue # already generated from other cam_3d
+                # cam_3d & cam_param
+                cam_3d = cam_3ds[subject][action][cam_id]
+                cam_param = cam_params[subject][action][cam_id]
+                R, t, C, W, H = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H']
+                # cam to world
+                world_3d = np.einsum('ijk,kl->ijl', cam_3d, R) + C # (N, 17, 3)
+                # store
+                world_3ds[subject][action] = world_3d.copy()
+        savepkl(world_3ds, save_path_world_3d)
+        #print(f'{dataset_name} world generated and saved\n')
+        
+    return world_3ds
+
+def load_img_2d(dataset_name, overwrite=False, only_valid_frame=False):
+    #assert dataset_name not in blacklist, f'img_2d is from original {dataset_name} dataset'
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+    assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+    source_list = readpkl(save_path_source_list)
+    
+    save_path_img_2d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d.pkl')
+    if os.path.exists(save_path_img_2d) and not overwrite:
+        img_2ds = readpkl(save_path_img_2d)
+        #print(f'{dataset_name} img_2d loaded\n')
+    else:
+        img_2ds = {}
+        if dataset_name == '3dhp':
+            data_dict_3dhp_train, cam_param_3dhp_train = load_3dhp_original('train')
+            data_dict_3dhp_test, cam_param_3dhp_test = load_3dhp_original('test')
+            data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
+            for source in tqdm(source_list):
+                subject, cam_id, seq = split_source_name(source, '3dhp')
+                if seq is not None: source = f'{subject}_{seq}_{cam_id}'
+                else: source = subject
+                if subject not in img_2ds.keys():      img_2ds[subject] = {}
+                if seq not in img_2ds[subject].keys(): img_2ds[subject][seq] = {}
+                if only_valid_frame:
+                    valid_frame = data_dict_3dhp[source]['valid_frame']
+                    img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2'][valid_frame]
+                else:
+                    img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2']
+        else:
+            # prerequisites
+            save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
+            save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+            assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
+            assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+            cam_3ds = readpkl(save_path_cam_3d)
+            cam_params = readpkl(save_path_cam_params)
+            
+            for source in tqdm(source_list):
+                subject, cam_id, action = split_source_name(source, dataset_name)
+                if subject not in img_2ds:          img_2ds[subject] = {}
+                if action  not in img_2ds[subject]: img_2ds[subject][action] = {}
+                # cam_3d
+                cam_3d = cam_3ds[subject][action][cam_id]
+                # cam_param
+                cam_param = cam_params[subject][action][cam_id]
+                R, t, C, W, H = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H']
+                intrinsic = np.array(cam_param['intrinsic'])
+                # cam to img
+                img_2d = np.einsum('ijk,kl->ijl', cam_3d, intrinsic.T) # (N, 17, 2)
+                img_2d = img_2d / img_2d[:, :, 2:] # (N, 17, 2)
+                # store
+                img_2ds[subject][action][cam_id] = img_2d[...,:2].copy()
+        savepkl(img_2ds, save_path_img_2d)
+        #print(f'{dataset_name} img_2d generated and saved')
+            
+    return img_2ds
+
+def load_img_3d(dataset_name, overwrite=False):
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_img_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_3d.pkl')
+    if os.path.exists(save_path_img_3d) and not overwrite:
+        img_3ds = readpkl(save_path_img_3d)
+        #print(f'{dataset_name} img_3d loaded\n')
+    else:
+        # prerequisites
+        save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
+        save_path_img_2d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d.pkl')
+        save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
+        assert os.path.exists(save_path_img_2d), f'No img_2d found for {dataset_name}'
+        assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        cam_3ds = readpkl(save_path_cam_3d)
+        img_2ds = readpkl(save_path_img_2d)
+        cam_params = readpkl(save_path_cam_params)
+        source_list = readpkl(save_path_source_list)
+
+        img_3ds = {}
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            if subject not in img_3ds:          img_3ds[subject] = {}
+            if action  not in img_3ds[subject]: img_3ds[subject][action] = {}
+            # cam_3d, img_2d
+            cam_3d = cam_3ds[subject][action][cam_id]
+            img_2d = img_2ds[subject][action][cam_id]
+            # cam_param
+            cam_param = cam_params[subject][action][cam_id]
+            R, t, C, W, H, intrinsic = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H'], cam_param['intrinsic']
+            # img_3d depth
+            root_joint = cam_3d[:, 0] # (N, 3)
+            tl_joint = root_joint.copy() # top left point of the bounding box
+            br_joint = root_joint.copy() # bottom right point of the bounding box
+            tl_joint[:, :2] -= 1000.0
+            br_joint[:, :2] += 1000.0
+            tl_2d = tl_joint @ intrinsic.T # projected top left point
+            tl_2d = tl_2d / tl_2d[:, 2:]
+            br_2d = br_joint @ intrinsic.T # projected bottom right point
+            br_2d = br_2d / br_2d[:, 2:]
+            box = np.stack([tl_2d[:, 0], tl_2d[:, 1], br_2d[:, 0], br_2d[:, 1]], axis=1) # (N, 4) - top left x, top left y, bottom right x, bottom right y
+            ratio = (box[:, 2] - box[:, 0] + 1) / 2000.0 # (N,) 
+            img_3d_depth = ratio.reshape(-1, 1)*(cam_3d[...,2] - cam_3d[:,0:1,2]) # (N, 17, 1)
+            # img_3d
+            img_3d = np.zeros_like(cam_3d)
+            img_3d[...,:2] = img_2d.copy()
+            img_3d[...,2] = img_3d_depth.copy()
+            # store
+            img_3ds[subject][action][cam_id] = img_3d.copy()
+        savepkl(img_3ds, save_path_img_3d)
+        #print(f'{dataset_name} img_3d generated and saved\n')
+    return img_3ds
+
+def load_scale_factor(dataset_name, overwrite=False):
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/total'
+    save_path_scale_factor = os.path.join(save_root, dataset_name, f'{dataset_name}_scale_factor.pkl')
+    if os.path.exists(save_path_scale_factor) and not overwrite:
+        scale_factors = readpkl(save_path_scale_factor)
+        #print(f'{dataset_name} scale_factor loaded\n')
+    else:
+        save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
+        save_path_img_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_3d.pkl')
+        save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
+        assert os.path.exists(save_path_img_3d), f'No img_3d found for {dataset_name}'
+        assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        
+        source_list = readpkl(save_path_source_list)
+        cam_params = readpkl(save_path_cam_params)
+        cam_3ds = readpkl(save_path_cam_3d)
+        img_3ds = readpkl(save_path_img_3d)
+        
+        scale_factors = {}
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            if subject not in scale_factors:          scale_factors[subject] = {}
+            if action  not in scale_factors[subject]: scale_factors[subject][action] = {}
+            cam_param = cam_params[subject][action][cam_id]
+            # R, t, C, W, H, intrinsic = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H'], cam_param['intrinsic']
+            cam_3d = cam_3ds[subject][action][cam_id]*1000
+            img_3d = img_3ds[subject][action][cam_id]
+            cam_3d_hat = cam_3d - cam_3d[:, 0:1, :]
+            img_3d_hat = img_3d - img_3d[:, 0:1, :]
+            
+            scale_factor = []
+            for frame_num in range(cam_3d.shape[0]):
+                #pred_lambda, losses1 = optimize_scaling_factor(cam_3d_hat[frame_num], img_3d_hat[frame_num], learningRate=0.00001) # x,y,z 사용
+                pred_lambda, losses = optimize_scaling_factor(cam_3d_hat[frame_num], img_3d_hat[frame_num], learningRate=0.000005) # x,y,z 사용
+                #pred_lambda, losses3 = optimize_scaling_factor(img_3d_hat[frame_num], cam_3d_hat[frame_num], learningRate=0.00001) # x,y,z 사용
+                scale_factor.append(1/pred_lambda)
+                #print(losses1[-1], losses2[-1], losses3[-1])
+            scale_factors[subject][action][cam_id] = np.array(scale_factor) # (N,)
+        savepkl(scale_factors, save_path_scale_factor)
+        #print(f'{dataset_name} scale_factor generated and saved\n')
+    
+    return scale_factors
+
+def load_data(dataset_name, data_type, overwrite_list=[], canonical_type=None, only_valid_frame=True, verbose=True):
+    # only_valid_frame -> for 3dhp
+    if data_type in overwrite_list: overwrite = True
+    else: overwrite = False
+    if verbose:
+        if canonical_type is not None: print(f"==> Loading {dataset_name.upper()} {data_type} {canonical_type}... overwrite: {overwrite}")
+        else: print(f"==> Loading {dataset_name.upper()} {data_type}... overwrite: {overwrite}")
+    if data_type   == 'source_list':      return load_source_list(dataset_name, overwrite)
+    elif data_type == 'cam_param':        return load_cam_params(dataset_name, overwrite, only_valid_frame)
+    elif data_type == 'world_3d':         return load_world_3d(dataset_name, overwrite)
+    elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, overwrite, only_valid_frame)
+    elif data_type == 'img_2d':           return load_img_2d(dataset_name, overwrite, only_valid_frame)
+    elif data_type == 'img_3d':           return load_img_3d(dataset_name, overwrite)
+    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, overwrite)
+    elif data_type == 'cam_3d_canonical': return load_cam_3d_canonical(dataset_name, canonical_type, overwrite)
+    elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, canonical_type, overwrite)
+    else:                                 raise ValueError(f'{data_type} not found')
+    
 def load_h36m():
-    from posynda_utils import Human36mDataset
     # camera parameters
     cam_param = readJSON('/home/hrai/codes/hpe_library/data/h36m_camera-parameters.json')
     print('==> Loading 3D data wrt World CS...')
-    try:
-        del h36m_3d_world
-    except:
-        pass
+    try:    del h36m_3d_world
+    except: pass
     h36m_3d_world = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)
 
     return h36m_3d_world, cam_param
 
-def load_3dhp_original(data_type='test'):
+def load_fit3d_one_video(fit3d_root, cam_num, data_type='train', subject='s03', action='burpees'):
+    # load gt 3d
+    subject_path = os.path.join(fit3d_root, data_type, subject)
+    gt_3d_path = os.path.join(subject_path, 'joints3d_25', action + '.json')
+    gt_3d = readJSON(gt_3d_path)['joints3d_25']
+    # read camera parameter
+    if data_type == 'train':
+        cam_parameter_path = os.path.join(subject_path, 'camera_parameters', cam_num, action + '.json')
+    elif data_type == 'test':
+        cam_parameter_path = os.path.join(subject_path, 'camera_parameters', action + '.json')
+    cam_param = readJSON(cam_parameter_path)
+    R = np.array(cam_param['extrinsics']['R'])
+    C = np.array(cam_param['extrinsics']['T']).T
+    t = -R @ C
+    extrinsic_matrix = np.concatenate([R, t], axis=1)
+    cx, cy = cam_param['intrinsics_wo_distortion']['c']
+    fx, fy = cam_param['intrinsics_wo_distortion']['f']
+    intrinsic_matrix = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+    camera_param = {'extrinsic': extrinsic_matrix, 'intrinsic': intrinsic_matrix}
+    return gt_3d, camera_param
+
+def load_3dhp_original(data_type='test', overwrite=False):
+    #print(f"==> Loading 3DHP {data_type} data...")
     user = getpass.getuser()
-    folder = f'/home/{user}/Datasets/HAAI/3DHP/original/{data_type}'
-    data_dict = {}
-    for subject in natsorted(os.listdir(folder)):
-        if 'TS' not in subject: continue
-        data_dict[subject] = {}
-        data = scipy.io.loadmat(f'/home/{user}/Datasets/HAAI/3DHP/original/test/{subject}/annot_data.mat')
-        data_dict[subject]['annot2'] = mpi_inf_3dhp2h36m(np.transpose(data['annot2'][:, :, 0, :], (2, 1, 0))).copy()
-        data_dict[subject]['annot3'] = mpi_inf_3dhp2h36m(np.transpose(data['annot3'][:, :, 0, :], (2, 1, 0))).copy()
-        data_dict[subject]['valid_frame'] = data['valid_frame'][0].copy()
-        print(subject, data_dict[subject]['annot2'].shape, data_dict[subject]['annot3'].shape, data_dict[subject]['valid_frame'].shape)
-    return data_dict
+    cam_param = readpkl(f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/3dhp/3dhp_{data_type}_cam_params.pkl')
+    data_dict_path = f'/home/{user}/codes/MotionBERT/custom_codes/Dataset_generation/3dhp/3dhp_{data_type}_data_dict.pkl'
+    if os.path.exists(data_dict_path) and not overwrite:
+        data_dict = readpkl(data_dict_path)
+    else:
+        folder = f'/home/{user}/Datasets/HAAI/3DHP/original/{data_type}'
+        data_dict = {}
+        if data_type == 'test':
+            for subject in natsorted(os.listdir(folder)):
+                if 'TS' not in subject: continue
+                data_dict[subject] = {}
+                data = scipy.io.loadmat(f'/home/{user}/Datasets/HAAI/3DHP/original/test/{subject}/annot_data.mat')
+                annot2 = mpi_inf_3dhp2h36m(np.transpose(data['annot2'][:, :, 0, :], (2, 1, 0))).copy()
+                annot3 = mpi_inf_3dhp2h36m(np.transpose(data['annot3'][:, :, 0, :], (2, 1, 0))).copy()
+                
+                # get valid frame
+                w_over_range = (annot2[:, :, 0] > 2048) | (annot2[:, :, 0] < 0)
+                h_over_range = (annot2[:, :, 1] > 2048) | (annot2[:, :, 1] < 0)
+                over_range = np.logical_or(w_over_range, h_over_range)
+                valid_frame = np.logical_not(np.any(over_range, axis=1))
+                num_valid_frame = len(np.where(valid_frame == True)[0])
+                
+                data_dict[subject]['annot2'] = annot2
+                data_dict[subject]['annot3'] = annot3
+                data_dict[subject]['valid_frame'] = valid_frame
+                data_dict[subject]['num_valid_frame'] = num_valid_frame
+                
+                #data_dict[subject]['valid_frame'] = data['valid_frame'][0].copy()
+                #print(subject, data_dict[subject]['annot2'].shape, data_dict[subject]['annot3'].shape, data_dict[subject]['valid_frame'].shape)
+        elif data_type == 'train':
+            for subject in tqdm(natsorted(os.listdir(folder))):
+                for seq in natsorted(os.listdir(os.path.join(folder, subject))):
+                    data = scipy.io.loadmat(os.path.join(folder, subject, seq, 'annot.mat'))
+                    for cam_num in range(14):
+                        source = '_'.join([subject, seq, f'cam{cam_num}'])
+                        data_dict[source] = {}
+                        annot2 = mpi_inf_3dhp2h36m(np.array(data['annot2'][cam_num][0].reshape(-1, 28, 2)).copy())
+                        annot3 = mpi_inf_3dhp2h36m(np.array(data['annot3'][cam_num][0].reshape(-1, 28, 3)).copy())
+                        univ_annot3 = np.array(data['univ_annot3'][cam_num][0].copy().reshape(-1, 28, 3))
+                        # get valid frame
+                        w_over_range = (annot2[:, :, 0] > 2048) | (annot2[:, :, 0] < 0)
+                        h_over_range = (annot2[:, :, 1] > 2048) | (annot2[:, :, 1] < 0)
+                        over_range = np.logical_or(w_over_range, h_over_range)
+                        valid_frame = np.logical_not(np.any(over_range, axis=1))
+                        num_valid_frame = len(np.where(valid_frame == True)[0])
+                        
+                        data_dict[source]['annot2'] = annot2
+                        data_dict[source]['annot3'] = annot3
+                        data_dict[source]['univ_annot3'] = univ_annot3
+                        data_dict[source]['valid_frame'] = valid_frame
+                        data_dict[source]['num_valid_frame'] = num_valid_frame
+        savepkl(data_dict, data_dict_path)    
+        
+    return data_dict, cam_param
 
 def get_cam_param(camera_sub_act, subject, cam_params):
     cam_param_for_sub_act = {}
@@ -46,8 +715,8 @@ def get_cam_param(camera_sub_act, subject, cam_params):
     return cam_param_for_sub_act
 
 def get_pose_seq_and_cam_param(h36m_3d_world, h36m_cam_param, subject, action):
-    pose3d = h36m_3d_world._data[subject][action]['positions'] # 3d skeleton sequence wrt world CS
-    cam_info = h36m_3d_world._data[subject][action]['cameras']
+    pose3d = h36m_3d_world[subject][action]['positions'] # 3d skeleton sequence wrt world CS
+    cam_info = h36m_3d_world[subject][action]['cameras']
     cam_param = get_cam_param(cam_info, subject, h36m_cam_param)
     return pose3d, cam_param
 
@@ -667,7 +1336,7 @@ def get_input_gt_for_onevec(batch_input, batch_gt):
 
 def get_h36m_camera_info(h36m_3d_world, h36m_cam_param, subject, action, camera_id):
     # h36m_3d_world, h36m_cam_param -> from load_h36m()
-    cam_info = h36m_3d_world._data[subject][action]['cameras']
+    cam_info = h36m_3d_world[subject][action]['cameras']
     cam_param = get_cam_param(cam_info, subject, h36m_cam_param)
     calibration_matrix = np.array(cam_param[camera_id]['int']['calibration_matrix'])
     R = np.array(cam_param[camera_id]['ext']['R'])

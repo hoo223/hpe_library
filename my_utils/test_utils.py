@@ -808,8 +808,10 @@ def World2CameraCoordinate(pos, extrinsic_properties):
     if len(pos.shape) == 1: 
         C = pos.shape[0]
         pos = pos.reshape(1, C)
-    if pos.shape[1] == 3:
-        pos = np.concatenate([pos, np.ones([pos.shape[0], 1])], axis=1)
+    elif len(pos.shape) == 2:
+        if pos.shape[1] == 3:
+            pos = np.concatenate([pos, np.ones([pos.shape[0], 1])], axis=1)
+    
     return np.matmul(extrinsic_properties, pos.T).T # World coordinate -> Camera coordinate
 
 def Camera2ImageCoordinate(pos, intrinsic_properties):
@@ -1359,7 +1361,8 @@ def infer_box(pose3d, camera, rootIdx):
                          camera['cy']).flatten()
     return np.array([tl2d[0], tl2d[1], br2d[0], br2d[1]])
 
-def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.00001, stop_tolerance=0.0001, gpus='0, 1'):
+def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.000005, stop_tolerance=0.0001, gpus='0, 1'):
+    # cam_cs_hat, img_cs_hat: (17, 3)
     os.environ['CUDA_VISIBLE_DEVICES'] = gpus
 
     # https://towardsdatascience.com/linear-regression-with-pytorch-eb6dedead817
@@ -1374,8 +1377,8 @@ def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.0
             out = self.linear(x)
             return out
 
-    x_train = copy.deepcopy(cam_cs_hat.reshape(-1, 1).astype(np.float32))
-    y_train = copy.deepcopy(img_cs_hat.reshape(-1, 1).astype(np.float32))
+    x_train = copy.deepcopy(cam_cs_hat.reshape(-1, 1).astype(np.float32)) # 모든 점을 batch로 취급
+    y_train = copy.deepcopy(img_cs_hat.reshape(-1, 1).astype(np.float32)) # 모든 점을 batch로 취급
 
     inputDim = 1        # takes variable 'x' 
     outputDim = 1       # takes variable 'y'
@@ -1388,6 +1391,7 @@ def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.0
 
     losses = []
     weights = []
+    tol_cnt = 0
     for epoch in range(epochs):
         # Converting inputs and labels to Variable
         if torch.cuda.is_available():
@@ -1405,14 +1409,17 @@ def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.0
 
         # get loss for the predicted output
         loss = criterion(outputs, labels)
+        #loss.requires_grad = True
+        losses.append(loss.item())
         
         # if loss is not decreasing, stop training
         if epoch > 1:
             if abs(losses[-1]-loss.item()) < stop_tolerance:
-                losses.append(loss.item())
-                break
-        losses.append(loss.item())
-
+                tol_cnt += 1
+                if tol_cnt > 5: break
+            else:
+                tol_cnt = 0    
+            
         # get gradients w.r.t to parameters
         loss.backward()
 
@@ -1461,26 +1468,6 @@ def skew_symmetric_matrix_tensor(v):
         [-v[1], v[0], 0]
     ], dtype=torch.float32)
 
-def fit3d_load_gt_and_param(fit3d_root, cam_num, data_type='train', subject='s03', action='burpees'):
-    # load gt 3d
-    subject_path = os.path.join(fit3d_root, data_type, subject)
-    gt_3d_path = os.path.join(subject_path, 'joints3d_25', action + '.json')
-    gt_3d = readJSON(gt_3d_path)['joints3d_25']
-    # read camera parameter
-    if data_type == 'train':
-        cam_parameter_path = os.path.join(subject_path, 'camera_parameters', cam_num, action + '.json')
-    elif data_type == 'test':
-        cam_parameter_path = os.path.join(subject_path, 'camera_parameters', action + '.json')
-    cam_param = readJSON(cam_parameter_path)
-    R = np.array(cam_param['extrinsics']['R'])
-    C = np.array(cam_param['extrinsics']['T']).T
-    t = -R @ C
-    extrinsic_matrix = np.concatenate([R, t], axis=1)
-    cx, cy = cam_param['intrinsics_wo_distortion']['c']
-    fx, fy = cam_param['intrinsics_wo_distortion']['f']
-    intrinsic_matrix = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
-    camera_param = {'extrinsic': extrinsic_matrix, 'intrinsic': intrinsic_matrix}
-    return gt_3d, camera_param
 
 def normalize_array(arr, max_value=None, min_value=None):
     arr = np.array(arr)
@@ -1515,7 +1502,7 @@ def get_video_frame(video_path, frame_id=None):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id)
         ret, img_frame = cap.read()
         cap.release()
-        return img_frame
+        return cv2.cvtColor(img_frame, cv2.COLOR_BGR2RGB)
     
 def get_bbox_area(bbox, input_type='xyxy'):
     if input_type == 'xxyy':

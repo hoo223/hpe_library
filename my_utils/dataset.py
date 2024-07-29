@@ -71,27 +71,25 @@ def split_source_name(source, dataset_name):
     else:
         raise ValueError(f'{dataset_name} not found')
 
-def load_plot_configs(dataset_name, save_root):
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
+def load_plot_configs(dataset_name):
+    user = getpass.getuser()
+    save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
     save_path_plot_configs = os.path.join(save_root, f'{dataset_name}_plot_configs.yaml')
     with open(save_path_plot_configs, 'r') as file:
         plot_configs = yaml.safe_load(file)
     return plot_configs
     
 def load_source_list(dataset_name, save_root, overwrite=False):
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
+    user = getpass.getuser()
     save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
     if os.path.exists(save_path_source_list) and not overwrite:
         source_list = readpkl(save_path_source_list)
-        #print(f'{dataset_name} source_list loaded\n')
     else:
         source_list = []
         if dataset_name == 'h36m':
             try: del h36m_dataset
             except: pass
-            h36m_dataset = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
+            h36m_dataset = Human36mDataset(f'/home/{user}/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
             subject_list = h36m_dataset.keys()
             cam_list = ['54138969', '60457274', '55011271', '58860488']
             for subject in subject_list:
@@ -127,8 +125,6 @@ def load_source_list(dataset_name, save_root, overwrite=False):
     return source_list
 
 def load_cam_params(dataset_name, save_root, overwrite=False, only_valid_frame=False):
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
     save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
     if os.path.exists(save_path_cam_params) and not overwrite:
         cam_params = readpkl(save_path_cam_params)
@@ -231,19 +227,20 @@ def load_cam_params(dataset_name, save_root, overwrite=False, only_valid_frame=F
     return cam_params
 
 def load_image_frame(dataset_name, source, frame_num):
+    user = getpass.getuser()
     subject, cam_id, action = split_source_name(source, dataset_name)
-    cam_params = load_cam_params(dataset_name)
+    cam_params = load_cam_params(dataset_name, f'/home/{user}/codes/MotionBERT/data/motion3d')
     num_frames = cam_params[subject][action][cam_id]['num_frames']
     # get video frame
     if dataset_name == '3dhp':
         if frame_num < 0: frame_num = num_frames + frame_num
         if 'TS' in subject: # testset
-            img = cv2.imread(f'/home/hrai/Datasets/HAAI/3DHP/original/test/{subject}/imageSequence/img_{frame_num+1:06d}.jpg')
+            img = cv2.imread(f'/home/{user}/Datasets/HAAI/3DHP/original/test/{subject}/imageSequence/img_{frame_num+1:06d}.jpg')
         else: # trainset
-            video_path = f'/home/hrai/Datasets/HAAI/3DHP/original/train/{subject}/{action}/imageSequence/video_{cam_id.split("cam")[1]}.avi'
+            video_path = f'/home/{user}/Datasets/HAAI/3DHP/original/train/{subject}/{action}/imageSequence/video_{cam_id.split("cam")[1]}.avi'
             img = get_video_frame(video_path, frame_num)
     elif dataset_name == 'fit3d':
-        video_path = f'/home/hrai/Datasets/HAAI/Fit3D/train/{subject}/videos/{cam_id}/{action}.mp4'
+        video_path = f'/home/{user}/Datasets/HAAI/Fit3D/train/{subject}/videos/{cam_id}/{action}.mp4'
         img = get_video_frame(video_path, frame_num)
     else:
         img = None
@@ -251,9 +248,6 @@ def load_image_frame(dataset_name, source, frame_num):
     return img
     
 def load_cam_3d(dataset_name, save_root, overwrite=False, only_valid_frame=False):
-    # assert dataset_name not in blacklist, f'cam_3d is from original {dataset_name} dataset'
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
     save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
     assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
     source_list = readpkl(save_path_source_list)
@@ -262,7 +256,6 @@ def load_cam_3d(dataset_name, save_root, overwrite=False, only_valid_frame=False
     save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
     if os.path.exists(save_path_cam_3d) and not overwrite:
         cam_3ds = readpkl(save_path_cam_3d)
-        #print(f'{dataset_name} cam_3d loaded\n')
     else:
         cam_3ds = {}
         if dataset_name == '3dhp':
@@ -310,8 +303,6 @@ def load_cam_3d(dataset_name, save_root, overwrite=False, only_valid_frame=False
 
 def load_cam_3d_canonical(dataset_name, save_root, canonical_type, overwrite=False):
     assert canonical_type is not None, 'canonical_type is None'
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
     save_path_cam_3d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_canonical_{canonical_type}.pkl')
     if os.path.exists(save_path_cam_3d_canonical) and not overwrite:
         cam_3d_canonicals = readpkl(save_path_cam_3d_canonical)
@@ -346,8 +337,6 @@ def load_cam_3d_canonical(dataset_name, save_root, canonical_type, overwrite=Fal
 
 def load_img_2d_canonical(dataset_name, save_root, canonical_type, overwrite=False):
     assert canonical_type is not None, 'canonical_type is None'
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
     save_path_img_2d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d_canonical_{canonical_type}.pkl')
     if os.path.exists(save_path_img_2d_canonical) and not overwrite:
         img_2d_canonicals = readpkl(save_path_img_2d_canonical)
@@ -379,9 +368,6 @@ def load_img_2d_canonical(dataset_name, save_root, canonical_type, overwrite=Fal
     return img_2d_canonicals
 
 def load_world_3d(dataset_name, save_root, overwrite=False):
-    #assert dataset_name not in blacklist, f'world_3d is from original {dataset_name} dataset'
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
     save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
     assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
     source_list = readpkl(save_path_source_list)
@@ -435,9 +421,6 @@ def load_world_3d(dataset_name, save_root, overwrite=False):
     return world_3ds
 
 def load_img_2d(dataset_name, save_root, overwrite=False, only_valid_frame=False):
-    #assert dataset_name not in blacklist, f'img_2d is from original {dataset_name} dataset'
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
     save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
     assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
     source_list = readpkl(save_path_source_list)
@@ -493,12 +476,9 @@ def load_img_2d(dataset_name, save_root, overwrite=False, only_valid_frame=False
     return img_2ds
 
 def load_img_3d(dataset_name, save_root, overwrite=False):
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
     save_path_img_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_3d.pkl')
     if os.path.exists(save_path_img_3d) and not overwrite:
         img_3ds = readpkl(save_path_img_3d)
-        #print(f'{dataset_name} img_3d loaded\n')
     else:
         # prerequisites
         save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
@@ -520,7 +500,7 @@ def load_img_3d(dataset_name, save_root, overwrite=False):
             if subject not in img_3ds:          img_3ds[subject] = {}
             if action  not in img_3ds[subject]: img_3ds[subject][action] = {}
             # cam_3d, img_2d
-            cam_3d = cam_3ds[subject][action][cam_id]
+            cam_3d = cam_3ds[subject][action][cam_id] * 1000 # m -> mm (must be in mm)
             img_2d = img_2ds[subject][action][cam_id]
             # cam_param
             cam_param = cam_params[subject][action][cam_id]
@@ -549,12 +529,9 @@ def load_img_3d(dataset_name, save_root, overwrite=False):
     return img_3ds
 
 def load_scale_factor(dataset_name, save_root, overwrite=False):
-    # user = getpass.getuser()
-    # save_root = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/total'
     save_path_scale_factor = os.path.join(save_root, dataset_name, f'{dataset_name}_scale_factor.pkl')
     if os.path.exists(save_path_scale_factor) and not overwrite:
         scale_factors = readpkl(save_path_scale_factor)
-        #print(f'{dataset_name} scale_factor loaded\n')
     else:
         save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
         save_path_img_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_3d.pkl')
@@ -575,7 +552,7 @@ def load_scale_factor(dataset_name, save_root, overwrite=False):
             subject, cam_id, action = split_source_name(source, dataset_name)
             if subject not in scale_factors:          scale_factors[subject] = {}
             if action  not in scale_factors[subject]: scale_factors[subject][action] = {}
-            cam_param = cam_params[subject][action][cam_id]
+            #cam_param = cam_params[subject][action][cam_id]
             # R, t, C, W, H, intrinsic = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H'], cam_param['intrinsic']
             cam_3d = cam_3ds[subject][action][cam_id]*1000
             img_3d = img_3ds[subject][action][cam_id]
@@ -584,16 +561,49 @@ def load_scale_factor(dataset_name, save_root, overwrite=False):
             
             scale_factor = []
             for frame_num in range(cam_3d.shape[0]):
-                #pred_lambda, losses1 = optimize_scaling_factor(cam_3d_hat[frame_num], img_3d_hat[frame_num], learningRate=0.00001) # x,y,z 사용
-                pred_lambda, losses = optimize_scaling_factor(cam_3d_hat[frame_num], img_3d_hat[frame_num], learningRate=0.000005) # x,y,z 사용
+                pred_lambda, losses = optimize_scaling_factor(img_3d_hat[frame_num], cam_3d_hat[frame_num]) # x,y,z 사용
+                scale_factor.append(pred_lambda)
+                #pred_lambda, losses = optimize_scaling_factor(cam_3d_hat[frame_num], img_3d_hat[frame_num], learningRate=0.000005) # x,y,z 사용
+                #scale_factor.append(1/pred_lambda)
                 #pred_lambda, losses3 = optimize_scaling_factor(img_3d_hat[frame_num], cam_3d_hat[frame_num], learningRate=0.00001) # x,y,z 사용
-                scale_factor.append(1/pred_lambda)
-                #print(losses1[-1], losses2[-1], losses3[-1])
+                
             scale_factors[subject][action][cam_id] = np.array(scale_factor) # (N,)
         savepkl(scale_factors, save_path_scale_factor)
-        #print(f'{dataset_name} scale_factor generated and saved\n')
     
     return scale_factors
+
+def load_img25d(dataset_name, save_root, overwrite=False):
+    save_path_img_25d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_25d.pkl')
+    if os.path.exists(save_path_img_25d) and not overwrite:
+        img_25ds = readpkl(save_path_img_25d)
+    else:
+        save_path_img_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_3d.pkl')
+        save_path_scale_factor = os.path.join(save_root, dataset_name, f'{dataset_name}_scale_factor.pkl')
+        save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        assert os.path.exists(save_path_img_3d), f'No img_3d found for {dataset_name}'
+        assert os.path.exists(save_path_scale_factor), f'No scale_factor found for {dataset_name}'
+        assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        
+        source_list = readpkl(save_path_source_list)
+        cam_params = readpkl(save_path_cam_params)
+        img_3ds = readpkl(save_path_img_3d)
+        scale_factors = readpkl(save_path_scale_factor)
+        
+        img_25ds = {}
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            if subject not in img_25ds:          img_25ds[subject] = {}
+            if action  not in img_25ds[subject]: img_25ds[subject][action] = {}
+            cam_3d = img_3ds[subject][action][cam_id]
+            scale_factor = scale_factors[subject][action][cam_id]
+            img_25d = cam_3d.copy() * scale_factor[:, None, None]
+            img_25ds[subject][action][cam_id] = img_25d
+        savepkl(img_25ds, save_path_img_25d)
+    
+    return img_25ds
+            
 
 def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_list=[], canonical_type=None, only_valid_frame=True, verbose=True):
     user = getpass.getuser()
@@ -605,7 +615,7 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
     else: overwrite = False
     
     if verbose:
-        if canonical_type is not None: print(f"==> Loading {dataset_name.upper()} {data_type} {canonical_type}... overwrite: {overwrite}")
+        if canonical_type is not None: print(f"==> Loading {dataset_name.upper()} {data_type}_{canonical_type}... overwrite: {overwrite}")
         else: print(f"==> Loading {dataset_name.upper()} {data_type}... overwrite: {overwrite}")
     
     if data_type   == 'source_list':      return load_source_list(dataset_name, save_root, overwrite)
@@ -614,7 +624,8 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
     elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, save_root, overwrite, only_valid_frame)
     elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_root, overwrite, only_valid_frame)
     elif data_type == 'img_3d':           return load_img_3d(dataset_name, save_root, overwrite)
-    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, overwrite)
+    elif data_type == 'img_25d':          return load_img25d(dataset_name, save_root, overwrite)
+    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, save_root, overwrite)
     elif data_type == 'cam_3d_canonical': return load_cam_3d_canonical(dataset_name, save_root, canonical_type, overwrite)
     elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_root, canonical_type, overwrite)
     else:                                 raise ValueError(f'{data_type} not found')
@@ -625,7 +636,7 @@ def load_h36m():
     print('==> Loading 3D data wrt World CS...')
     try:    del h36m_3d_world
     except: pass
-    h36m_3d_world = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)
+    h36m_3d_world = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
 
     return h36m_3d_world, cam_param
 

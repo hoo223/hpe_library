@@ -67,7 +67,7 @@ def axes_2d(fig=None, rect=None, loc=111, W=1000, H=1000, xlim=None, ylim=None, 
 
     return ax
 
-def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True, ax=None, grid=True, normalize=False):
+def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), scale=1, xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True, ax=None, mode='world', grid=True, normalize=False):
     if fig == None:
         fig = plt.gcf()
     if rect != None:
@@ -79,6 +79,12 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
         xlim = (-1, 1)
         ylim = (-1, 1)
         zlim = (-1, 1)
+    else:
+        xlim = np.array(xlim) * scale
+        ylim = np.array(ylim) * scale
+        zlim = np.array(zlim) * scale
+    if mode == 'cam':
+        view = (-90, -90)
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.set_zlim(zlim)
@@ -98,6 +104,8 @@ def axes_3d(fig=None, rect=None, loc=111, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 
 
     if not grid:
         ax.grid('off')
+        
+    
     return ax
 
 # https://github.com/Vegetebird/MHFormer/blob/main/demo/vis.py

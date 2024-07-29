@@ -58,5 +58,5 @@ lib_posynda = [] # ['Human36mDataset']
 
 lib_except_my_utils = lib_torch + lib_standard + lib_third_party + lib_camera_models + lib_posynda #+ lib_adapt_pose
 
-os.chdir('/home/hrai/codes/hpe_library')
+#os.chdir('/home/hrai/codes/hpe_library')
 __all__ = lib_except_my_utils

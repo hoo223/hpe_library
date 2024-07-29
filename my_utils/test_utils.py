@@ -1361,9 +1361,10 @@ def infer_box(pose3d, camera, rootIdx):
                          camera['cy']).flatten()
     return np.array([tl2d[0], tl2d[1], br2d[0], br2d[1]])
 
-def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.000005, stop_tolerance=0.0001, gpus='0, 1'):
+def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.00005, stop_tolerance=0.000001, gpus='0, 1'):
     # cam_cs_hat, img_cs_hat: (17, 3)
     os.environ['CUDA_VISIBLE_DEVICES'] = gpus
+    os.environ["NCCL_P2P_DISABLE"]= '1'
 
     # https://towardsdatascience.com/linear-regression-with-pytorch-eb6dedead817
     import torch
@@ -1411,15 +1412,17 @@ def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.0
         loss = criterion(outputs, labels)
         #loss.requires_grad = True
         losses.append(loss.item())
+        # print('epoch {}, loss {}'.format(epoch, loss.item()))
         
         # if loss is not decreasing, stop training
         if epoch > 1:
-            if abs(losses[-1]-loss.item()) < stop_tolerance:
+            if abs(losses[-1]-losses[-2]) < stop_tolerance:
                 tol_cnt += 1
-                if tol_cnt > 5: break
+                if tol_cnt > 5:
+                    break
             else:
-                tol_cnt = 0    
-            
+                tol_cnt = 0
+  
         # get gradients w.r.t to parameters
         loss.backward()
 

@@ -273,6 +273,20 @@ def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, d
     #     img = get_2d_pose_image(pose2d, img=img, H=H, W=W, box=box, thickness=thickness, dataset=dataset)
     #     ax.imshow(img)
     # else:
+    if normalize:
+        ax.set_xlim((-1, 1))
+        ax.set_ylim((1, -1))
+        assert np.all(pose2d >= -1) and np.all(pose2d <= 1), 'pose2d should be normalized'
+    else:
+        if xlim != None:
+            ax.set_xlim(xlim)
+        else:
+            ax.set_xlim((0, W))
+        if ylim != None:
+            ax.set_ylim(ylim)
+        else:
+            ax.set_ylim((H, 0))
+    
     if dataset == 'h36m':
         connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], 
                     [5, 6], [0, 7], [7, 8], [8, 9], [9, 10], 

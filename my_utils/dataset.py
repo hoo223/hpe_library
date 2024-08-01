@@ -623,7 +623,9 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
     if verbose:
         final_data_type = f'{data_type}'
         if canonical_type is not None: final_data_type += f'_{canonical_type}'
-        if adaptive_focal: final_data_type += '_adaptive_focal'
+        if adaptive_focal: 
+            if data_type in ['cam_param', 'img_2d_canonical']:
+                final_data_type += '_adaptive_focal'
         print(f"[overwrite: {overwrite}] ==> Loading {dataset_name.upper()} {final_data_type}...")
     
     if data_type   == 'source_list':      return load_source_list(dataset_name, save_root, overwrite)

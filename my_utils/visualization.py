@@ -268,7 +268,7 @@ def get_2d_pose_image(kps, img=None, H=1080, W=1920, box=None, thickness=10, dat
 
     return img
 
-def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, box=None, thickness=10, dataset='h36m', normalize=False, color=None, label=''):
+def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, xlim=None, ylim=None, box=None, thickness=10, dataset='h36m', normalize=False, color=None, label=''):
     # if not normalize:
     #     img = get_2d_pose_image(pose2d, img=img, H=H, W=W, box=box, thickness=thickness, dataset=dataset)
     #     ax.imshow(img)

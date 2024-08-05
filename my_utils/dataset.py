@@ -78,6 +78,57 @@ def load_plot_configs(dataset_name):
     with open(save_path_plot_configs, 'r') as file:
         plot_configs = yaml.safe_load(file)
     return plot_configs
+
+def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_list=[], canonical_type=None, only_valid_frame=True, adaptive_focal=False, verbose=True):
+    user = getpass.getuser()
+    motionbert_root = f'/home/{user}/codes/MotionBERT/'
+    save_root = os.path.join(motionbert_root, save_folder)
+    
+    # only_valid_frame -> for 3dhp
+    if data_type in overwrite_list: overwrite = True
+    else: overwrite = False
+    
+    if verbose:
+        final_data_type = f'{data_type}'
+        if canonical_type is not None: final_data_type += f'_{canonical_type}'
+        if adaptive_focal: 
+            if data_type in ['cam_param', 'img_2d_canonical']:
+                final_data_type += '_adaptive_focal'
+        print(f"[overwrite: {overwrite}] ==> Loading {dataset_name.upper()} {final_data_type}...")
+    
+    if data_type   == 'source_list':      return load_source_list(dataset_name, save_root, overwrite)
+    elif data_type == 'cam_param':        return load_cam_params(dataset_name, save_root, overwrite, only_valid_frame, adaptive_focal)
+    elif data_type == 'world_3d':         return load_world_3d(dataset_name, save_root, overwrite)
+    elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, save_root, overwrite, only_valid_frame)
+    elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_root, overwrite, only_valid_frame)
+    elif data_type == 'img_3d':           return load_img_3d(dataset_name, save_root, overwrite)
+    elif data_type == 'img_25d':          return load_img25d(dataset_name, save_root, overwrite)
+    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, save_root, overwrite)
+    elif data_type == 'cam_3d_canonical': return load_cam_3d_canonical(dataset_name, save_root, canonical_type, overwrite)
+    elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_root, canonical_type, overwrite, adaptive_focal)
+    else:                                 raise ValueError(f'{data_type} not found')
+    
+def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True):
+    data_dict = {}
+    for data_type in data_type_list:
+        key = data_type
+        if 'adaptive_focal' in data_type: 
+            data_type = data_type.split('_adaptive_focal')[0]
+            adaptive_focal = True
+        else: adaptive_focal = False
+        if 'cam_3d_canonical' in data_type:
+            canonical_type = data_type.split('canonical_')[-1]
+            data_type = 'cam_3d_canonical'
+        elif 'img_2d_canonical' in data_type:
+            canonical_type = data_type.split('canonical_')[-1]
+            data_type = 'img_2d_canonical'
+        else:
+            canonical_type = None
+        
+        
+        data_dict[key] = load_data(dataset_name=dataset_name, data_type=data_type, canonical_type=canonical_type, overwrite_list=overwrite_list, adaptive_focal=adaptive_focal, verbose=verbose)
+    return data_dict
+    
     
 def load_source_list(dataset_name, save_root, overwrite=False):
     user = getpass.getuser()
@@ -125,6 +176,7 @@ def load_source_list(dataset_name, save_root, overwrite=False):
     return source_list
 
 def load_cam_params(dataset_name, save_root, overwrite=False, only_valid_frame=False, adaptive_focal=False):
+    user = getpass.getuser()
     if adaptive_focal: save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params_adaptive_focal.pkl')
     else: save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
     if os.path.exists(save_path_cam_params) and not overwrite:
@@ -319,18 +371,18 @@ def load_cam_3d_canonical(dataset_name, save_root, canonical_type, overwrite=Fal
         cam_3ds = readpkl(save_path_cam_3d)
         source_list = readpkl(save_path_source_list)
         cam_3d_canonicals = {}
-        for source in tqdm(source_list):
-            subject, cam_id, action = split_source_name(source, dataset_name)
-            if subject not in cam_3d_canonicals:          cam_3d_canonicals[subject] = {}
-            if action  not in cam_3d_canonicals[subject]: cam_3d_canonicals[subject][action] = {}
-            cam_3d = cam_3ds[subject][action][cam_id]
-            if canonical_type == 'same_z':
-                dist = cam_3d[:, 0, 2] # z value of pelvis joint for each frame
-            elif canonical_type == 'same_dist':
-                dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame
-            elif 'fixed_dist' in canonical_type:
-                dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d))
-            else:
+        for source in tqdm(source_list): 
+            subject, cam_id, action = split_source_name(source, dataset_name) 
+            if subject not in cam_3d_canonicals:          cam_3d_canonicals[subject] = {} 
+            if action  not in cam_3d_canonicals[subject]: cam_3d_canonicals[subject][action] = {} 
+            cam_3d = cam_3ds[subject][action][cam_id] 
+            if canonical_type == 'same_z': 
+                dist = cam_3d[:, 0, 2] # z value of pelvis joint for each frame 
+            elif canonical_type == 'same_dist': 
+                dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame 
+            elif 'fixed_dist' in canonical_type: 
+                dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d)) 
+            else: 
                 raise ValueError(f'canonical type {canonical_type} not found')
             cam_3d_canonical = cam_3d.copy() - cam_3d[:, 0:1] # move to cam origin
             cam_3d_canonical[..., 2] += dist[:, None]
@@ -350,7 +402,7 @@ def load_img_2d_canonical(dataset_name, save_root, canonical_type, overwrite=Fal
         save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
         if adaptive_focal: save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params_adaptive_focal.pkl')
         else: save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
-        assert os.path.exists(save_path_cam_3d_canonical), f'No cam_3d_canonical found for {dataset_name}'
+        assert os.path.exists(save_path_cam_3d_canonical), f'No cam_3d_canonical {canonical_type} found for {dataset_name}'
         assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
         assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
         
@@ -610,51 +662,6 @@ def load_img25d(dataset_name, save_root, overwrite=False):
     
     return img_25ds
             
-
-def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_list=[], canonical_type=None, only_valid_frame=True, adaptive_focal=False, verbose=True):
-    user = getpass.getuser()
-    motionbert_root = f'/home/{user}/codes/MotionBERT/'
-    save_root = os.path.join(motionbert_root, save_folder)
-    
-    # only_valid_frame -> for 3dhp
-    if data_type in overwrite_list: overwrite = True
-    else: overwrite = False
-    
-    if verbose:
-        final_data_type = f'{data_type}'
-        if canonical_type is not None: final_data_type += f'_{canonical_type}'
-        if adaptive_focal: 
-            if data_type in ['cam_param', 'img_2d_canonical']:
-                final_data_type += '_adaptive_focal'
-        print(f"[overwrite: {overwrite}] ==> Loading {dataset_name.upper()} {final_data_type}...")
-    
-    if data_type   == 'source_list':      return load_source_list(dataset_name, save_root, overwrite)
-    elif data_type == 'cam_param':        return load_cam_params(dataset_name, save_root, overwrite, only_valid_frame, adaptive_focal)
-    elif data_type == 'world_3d':         return load_world_3d(dataset_name, save_root, overwrite)
-    elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, save_root, overwrite, only_valid_frame)
-    elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_root, overwrite, only_valid_frame)
-    elif data_type == 'img_3d':           return load_img_3d(dataset_name, save_root, overwrite)
-    elif data_type == 'img_25d':          return load_img25d(dataset_name, save_root, overwrite)
-    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, save_root, overwrite)
-    elif data_type == 'cam_3d_canonical': return load_cam_3d_canonical(dataset_name, save_root, canonical_type, overwrite)
-    elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_root, canonical_type, overwrite, adaptive_focal)
-    else:                                 raise ValueError(f'{data_type} not found')
-    
-def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True):
-    data_dict = {}
-    for data_type in data_type_list:
-        key = data_type
-        if 'cam_3d_canonical' in data_type:
-            canonical_type = data_type.split('canonical_')[-1]
-            data_type = 'cam_3d_canonical'
-        elif 'img_2d_canonical' in data_type:
-            canonical_type = data_type.split('canonical_')[-1]
-            data_type = 'img_2d_canonical'
-        else:
-            canonical_type = None
-        data_dict[key] = load_data(dataset_name=dataset_name, data_type=data_type, canonical_type=canonical_type, overwrite_list=overwrite_list, verbose=verbose)
-    return data_dict
-    
 def load_h36m():
     # camera parameters
     cam_param = readJSON('/home/hrai/codes/hpe_library/data/h36m_camera-parameters.json')

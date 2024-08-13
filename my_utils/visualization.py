@@ -188,11 +188,9 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         limb = joint_pairs[i]
         if dataset == 'h36m_cam':
             xs, zs, ys = [-np.array([j3d[limb[0], j], j3d[limb[1], j]]) for j in range(3)]
-            # xs *= -1
-            # ys *= -1
-            # zs *= -1
         elif dataset in ['aihub', 'h36m_world', 'h36m_torso', 'torso', 'base', 'fit3d', 'h36m', 'kookmin', 'kookmin2', 'dhdst_torso', 'limb', 'h36m_without_pelvis', 'h36m_without_nose', 'vector', 'torso_small']:
             xs, ys, zs = [np.array([j3d[limb[0], j], j3d[limb[1], j]]) for j in range(3)]
+            
         if joint_pairs[i] in joint_pairs_left:
             ax.plot(xs, ys, zs, color=color_left, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha) 
         elif joint_pairs[i] in joint_pairs_right:
@@ -276,7 +274,7 @@ def draw_2d_pose(ax, pose2d, img=None, H=1920, W=1080, xlim=None, ylim=None, box
     if normalize:
         ax.set_xlim((-1, 1))
         ax.set_ylim((1, -1))
-        assert np.all(pose2d >= -1) and np.all(pose2d <= 1), 'pose2d should be normalized'
+        #assert np.all(pose2d >= -1) and np.all(pose2d <= 1), 'pose2d should be normalized'
     else:
         if xlim != None:
             ax.set_xlim(xlim)
@@ -771,3 +769,27 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
         image_from_plot = cv2.cvtColor(image_from_plot, cv2.COLOR_RGB2BGR)       
         videowriter.append_data(image_from_plot)
     videowriter.close()
+    
+def generate_pose_video(fig, save_path, ax_pose, fps=30, stride=1, normalize_2d=False):
+    # fig: matplotlib.figure.Figure
+    # save_path: str
+    # ax_pose: [(ax, pose), ...]
+    length_list = [pose.shape[0] for ax, pose in ax_pose]
+    assert len(set(length_list)) == 1
+    length = length_list[0]
+    
+    #videowriter = imageio.get_writer(save_path, fps=fps)
+    with imageio.get_writer(save_path, fps=fps) as videowriter:
+        for frame_num in tqdm(range(0, length, stride)):
+            for ax, pose in ax_pose:
+                clear_axes(ax)
+                #print(pose.shape)
+                if pose.shape[-1] == 3: draw_3d_pose(ax, pose[frame_num])
+                elif pose.shape[-1] == 2: draw_2d_pose(ax, pose[frame_num], normalize=normalize_2d)
+                else: raise ValueError('pose shape must be (N, 3) or (N, 2)')
+            canvas = FigureCanvas(fig)
+            canvas.draw()
+            image_from_plot = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+            image_from_plot = image_from_plot.reshape(canvas.get_width_height()[::-1] + (3,))
+            videowriter.append_data(image_from_plot)
+    #videowriter.close()

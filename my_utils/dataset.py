@@ -339,9 +339,16 @@ def load_cam_3d(dataset_name, save_root, overwrite=False, only_valid_frame=False
                 if seq not in cam_3ds[subject].keys(): cam_3ds[subject][seq] = {}
                 if only_valid_frame:
                     valid_frame = data_dict_3dhp[source]['valid_frame']
-                    cam_3ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot3'][valid_frame]/1000
+                    cam_3d = data_dict_3dhp[source]['annot3'][valid_frame]/1000
                 else:
-                    cam_3ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot3']/1000
+                    cam_3d = data_dict_3dhp[source]['annot3']/1000
+                if step_rot > 0:
+                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
+                    rot = Rotation.from_euler('y', np.deg2rad(step_rot)*np.arange(0, len(cam_3d))).as_matrix()
+                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
+                    new_cam_3d += cam_3d[:, 0:1]
+                    cam_3d = new_cam_3d
+                cam_3ds[subject][seq][cam_id] = cam_3d
                 num_frames += len(cam_3ds[subject][seq][cam_id])
         else:
             # prerequisites
@@ -1478,6 +1485,9 @@ def select_dataset_from_checkpoint(checkpoint):
             train_dataset = 'H36M S1'
             if 'ts_s5678' in checkpoint: test_dataset = 'H36M S5 6 7 8'
             else: test_dataset = 'ALL EXCEPT S1'   
+        elif 'tr_s19_ts_s5678' in checkpoint:
+            train_dataset = 'H36M S1 9'
+            test_dataset = 'H36M S5 6 7 8'
         elif 's15678_tr_54138969' in checkpoint: 
             train_dataset = 'H36M S1 5 6 7 8 CAM 54138969'
             test_dataset = 'H36M S1 5 6 7 8 CAM EXCEPT 54138969'
@@ -1498,7 +1508,7 @@ def select_dataset_from_checkpoint(checkpoint):
 
 def select_testset_from_subset(subset):
     if 'H36M' in subset: 
-        if 'TR_S1_TS_S5678' in subset: test_dataset = 'H36M S5 6 7 8'
+        if 'TS_S5678' in subset: test_dataset = 'H36M S5 6 7 8'
         elif 'TR_S1' in subset and 'TS_S5678' not in subset: test_dataset = 'H36M ALL EXCEPT S1'
         elif 'S15678_TR_54138969_TS_OTHERS' in subset: test_dataset = 'H36M S1 5 6 7 8 CAM EXCEPT 54138969'
         else: test_dataset = 'H36M S9 11'

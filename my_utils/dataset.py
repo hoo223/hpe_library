@@ -79,20 +79,83 @@ def load_plot_configs(dataset_name):
         plot_configs = yaml.safe_load(file)
     return plot_configs
 
-def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_list=[], canonical_type=None, only_valid_frame=True, adaptive_focal=False, verbose=True, step_rot=0):
+def get_save_paths(save_root, dataset_name, canonical_type, data_aug):
+    step_rot = data_aug['step_rot']
+    sinu_pitch_mag = data_aug['sinu_pitch_mag']
+    sinu_pitch_period = data_aug['sinu_pitch_period']
+    sinu_roll_mag = data_aug['sinu_roll_mag']
+    sinu_roll_period = data_aug['sinu_roll_period']
+    
+    save_path_source_list = os.path.join(save_root, f'{dataset_name}-source_list.pkl')
+    
+    save_path_cam_params = os.path.join(save_root, f'{dataset_name}-cam_param.pkl')
+    save_path_cam_params_adaptive_focal = os.path.join(save_root, f'{dataset_name}-cam_param-adaptive_focal.pkl')
+    
+    save_path_cam_3d = os.path.join(save_root, f'{dataset_name}-cam_3d')
+    if step_rot != 0: save_path_cam_3d += f'-steprot_{step_rot}'
+    if sinu_pitch_mag != 0: save_path_cam_3d += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
+    if sinu_roll_mag != 0: save_path_cam_3d += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
+    save_path_cam_3d += '.pkl'
+    
+    save_path_cam_3d_canonical = os.path.join(save_root, f'{dataset_name}-cam_3d-canonical_{canonical_type}')
+    if step_rot != 0: save_path_cam_3d_canonical += f'-steprot_{step_rot}'
+    if sinu_pitch_mag != 0: save_path_cam_3d_canonical += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
+    if sinu_roll_mag != 0: save_path_cam_3d_canonical += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
+    save_path_cam_3d_canonical += '.pkl'
+    
+    save_path_img_2d = os.path.join(save_root, f'{dataset_name}-img_2d')
+    if step_rot != 0: save_path_img_2d += f'-steprot_{step_rot}'
+    if sinu_pitch_mag != 0: save_path_img_2d += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
+    if sinu_roll_mag != 0: save_path_img_2d += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
+    save_path_img_2d += '.pkl'
+    
+    save_path_img_2d_canonical = os.path.join(save_root, f'{dataset_name}-img_2d-canonical_{canonical_type}')
+    if step_rot != 0: save_path_img_2d_canonical += f'-steprot_{step_rot}'
+    if sinu_pitch_mag != 0: save_path_img_2d_canonical += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
+    if sinu_roll_mag != 0: save_path_img_2d_canonical += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
+    save_path_img_2d_canonical += '.pkl'
+    
+    save_path_img_2d_canonical_adaptive_focal = os.path.join(save_root, f'{dataset_name}-img_2d-canonical_adaptive_focal.pkl')
+    save_path_world_3d = os.path.join(save_root, f'{dataset_name}-world_3d.pkl')
+    save_path_img_3d = os.path.join(save_root, f'{dataset_name}-img_3d.pkl')
+    save_path_scale_factor = os.path.join(save_root, f'{dataset_name}-scale_factor.pkl')
+    save_path_img_25d = os.path.join(save_root, f'{dataset_name}-img_25d.pkl')
+    
+    save_paths = {
+        'source_list': save_path_source_list,
+        'cam_param': save_path_cam_params,
+        'cam_param_adaptive_focal': save_path_cam_params_adaptive_focal,
+        'world_3d': save_path_world_3d,
+        'cam_3d': save_path_cam_3d,
+        'img_2d': save_path_img_2d,
+        'cam_3d_canonical': save_path_cam_3d_canonical,
+        'img_2d_canonical': save_path_img_2d_canonical,
+        'img_3d': save_path_img_3d,
+        'img_25d': save_path_img_25d,
+        'scale_factor': save_path_scale_factor,
+        'img_2d_canonical_adaptive_focal': save_path_img_2d_canonical_adaptive_focal,
+    }
+    return save_paths
+
+def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_list=[], canonical_type=None, only_valid_frame=True, adaptive_focal=False, verbose=True, 
+              data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
     user = getpass.getuser()
     motionbert_root = f'/home/{user}/codes/MotionBERT/'
-    save_root = os.path.join(motionbert_root, save_folder)
+    save_root = os.path.join(motionbert_root, save_folder, dataset_name)
+    
+    step_rot = data_aug['step_rot']
+    sinu_pitch_mag = data_aug['sinu_pitch_mag']
+    sinu_pitch_period = data_aug['sinu_pitch_period']
+    sinu_roll_mag = data_aug['sinu_roll_mag']
+    sinu_roll_period = data_aug['sinu_roll_period']
     
     # only_valid_frame -> for 3dhp
     if data_type in overwrite_list: 
         overwrite = True
     else:
         if canonical_type != None:
-            if '_'.join([data_type, canonical_type]) in overwrite_list: 
-                overwrite = True
-            else:
-                overwrite = False
+            if '_'.join([data_type, canonical_type]) in overwrite_list: overwrite = True
+            else: overwrite = False
         else: 
             overwrite = False
     
@@ -101,29 +164,42 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
         if canonical_type is not None: final_data_type += f'_{canonical_type}'
         if adaptive_focal: 
             if data_type in ['cam_param', 'img_2d_canonical']:
-                final_data_type += '_adaptive_focal'
-        if step_rot != 0: 
+                final_data_type += '-adaptive_focal'
+        if data_aug['step_rot'] != 0: 
             if data_type in ['cam_3d', 'img_2d', 'cam_3d_canonical', 'img_2d_canonical']:
-                final_data_type += f'_steprot_{step_rot}'
+                final_data_type += f'-steprot_{step_rot}'
+        if data_aug['sinu_pitch_mag'] != 0: final_data_type += f"-sinu_pitch_m{data_aug['sinu_pitch_mag']}_p{data_aug['sinu_pitch_period']}"
+        if data_aug['sinu_roll_mag'] != 0: final_data_type += f"-sinu_roll_m{data_aug['sinu_roll_mag']}_p{data_aug['sinu_roll_period']}"
         print(f"[overwrite: {overwrite}] ==> Loading {dataset_name.upper()} {final_data_type}...")
+        
+    # save path
+    save_paths = get_save_paths(save_root, dataset_name, canonical_type, data_aug)
     
-    if data_type   == 'source_list':      return load_source_list(dataset_name, save_root, overwrite)
-    elif data_type == 'cam_param':        return load_cam_params(dataset_name, save_root, overwrite, only_valid_frame, adaptive_focal)
-    elif data_type == 'world_3d':         return load_world_3d(dataset_name, save_root, overwrite)
-    elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, save_root, overwrite, only_valid_frame, step_rot)
-    elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_root, overwrite, only_valid_frame, step_rot)
-    elif data_type == 'img_3d':           return load_img_3d(dataset_name, save_root, overwrite)
-    elif data_type == 'img_25d':          return load_img25d(dataset_name, save_root, overwrite)
-    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, save_root, overwrite)
-    elif data_type == 'cam_3d_canonical': return load_cam_3d_canonical(dataset_name, save_root, canonical_type, overwrite, step_rot)
-    elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_root, canonical_type, overwrite, adaptive_focal, step_rot)
+    if data_type   == 'source_list':      return load_source_list(dataset_name, save_paths, overwrite)
+    elif data_type == 'cam_param':        return load_cam_params(dataset_name, save_paths, overwrite, only_valid_frame, adaptive_focal)
+    elif data_type == 'world_3d':         return load_world_3d(dataset_name, save_paths, overwrite)
+    elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, save_paths, overwrite, only_valid_frame, data_aug)
+    elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_paths, overwrite, only_valid_frame, data_aug)
+    elif data_type == 'img_3d':           return load_img_3d(dataset_name, save_paths, overwrite)
+    elif data_type == 'img_25d':          return load_img25d(dataset_name, save_paths, overwrite)
+    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, save_paths, overwrite)
+    elif data_type == 'cam_3d_canonical': return load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite, data_aug)
+    elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite, adaptive_focal, data_aug)
     else:                                 raise ValueError(f'{data_type} not found')
     
-def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, step_rot=0):
+def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+    step_rot = data_aug['step_rot']
+    sinu_pitch_mag = data_aug['sinu_pitch_mag']
+    sinu_pitch_period = data_aug['sinu_pitch_period']
+    sinu_roll_mag = data_aug['sinu_roll_mag']
+    sinu_roll_period = data_aug['sinu_roll_period']
+    
     data_dict = {}
     for data_type in data_type_list:
         key = data_type
-        if step_rot != 0: key += f'_steprot_{step_rot}'
+        if step_rot != 0: key += f'-steprot_{step_rot}'
+        if sinu_pitch_mag != 0: key += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
+        if sinu_roll_mag != 0: key += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
         
         if 'adaptive_focal' in data_type: 
             data_type = data_type.split('_adaptive_focal')[0]
@@ -138,12 +214,12 @@ def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=T
             data_type = 'img_2d_canonical'
         else:
             canonical_type = None 
-        data_dict[key] = load_data(dataset_name=dataset_name, data_type=data_type, canonical_type=canonical_type, overwrite_list=overwrite_list, adaptive_focal=adaptive_focal, verbose=verbose, step_rot=step_rot)
+        data_dict[key] = load_data(dataset_name=dataset_name, data_type=data_type, canonical_type=canonical_type, overwrite_list=overwrite_list, adaptive_focal=adaptive_focal, verbose=verbose, data_aug=data_aug)
     return data_dict
     
-def load_source_list(dataset_name, save_root, overwrite=False):
+def load_source_list(dataset_name, save_paths, overwrite=False):
     user = getpass.getuser()
-    save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+    save_path_source_list = save_paths['source_list']
     if os.path.exists(save_path_source_list) and not overwrite:
         source_list = readpkl(save_path_source_list)
     else:
@@ -182,19 +258,15 @@ def load_source_list(dataset_name, save_root, overwrite=False):
         else:
             raise ValueError(f'{dataset_name} not found')
         savepkl(source_list, save_path_source_list)
-        #print(f'{dataset_name} source_list generated and saved\n')
-    
     return source_list
 
-def load_cam_params(dataset_name, save_root, overwrite=False, only_valid_frame=False, adaptive_focal=False):
-    user = getpass.getuser()
-    if adaptive_focal: save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params_adaptive_focal.pkl')
-    else: save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+def load_cam_params(dataset_name, save_paths, overwrite=False, only_valid_frame=False, adaptive_focal=False):
+    if adaptive_focal: save_path_cam_params = save_paths['cam_param_adaptive_focal']
+    else: save_path_cam_params = save_paths['cam_param']
     if os.path.exists(save_path_cam_params) and not overwrite:
         cam_params = readpkl(save_path_cam_params)
-        #print(f'{dataset_name} cam_params loaded\n')
     else:
-        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        save_path_source_list = save_paths['source_list']
         assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
         source_list = readpkl(save_path_source_list)
         cam_params = {}    
@@ -288,9 +360,7 @@ def load_cam_params(dataset_name, save_root, overwrite=False, only_valid_frame=F
                 cam_params[subject][seq][cam_id]['num_frames'] = num_frames
         else:
             raise ValueError(f'{dataset_name} not found')
-        savepkl(cam_params, save_path_cam_params)
-        #print(f'{dataset_name} cam_params generated and saved\n')
-    
+        savepkl(cam_params, save_path_cam_params)  
     return cam_params
 
 def load_image_frame(dataset_name, source, frame_num):
@@ -314,23 +384,23 @@ def load_image_frame(dataset_name, source, frame_num):
     
     return img
     
-def load_cam_3d(dataset_name, save_root, overwrite=False, only_valid_frame=False, step_rot=0):
-    save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
-    assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
-    source_list = readpkl(save_path_source_list)
-    
-    # target
-    if step_rot: save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_steprot_{step_rot}.pkl')
-    else:        save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
+def load_cam_3d(dataset_name, save_paths, overwrite=False, only_valid_frame=False, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+    # pkl path
+    save_path_cam_3d = save_paths['cam_3d']
+    # load data
     if os.path.exists(save_path_cam_3d) and not overwrite:
         cam_3ds = readpkl(save_path_cam_3d)
     else:
+        # prerequisites
+        save_path_source_list = save_paths['source_list']
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        source_list = readpkl(save_path_source_list)
         cam_3ds = {}
         if dataset_name == '3dhp':
             data_dict_3dhp_train, _ = load_3dhp_original('train')
             data_dict_3dhp_test, _ = load_3dhp_original('test')
             data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
-            num_frames = 0
+            #num_frames = 0
             for source in tqdm(source_list):
                 subject, cam_id, seq = split_source_name(source, '3dhp')
                 if seq is not None: source = f'{subject}_{seq}_{cam_id}'
@@ -342,18 +412,32 @@ def load_cam_3d(dataset_name, save_root, overwrite=False, only_valid_frame=False
                     cam_3d = data_dict_3dhp[source]['annot3'][valid_frame]/1000
                 else:
                     cam_3d = data_dict_3dhp[source]['annot3']/1000
-                if step_rot > 0:
+                # data augmentation
+                if data_aug['step_rot'] > 0:
                     cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
-                    rot = Rotation.from_euler('y', np.deg2rad(step_rot)*np.arange(0, len(cam_3d))).as_matrix()
+                    rot = Rotation.from_euler('y', np.deg2rad(data_aug['step_rot'])*np.arange(0, len(cam_3d))).as_matrix()
                     new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
                     new_cam_3d += cam_3d[:, 0:1]
                     cam_3d = new_cam_3d
+                if data_aug['sinu_pitch_mag'] > 0:
+                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
+                    rot = Rotation.from_euler('x', np.deg2rad(data_aug['sinu_pitch_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_pitch_period']*2*np.pi)).as_matrix()
+                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
+                    new_cam_3d += cam_3d[:, 0:1]
+                    cam_3d = new_cam_3d
+                if data_aug['sinu_roll_mag'] > 0:
+                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
+                    rot = Rotation.from_euler('z', np.deg2rad(data_aug['sinu_roll_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_roll_period']*2*np.pi)).as_matrix()
+                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
+                    new_cam_3d += cam_3d[:, 0:1]
+                    cam_3d = new_cam_3d
+                
                 cam_3ds[subject][seq][cam_id] = cam_3d
-                num_frames += len(cam_3ds[subject][seq][cam_id])
+                #num_frames += len(cam_3ds[subject][seq][cam_id])
         else:
             # prerequisites
-            save_path_world_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_world_3d.pkl')
-            save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+            save_path_world_3d = save_paths['world_3d']
+            save_path_cam_params = save_paths['cam_param']
             assert os.path.exists(save_path_world_3d), f'No world_3d found for {dataset_name}'
             assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
             world_3ds = readpkl(save_path_world_3d)
@@ -370,40 +454,54 @@ def load_cam_3d(dataset_name, save_root, overwrite=False, only_valid_frame=False
                 intrinsic = np.array(cam_param['intrinsic'])
                 # world to cam 
                 cam_3d = np.einsum('ijk,kl->ijl', world_3d, R.T) + t # (N, 17, 3)
-                if step_rot > 0:
+                # data augmentation
+                if data_aug['step_rot'] > 0:
                     cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
-                    rot = Rotation.from_euler('y', np.deg2rad(step_rot)*np.arange(0, len(cam_3d))).as_matrix()
+                    rot = Rotation.from_euler('y', np.deg2rad(data_aug['step_rot'])*np.arange(0, len(cam_3d))).as_matrix()
+                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
+                    new_cam_3d += cam_3d[:, 0:1]
+                    cam_3d = new_cam_3d
+                if data_aug['sinu_pitch_mag'] > 0:
+                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
+                    rot = Rotation.from_euler('x', np.deg2rad(data_aug['sinu_pitch_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_pitch_period']*2*np.pi)).as_matrix()
+                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
+                    new_cam_3d += cam_3d[:, 0:1]
+                    cam_3d = new_cam_3d
+                if data_aug['sinu_roll_mag'] > 0:
+                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
+                    rot = Rotation.from_euler('z', np.deg2rad(data_aug['sinu_roll_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_roll_period']*2*np.pi)).as_matrix()
                     new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
                     new_cam_3d += cam_3d[:, 0:1]
                     cam_3d = new_cam_3d
                 # store
                 cam_3ds[subject][action][cam_id] = cam_3d.copy()
         savepkl(cam_3ds, save_path_cam_3d)
-        #print(f'{dataset_name} cam_3d generated and saved\n')
     return cam_3ds
 
-def load_cam_3d_canonical(dataset_name, save_root, canonical_type, overwrite=False, step_rot=0):
+def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+    # prerequisites
     assert canonical_type is not None, 'canonical_type is None'
-    if step_rot != 0: save_path_cam_3d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_canonical_{canonical_type}_steprot_{step_rot}.pkl')
-    else: save_path_cam_3d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_canonical_{canonical_type}.pkl')
+    # pkl path
+    save_path_cam_3d_canonical = save_paths['cam_3d_canonical']
+    # load data
     if os.path.exists(save_path_cam_3d_canonical) and not overwrite:
         cam_3d_canonicals = readpkl(save_path_cam_3d_canonical)
     else:
-        if step_rot != 0: save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_steprot_{step_rot}.pkl')
-        else: save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
-        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        # prerequisites
+        save_path_cam_3d = save_paths['cam_3d']
+        save_path_source_list = save_paths['source_list']
         assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
         assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
-        
         cam_3ds = readpkl(save_path_cam_3d)
         source_list = readpkl(save_path_source_list)
+        
         cam_3d_canonicals = {}
         for source in tqdm(source_list): 
             subject, cam_id, action = split_source_name(source, dataset_name) 
             if subject not in cam_3d_canonicals:          cam_3d_canonicals[subject] = {} 
             if action  not in cam_3d_canonicals[subject]: cam_3d_canonicals[subject][action] = {} 
-            cam_3d = cam_3ds[subject][action][cam_id] 
-            if 'same_z' in canonical_type: 
+            cam_3d = cam_3ds[subject][action][cam_id]
+            if 'same_z' in canonical_type:
                 dist = cam_3d[:, 0, 2] # z value of pelvis joint for each frame 
             elif canonical_type == 'same_dist': 
                 dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame 
@@ -412,31 +510,39 @@ def load_cam_3d_canonical(dataset_name, save_root, canonical_type, overwrite=Fal
             else: 
                 raise ValueError(f'canonical type {canonical_type} not found')
             cam_3d_canonical = cam_3d.copy() - cam_3d[:, 0:1] # move to cam origin
-            if step_rot > 0:
-                rot = Rotation.from_euler('y', np.deg2rad(step_rot)*np.arange(0, len(cam_3d_canonical))).as_matrix()
+            
+            if data_aug['step_rot'] > 0:
+                rot = Rotation.from_euler('y', np.deg2rad(data_aug['step_rot'])*np.arange(0, len(cam_3d_canonical))).as_matrix()
                 new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_canonical)
                 cam_3d_canonical = new_cam_3d
+            if data_aug['sinu_pitch_mag'] > 0:
+                rot = Rotation.from_euler('x', np.deg2rad(data_aug['sinu_pitch_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_pitch_period']*2*np.pi)).as_matrix()
+                new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_canonical)
+                cam_3d = new_cam_3d
+            if data_aug['sinu_roll_mag'] > 0:
+                rot = Rotation.from_euler('z', np.deg2rad(data_aug['sinu_roll_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_roll_period']*2*np.pi)).as_matrix()
+                new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_canonical)
+                cam_3d = new_cam_3d
             cam_3d_canonical[..., 2] += dist[:, None]
             cam_3d_canonicals[subject][action][cam_id] = cam_3d_canonical
         savepkl(cam_3d_canonicals, save_path_cam_3d_canonical)
     return cam_3d_canonicals
 
-def load_img_2d_canonical(dataset_name, save_root, canonical_type, overwrite=False, adaptive_focal=False, step_rot=0):
+def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, adaptive_focal=False, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+    # prerequisites
     assert canonical_type is not None, 'canonical_type is None'
-    if adaptive_focal: 
-        if step_rot: save_path_img_2d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d_canonical_adaptive_focal_steprot_{step_rot}.pkl')
-        else:        save_path_img_2d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d_canonical_adaptive_focal.pkl')
-    else:
-        if step_rot: save_path_img_2d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d_canonical_{canonical_type}_steprot_{step_rot}.pkl')
-        else:        save_path_img_2d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d_canonical_{canonical_type}.pkl')
+    # pkl path
+    if adaptive_focal: save_path_img_2d_canonical = save_paths['img_2d_canonical_adaptive_focal']
+    else:save_path_img_2d_canonical = save_paths['img_2d_canonical']
+    # load data
     if os.path.exists(save_path_img_2d_canonical) and not overwrite:
         img_2d_canonicals = readpkl(save_path_img_2d_canonical)
     else:
-        if step_rot != 0: save_path_cam_3d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_canonical_{canonical_type}_steprot_{step_rot}.pkl')
-        else:             save_path_cam_3d_canonical = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_canonical_{canonical_type}.pkl')
-        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
-        if adaptive_focal: save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params_adaptive_focal.pkl')
-        else: save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+        # prerequisites
+        save_path_cam_3d_canonical = save_paths['cam_3d_canonical']
+        save_path_source_list = save_paths['source_list']
+        if adaptive_focal: save_path_cam_params = save_paths['cam_param_adaptive_focal']
+        else: save_path_cam_params = save_paths['cam_param']
         assert os.path.exists(save_path_cam_3d_canonical), f'No cam_3d_canonical {canonical_type} found for {dataset_name}'
         assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
         assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
@@ -460,17 +566,17 @@ def load_img_2d_canonical(dataset_name, save_root, canonical_type, overwrite=Fal
         
     return img_2d_canonicals
 
-def load_world_3d(dataset_name, save_root, overwrite=False):
-    save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
-    assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
-    source_list = readpkl(save_path_source_list)
-    
-    # target
-    save_path_world_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_world_3d.pkl')
+def load_world_3d(dataset_name, save_paths, overwrite=False):
+    # pkl path
+    save_path_world_3d = save_paths['world_3d']
     if os.path.exists(save_path_world_3d) and not overwrite:
         world_3ds = readpkl(save_path_world_3d)
-        #print(f'{dataset_name} world_3d loaded\n')
     else:
+        # prerequisites
+        save_path_source_list = save_paths['source_list']
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        source_list = readpkl(save_path_source_list)
+        
         world_3ds = {}
         if dataset_name == 'h36m':
             try: del h36m_dataset
@@ -490,10 +596,10 @@ def load_world_3d(dataset_name, save_root, overwrite=False):
                 world_3ds[subject][action] = gt_3d
         elif dataset_name == '3dhp':
             # prerequisites
-            save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
-            save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
-            assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
-            assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+            save_path_cam_3d = save_paths['cam_3d']
+            save_path_cam_params = save_paths['cam_param']
+            assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name} {save_path_cam_3d}'
+            assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name} {save_path_cam_params}'
             cam_3ds = readpkl(save_path_cam_3d)
             cam_params = readpkl(save_path_cam_params)
             for source in tqdm(source_list):
@@ -509,20 +615,20 @@ def load_world_3d(dataset_name, save_root, overwrite=False):
                 # store
                 world_3ds[subject][action] = world_3d.copy()
         savepkl(world_3ds, save_path_world_3d)
-        #print(f'{dataset_name} world generated and saved\n')
-        
     return world_3ds
 
-def load_img_2d(dataset_name, save_root, overwrite=False, only_valid_frame=False, step_rot=0):
-    save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
-    assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
-    source_list = readpkl(save_path_source_list)
-    
-    if step_rot: save_path_img_2d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d_steprot_{step_rot}.pkl')
-    else:        save_path_img_2d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d.pkl')
+def load_img_2d(dataset_name, save_paths, overwrite=False, only_valid_frame=False, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+    # pkl path
+    save_path_img_2d = save_paths['img_2d']
+    # load data
     if os.path.exists(save_path_img_2d) and not overwrite:
         img_2ds = readpkl(save_path_img_2d)
     else:
+        # prerequisites
+        save_path_source_list = save_paths['source_list']
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        source_list = readpkl(save_path_source_list)
+        
         img_2ds = {}
         if dataset_name == '3dhp':
             data_dict_3dhp_train, cam_param_3dhp_train = load_3dhp_original('train')
@@ -540,16 +646,12 @@ def load_img_2d(dataset_name, save_root, overwrite=False, only_valid_frame=False
                 else:
                     img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2']
         else:
-            # prerequisites
-            if step_rot: save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d_steprot_{step_rot}.pkl')
-            else:        save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
-            print(save_path_cam_3d)
-            save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
+            save_path_cam_3d = save_paths['cam_3d']
+            save_path_cam_params = save_paths['cam_param']
             assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
             assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
             cam_3ds = readpkl(save_path_cam_3d)
             cam_params = readpkl(save_path_cam_params)
-            
             for source in tqdm(source_list):
                 subject, cam_id, action = split_source_name(source, dataset_name)
                 if subject not in img_2ds:          img_2ds[subject] = {}
@@ -566,20 +668,18 @@ def load_img_2d(dataset_name, save_root, overwrite=False, only_valid_frame=False
                 # store
                 img_2ds[subject][action][cam_id] = img_2d[...,:2].copy()
         savepkl(img_2ds, save_path_img_2d)
-        #print(f'{dataset_name} img_2d generated and saved')
-            
     return img_2ds
 
-def load_img_3d(dataset_name, save_root, overwrite=False):
-    save_path_img_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_3d.pkl')
+def load_img_3d(dataset_name, save_paths, overwrite=False):
+    save_path_img_3d = save_paths['img_3d']
     if os.path.exists(save_path_img_3d) and not overwrite:
         img_3ds = readpkl(save_path_img_3d)
     else:
         # prerequisites
-        save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
-        save_path_img_2d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_2d.pkl')
-        save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
-        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        save_path_cam_3d = save_paths['cam_3d']
+        save_path_img_2d = save_paths['img_2d']
+        save_path_cam_params = save_paths['cam_param']
+        save_path_source_list = save_paths['source_list']
         assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
         assert os.path.exists(save_path_img_2d), f'No img_2d found for {dataset_name}'
         assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
@@ -623,20 +723,19 @@ def load_img_3d(dataset_name, save_root, overwrite=False):
         #print(f'{dataset_name} img_3d generated and saved\n')
     return img_3ds
 
-def load_scale_factor(dataset_name, save_root, overwrite=False):
-    save_path_scale_factor = os.path.join(save_root, dataset_name, f'{dataset_name}_scale_factor.pkl')
+def load_scale_factor(dataset_name, save_paths, overwrite=False):
+    save_path_scale_factor = save_paths['scale_factor']
     if os.path.exists(save_path_scale_factor) and not overwrite:
         scale_factors = readpkl(save_path_scale_factor)
     else:
-        save_path_cam_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_3d.pkl')
-        save_path_img_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_3d.pkl')
-        save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
-        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        save_path_cam_3d = save_paths['cam_3d']
+        save_path_img_3d = save_paths['img_3d']
+        save_path_cam_params = save_paths['cam_param']
+        save_path_source_list = save_paths['source_list']
         assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
         assert os.path.exists(save_path_img_3d), f'No img_3d found for {dataset_name}'
         assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
         assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
-        
         source_list = readpkl(save_path_source_list)
         cam_params = readpkl(save_path_cam_params)
         cam_3ds = readpkl(save_path_cam_3d)
@@ -667,20 +766,19 @@ def load_scale_factor(dataset_name, save_root, overwrite=False):
     
     return scale_factors
 
-def load_img25d(dataset_name, save_root, overwrite=False):
-    save_path_img_25d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_25d.pkl')
+def load_img25d(dataset_name, save_paths, overwrite=False):
+    save_path_img_25d = save_paths['img_25d']
     if os.path.exists(save_path_img_25d) and not overwrite:
         img_25ds = readpkl(save_path_img_25d)
     else:
-        save_path_img_3d = os.path.join(save_root, dataset_name, f'{dataset_name}_img_3d.pkl')
-        save_path_scale_factor = os.path.join(save_root, dataset_name, f'{dataset_name}_scale_factor.pkl')
-        save_path_cam_params = os.path.join(save_root, dataset_name, f'{dataset_name}_cam_params.pkl')
-        save_path_source_list = os.path.join(save_root, dataset_name, f'{dataset_name}_source_list.pkl')
+        save_path_img_3d = save_paths['img_3d']
+        save_path_scale_factor = save_paths['scale_factor']
+        save_path_cam_params = save_paths['cam_param']
+        save_path_source_list = save_paths['source_list']
         assert os.path.exists(save_path_img_3d), f'No img_3d found for {dataset_name}'
         assert os.path.exists(save_path_scale_factor), f'No scale_factor found for {dataset_name}'
         assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
         assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
-        
         source_list = readpkl(save_path_source_list)
         cam_params = readpkl(save_path_cam_params)
         img_3ds = readpkl(save_path_img_3d)
@@ -1543,6 +1641,9 @@ def gernerate_dataset_yaml(subset):
             test_subject = ['S1', 'S5', 'S6', 'S7', 'S8']
             train_cam = ['54138969']
             test_cam = ['60457274', '55011271', '58860488']
+        elif 'TR_S19_TS_S5678' in subset:
+            train_subject = ['S1', 'S9']
+            test_subject = ['S5', 'S6', 'S7', 'S8']
         elif 'TR_S1' in subset:
             train_subject = ['S1']
             test_subject = ['S5', 'S6', 'S7', 'S8', 'S9', 'S11']
@@ -1571,11 +1672,15 @@ def gernerate_dataset_yaml(subset):
             test_subject = [f'TS{i}' for i in range(1, 5)]
         else: raise ValueError(f'Invalid item: {subset}') 
     
-    print(train_subject, test_subject)
+    #print(train_subject, test_subject)
 
+    # 3d data type
     data_type_list = ['cam_3d']
     if 'CAM_NO_FACTOR' in splited:
         gt_mode = 'cam_3d'
+        if 'CANONICAL' in subset: 
+            data_type_list += ['cam_3d_from_canonical_3d']
+            if 'STEP_ROT' in subset: gt_mode = 'cam_3d_from_canonical_3d' # 어차피 rootrel option 아래에서는 cam_3d와 동일
     elif 'WORLD_NO_FACTOR' in splited:
         data_type_list += ['world_3d']
         gt_mode = 'world_3d'
@@ -1587,14 +1692,15 @@ def gernerate_dataset_yaml(subset):
             data_type_list += ['joint3d_image', '2.5d_factor', 'joints_2.5d_image']
             gt_mode = 'joint3d_image'
         
+    # 2d data type
     if 'CANONICAL' in subset:
-        data_type_list += ['joint_2d_from_canonical_3d', 'cam_3d_from_canonical_3d']
+        data_type_list += ['joint_2d_from_canonical_3d']
         input_mode = 'joint_2d_from_canonical_3d'
-        if 'STEP_ROT' in subset: gt_mode = 'cam_3d_from_canonical_3d'
     else:
         data_type_list += ['joint_2d']
         input_mode = 'joint_2d'
 
+    # canonical type
     if 'SAME_Z' in subset:
         canonical_type = 'same_z'
     elif 'SAME_DIST' in subset:
@@ -1609,12 +1715,25 @@ def gernerate_dataset_yaml(subset):
     else:
         adaptive_focal = False
         
+    # data augmentation
     step_rot = 0
+    sinu_pitch_mag = 0
+    sinu_pitch_period = 0
+    sinu_roll_mag = 0
+    sinu_roll_period = 0
     for item in splited:
         if 'STEP_ROT' in item:
             step_rot = float(item.split('_')[-1])
+        if 'SINU_PITCH' in item:
+            #print(item.split('_')[2].split('M')[1], item.split('_')[3].split('P')[1])
+            sinu_pitch_mag = float(item.split('_')[2].split('M')[1])
+            sinu_pitch_period = float(item.split('_')[3].split('P')[1])
+        if 'SINU_ROLL' in item:
+            sinu_roll_mag = float(item.split('_')[2].split('M')[1])
+            sinu_roll_period = float(item.split('_')[3].split('P')[1])
+            
         
-    print(dataset_name, input_source, data_type_list, canonical_type, input_mode, gt_mode)
+    #print(dataset_name, input_source, data_type_list, canonical_type, input_mode, gt_mode)
     
     data = {
         'dataset_name': dataset_name,
@@ -1629,7 +1748,11 @@ def gernerate_dataset_yaml(subset):
         'test_cam': test_cam, 
         'cam_list': cam_list,
         'adaptive_focal': adaptive_focal,
-        'step_rot': step_rot
+        'step_rot': step_rot,
+        'sinu_pitch_mag': sinu_pitch_mag,
+        'sinu_pitch_period': sinu_pitch_period,
+        'sinu_roll_mag': sinu_roll_mag,
+        'sinu_roll_period': sinu_roll_period
     }
     
     with open(os.path.join(yaml_root, f'{subset}.yaml'), 'w') as file:

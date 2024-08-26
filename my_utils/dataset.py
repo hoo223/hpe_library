@@ -161,15 +161,15 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
     
     if verbose:
         final_data_type = f'{data_type}'
-        if canonical_type is not None: final_data_type += f'_{canonical_type}'
+        if 'canonical' in data_type and canonical_type is not None: final_data_type += f'_{canonical_type}'
         if adaptive_focal: 
             if data_type in ['cam_param', 'img_2d_canonical']:
                 final_data_type += '-adaptive_focal'
         if data_aug['step_rot'] != 0: 
             if data_type in ['cam_3d', 'img_2d', 'cam_3d_canonical', 'img_2d_canonical']:
                 final_data_type += f'-steprot_{step_rot}'
-        if data_aug['sinu_pitch_mag'] != 0: final_data_type += f"-sinu_pitch_m{data_aug['sinu_pitch_mag']}_p{data_aug['sinu_pitch_period']}"
-        if data_aug['sinu_roll_mag'] != 0: final_data_type += f"-sinu_roll_m{data_aug['sinu_roll_mag']}_p{data_aug['sinu_roll_period']}"
+        if data_aug['sinu_pitch_mag'] != 0: final_data_type += f"-sinu_pitch_m{int(data_aug['sinu_pitch_mag'])}_p{int(data_aug['sinu_pitch_period'])}"
+        if data_aug['sinu_roll_mag'] != 0: final_data_type += f"-sinu_roll_m{int(data_aug['sinu_roll_mag'])}_p{int(data_aug['sinu_roll_period'])}"
         print(f"[overwrite: {overwrite}] ==> Loading {dataset_name.upper()} {final_data_type}...")
         
     # save path

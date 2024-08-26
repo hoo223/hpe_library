@@ -93,26 +93,26 @@ def get_save_paths(save_root, dataset_name, canonical_type, data_aug):
     
     save_path_cam_3d = os.path.join(save_root, f'{dataset_name}-cam_3d')
     if step_rot != 0: save_path_cam_3d += f'-steprot_{step_rot}'
-    if sinu_pitch_mag != 0: save_path_cam_3d += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
-    if sinu_roll_mag != 0: save_path_cam_3d += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
+    if sinu_pitch_mag != 0: save_path_cam_3d += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    if sinu_roll_mag != 0:  save_path_cam_3d += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
     save_path_cam_3d += '.pkl'
     
     save_path_cam_3d_canonical = os.path.join(save_root, f'{dataset_name}-cam_3d-canonical_{canonical_type}')
     if step_rot != 0: save_path_cam_3d_canonical += f'-steprot_{step_rot}'
-    if sinu_pitch_mag != 0: save_path_cam_3d_canonical += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
-    if sinu_roll_mag != 0: save_path_cam_3d_canonical += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
+    if sinu_pitch_mag != 0: save_path_cam_3d_canonical += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    if sinu_roll_mag != 0:  save_path_cam_3d_canonical += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
     save_path_cam_3d_canonical += '.pkl'
     
     save_path_img_2d = os.path.join(save_root, f'{dataset_name}-img_2d')
     if step_rot != 0: save_path_img_2d += f'-steprot_{step_rot}'
-    if sinu_pitch_mag != 0: save_path_img_2d += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
-    if sinu_roll_mag != 0: save_path_img_2d += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
+    if sinu_pitch_mag != 0: save_path_img_2d += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    if sinu_roll_mag != 0:  save_path_img_2d += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
     save_path_img_2d += '.pkl'
     
     save_path_img_2d_canonical = os.path.join(save_root, f'{dataset_name}-img_2d-canonical_{canonical_type}')
     if step_rot != 0: save_path_img_2d_canonical += f'-steprot_{step_rot}'
-    if sinu_pitch_mag != 0: save_path_img_2d_canonical += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
-    if sinu_roll_mag != 0: save_path_img_2d_canonical += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
+    if sinu_pitch_mag != 0: save_path_img_2d_canonical += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    if sinu_roll_mag != 0:  save_path_img_2d_canonical += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
     save_path_img_2d_canonical += '.pkl'
     
     save_path_img_2d_canonical_adaptive_focal = os.path.join(save_root, f'{dataset_name}-img_2d-canonical_adaptive_focal.pkl')

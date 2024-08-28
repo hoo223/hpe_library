@@ -81,44 +81,74 @@ def load_plot_configs(dataset_name):
 
 def get_save_paths(save_root, dataset_name, canonical_type, data_aug):
     step_rot = data_aug['step_rot']
+    
+    step_rot = data_aug['step_rot']
+    sinu_yaw_mag = data_aug['sinu_yaw_mag']
+    sinu_yaw_period = data_aug['sinu_yaw_period']
     sinu_pitch_mag = data_aug['sinu_pitch_mag']
     sinu_pitch_period = data_aug['sinu_pitch_period']
     sinu_roll_mag = data_aug['sinu_roll_mag']
     sinu_roll_period = data_aug['sinu_roll_period']
-    
+    rand_yaw_mag = data_aug['rand_yaw_mag']
+    rand_yaw_period = data_aug['rand_yaw_period']
+    rand_pitch_mag = data_aug['rand_pitch_mag']
+    rand_pitch_period = data_aug['rand_pitch_period']
+    rand_roll_mag = data_aug['rand_roll_mag']
+    rand_roll_period = data_aug['rand_roll_period']
+    # source_list
     save_path_source_list = os.path.join(save_root, f'{dataset_name}-source_list.pkl')
-    
+    # cam_params
     save_path_cam_params = os.path.join(save_root, f'{dataset_name}-cam_param.pkl')
     save_path_cam_params_adaptive_focal = os.path.join(save_root, f'{dataset_name}-cam_param-adaptive_focal.pkl')
-    
+    # cam_3d
     save_path_cam_3d = os.path.join(save_root, f'{dataset_name}-cam_3d')
     if step_rot != 0: save_path_cam_3d += f'-steprot_{step_rot}'
+    elif sinu_yaw_mag != 0: save_path_cam_3d += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
+    elif rand_yaw_mag != 0: save_path_cam_3d += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
     if sinu_pitch_mag != 0: save_path_cam_3d += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    elif rand_pitch_mag != 0: save_path_cam_3d += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
     if sinu_roll_mag != 0:  save_path_cam_3d += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
+    elif rand_roll_mag != 0: save_path_cam_3d += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
     save_path_cam_3d += '.pkl'
-    
+    # cam_3d_canonical
     save_path_cam_3d_canonical = os.path.join(save_root, f'{dataset_name}-cam_3d-canonical_{canonical_type}')
     if step_rot != 0: save_path_cam_3d_canonical += f'-steprot_{step_rot}'
+    elif sinu_yaw_mag != 0: save_path_cam_3d_canonical += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
+    elif rand_yaw_mag != 0: save_path_cam_3d_canonical += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
     if sinu_pitch_mag != 0: save_path_cam_3d_canonical += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    elif rand_pitch_mag != 0: save_path_cam_3d_canonical += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
     if sinu_roll_mag != 0:  save_path_cam_3d_canonical += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
+    elif rand_roll_mag != 0: save_path_cam_3d_canonical += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
     save_path_cam_3d_canonical += '.pkl'
-    
+    # img_2d
     save_path_img_2d = os.path.join(save_root, f'{dataset_name}-img_2d')
     if step_rot != 0: save_path_img_2d += f'-steprot_{step_rot}'
+    elif sinu_yaw_mag != 0: save_path_img_2d += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
+    elif rand_yaw_mag != 0: save_path_img_2d += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
     if sinu_pitch_mag != 0: save_path_img_2d += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    elif rand_pitch_mag != 0: save_path_img_2d += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
     if sinu_roll_mag != 0:  save_path_img_2d += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
+    elif rand_roll_mag != 0: save_path_img_2d += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
     save_path_img_2d += '.pkl'
-    
+    # img_2d_canonical
     save_path_img_2d_canonical = os.path.join(save_root, f'{dataset_name}-img_2d-canonical_{canonical_type}')
     if step_rot != 0: save_path_img_2d_canonical += f'-steprot_{step_rot}'
+    elif sinu_yaw_mag != 0: save_path_img_2d_canonical += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
+    elif rand_yaw_mag != 0: save_path_img_2d_canonical += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
     if sinu_pitch_mag != 0: save_path_img_2d_canonical += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    elif rand_pitch_mag != 0: save_path_img_2d_canonical += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
     if sinu_roll_mag != 0:  save_path_img_2d_canonical += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
+    elif rand_roll_mag != 0: save_path_img_2d_canonical += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
     save_path_img_2d_canonical += '.pkl'
-    
+    # img_2d_canonical_adaptive_focal
     save_path_img_2d_canonical_adaptive_focal = os.path.join(save_root, f'{dataset_name}-img_2d-canonical_adaptive_focal.pkl')
+    # world_3d
     save_path_world_3d = os.path.join(save_root, f'{dataset_name}-world_3d.pkl')
+    # img_3d
     save_path_img_3d = os.path.join(save_root, f'{dataset_name}-img_3d.pkl')
+    # scale_factor
     save_path_scale_factor = os.path.join(save_root, f'{dataset_name}-scale_factor.pkl')
+    # img_25d
     save_path_img_25d = os.path.join(save_root, f'{dataset_name}-img_25d.pkl')
     
     save_paths = {
@@ -138,16 +168,28 @@ def get_save_paths(save_root, dataset_name, canonical_type, data_aug):
     return save_paths
 
 def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_list=[], canonical_type=None, only_valid_frame=True, adaptive_focal=False, verbose=True, 
-              data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+              data_aug={'step_rot': 0, 
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+                        'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
+                        'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
+                        }):
     user = getpass.getuser()
     motionbert_root = f'/home/{user}/codes/MotionBERT/'
     save_root = os.path.join(motionbert_root, save_folder, dataset_name)
     
     step_rot = data_aug['step_rot']
+    sinu_yaw_mag = data_aug['sinu_yaw_mag']
+    sinu_yaw_period = data_aug['sinu_yaw_period']
     sinu_pitch_mag = data_aug['sinu_pitch_mag']
     sinu_pitch_period = data_aug['sinu_pitch_period']
     sinu_roll_mag = data_aug['sinu_roll_mag']
     sinu_roll_period = data_aug['sinu_roll_period']
+    rand_yaw_mag = data_aug['rand_yaw_mag']
+    rand_yaw_period = data_aug['rand_yaw_period']
+    rand_pitch_mag = data_aug['rand_pitch_mag']
+    rand_pitch_period = data_aug['rand_pitch_period']
+    rand_roll_mag = data_aug['rand_roll_mag']
+    rand_roll_period = data_aug['rand_roll_period']
     
     # only_valid_frame -> for 3dhp
     if data_type in overwrite_list: 
@@ -168,8 +210,12 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
         if data_aug['step_rot'] != 0: 
             if data_type in ['cam_3d', 'img_2d', 'cam_3d_canonical', 'img_2d_canonical']:
                 final_data_type += f'-steprot_{step_rot}'
-        if data_aug['sinu_pitch_mag'] != 0: final_data_type += f"-sinu_pitch_m{int(data_aug['sinu_pitch_mag'])}_p{int(data_aug['sinu_pitch_period'])}"
-        if data_aug['sinu_roll_mag'] != 0: final_data_type += f"-sinu_roll_m{int(data_aug['sinu_roll_mag'])}_p{int(data_aug['sinu_roll_period'])}"
+        elif sinu_yaw_mag != 0: final_data_type += f"-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}"
+        elif rand_yaw_mag != 0: final_data_type += f"-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}"
+        if sinu_pitch_mag != 0: final_data_type += f"-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}"
+        elif rand_pitch_mag != 0: final_data_type += f"-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}"
+        if sinu_roll_mag != 0: final_data_type += f"-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}"
+        elif rand_roll_mag != 0: final_data_type += f"-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}"
         print(f"[overwrite: {overwrite}] ==> Loading {dataset_name.upper()} {final_data_type}...")
         
     # save path
@@ -187,19 +233,36 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
     elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite, adaptive_focal, data_aug)
     else:                                 raise ValueError(f'{data_type} not found')
     
-def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, 
+                   data_aug={'step_rot': 0, 
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+                        'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
+                        'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
+                        }):
     step_rot = data_aug['step_rot']
+    sinu_yaw_mag = data_aug['sinu_yaw_mag']
+    sinu_yaw_period = data_aug['sinu_yaw_period']
     sinu_pitch_mag = data_aug['sinu_pitch_mag']
     sinu_pitch_period = data_aug['sinu_pitch_period']
     sinu_roll_mag = data_aug['sinu_roll_mag']
     sinu_roll_period = data_aug['sinu_roll_period']
+    rand_yaw_mag = data_aug['rand_yaw_mag']
+    rand_yaw_period = data_aug['rand_yaw_period']
+    rand_pitch_mag = data_aug['rand_pitch_mag']
+    rand_pitch_period = data_aug['rand_pitch_period']
+    rand_roll_mag = data_aug['rand_roll_mag']
+    rand_roll_period = data_aug['rand_roll_period']
     
     data_dict = {}
     for data_type in data_type_list:
         key = data_type
         if step_rot != 0: key += f'-steprot_{step_rot}'
+        elif sinu_yaw_mag != 0: key += f'-sinu_yaw_m{sinu_yaw_mag}_p{sinu_yaw_period}'
+        elif rand_yaw_mag != 0: key += f'-rand_yaw_m{rand_yaw_mag}_p{rand_yaw_period}'
         if sinu_pitch_mag != 0: key += f'-sinu_pitch_m{sinu_pitch_mag}_p{sinu_pitch_period}'
+        elif rand_pitch_mag != 0: key += f'rand_pitch_m{rand_pitch_mag}_p{rand_pitch_period}'
         if sinu_roll_mag != 0: key += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
+        elif rand_roll_mag != 0: key += f'rand_roll_m{rand_roll_mag}_p{rand_roll_period}'
         
         if 'adaptive_focal' in data_type: 
             data_type = data_type.split('_adaptive_focal')[0]
@@ -383,8 +446,71 @@ def load_image_frame(dataset_name, source, frame_num):
         img = None
     
     return img
+
+def data_augmentation(pose3d, data_aug):
+    assert len(pose3d.shape) == 3, f'pose3d shape should be (num_frames, num_joints, 3), but got {pose3d.shape}'
+    assert pose3d.shape[1] == 17, f'pose3d shape should be (num_frames, 17, 3), but got {pose3d.shape}'
     
-def load_cam_3d(dataset_name, save_paths, overwrite=False, only_valid_frame=False, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+    pose3d_hat = pose3d.copy() - pose3d[:, 0:1]
+    if data_aug['step_rot'] > 0:
+        rot = Rotation.from_euler('y', np.deg2rad(data_aug['step_rot'])*np.arange(0, len(pose3d))).as_matrix()
+    elif data_aug['sinu_yaw_mag'] > 0:
+        sinu_yaw_mag = data_aug['sinu_yaw_mag']
+        sinu_yaw_period = data_aug['sinu_yaw_period']
+        rot = Rotation.from_euler('y', np.deg2rad(sinu_yaw_mag)*np.sin(np.arange(0, len(pose3d))/sinu_yaw_period*2*np.pi)).as_matrix()
+    elif data_aug['rand_yaw_mag'] > 0:
+        sinu_yaw_mag = random.randrange(-data_aug['rand_yaw_mag'], data_aug['rand_yaw_mag'])
+        if data_aug['rand_yaw_period'] > 0: sinu_yaw_period = data_aug['sinu_yaw_period'] + random.randrange(-data_aug['rand_yaw_period'], data_aug['rand_yaw_period'])
+        else : sinu_yaw_period = data_aug['sinu_yaw_period']
+        rot = Rotation.from_euler('y', np.deg2rad(sinu_yaw_mag)*np.sin(np.arange(0, len(pose3d))/sinu_yaw_period*2*np.pi)).as_matrix()
+    else:
+        rot = np.eye(3)
+    new_pose3d = np.einsum('fij,fkj->fki', rot, pose3d_hat)
+    new_pose3d += pose3d[:, 0:1]
+    pose3d = new_pose3d
+        
+    pose3d_hat = pose3d.copy() - pose3d[:, 0:1]
+    if data_aug['sinu_pitch_mag'] > 0:
+        sinu_pitch_mag = data_aug['sinu_pitch_mag']
+        sinu_pitch_period = data_aug['sinu_pitch_period']
+        rot = Rotation.from_euler('x', np.deg2rad(sinu_pitch_mag)*np.sin(np.arange(0, len(pose3d))/sinu_pitch_period*2*np.pi)).as_matrix()
+    elif data_aug['rand_pitch_mag'] > 0:
+        sinu_pitch_mag = random.randrange(-data_aug['rand_pitch_mag'], data_aug['rand_pitch_mag'])
+        if data_aug['rand_pitch_period'] > 0: sinu_pitch_period = data_aug['sinu_pitch_period'] + random.randrange(-data_aug['rand_pitch_period'], data_aug['rand_pitch_period'])
+        else: sinu_pitch_period = data_aug['sinu_pitch_period']
+        rot = Rotation.from_euler('x', np.deg2rad(sinu_pitch_mag)*np.sin(np.arange(0, len(pose3d))/sinu_pitch_period*2*np.pi)).as_matrix()
+    else:
+        rot = np.eye(3)
+    new_pose3d = np.einsum('fij,fkj->fki', rot, pose3d_hat)
+    new_pose3d += pose3d[:, 0:1]
+    pose3d = new_pose3d
+    
+    pose3d_hat = pose3d.copy() - pose3d[:, 0:1]
+    if data_aug['sinu_roll_mag'] > 0:
+        sinu_roll_mag = data_aug['sinu_roll_mag']
+        sinu_roll_period = data_aug['sinu_roll_period']
+        rot = Rotation.from_euler('z', np.deg2rad(sinu_roll_mag)*np.sin(np.arange(0, len(pose3d))/sinu_roll_period*2*np.pi)).as_matrix
+    elif data_aug['rand_roll_mag'] > 0:
+        sinu_roll_mag = random.randrange(-data_aug['rand_roll_mag'], data_aug['rand_roll_mag'])
+        if data_aug['rand_roll_period'] > 0: sinu_roll_period = data_aug['sinu_roll_period'] + random.randrange(-data_aug['rand_roll_period'], data_aug['rand_roll_period'])
+        else: sinu_roll_period = data_aug['sinu_roll_period']
+        rot = Rotation.from_euler('z', np.deg2rad(sinu_roll_mag)*np.sin(np.arange(0, len(pose3d))/sinu_roll_period*2*np.pi)).as_matrix()
+    else:
+        rot = np.eye(3)
+    new_pose3d = np.einsum('fij,fkj->fki', rot, pose3d_hat)
+    new_pose3d += pose3d[:, 0:1]
+    pose3d = new_pose3d
+    
+    return pose3d
+    
+def load_cam_3d(dataset_name, save_paths, overwrite=False, only_valid_frame=False, 
+                data_aug={'step_rot': 0, 
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+                        'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
+                        'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
+                        }):
+    import random
+    random.seed(0)
     # pkl path
     save_path_cam_3d = save_paths['cam_3d']
     # load data
@@ -412,28 +538,11 @@ def load_cam_3d(dataset_name, save_paths, overwrite=False, only_valid_frame=Fals
                     cam_3d = data_dict_3dhp[source]['annot3'][valid_frame]/1000
                 else:
                     cam_3d = data_dict_3dhp[source]['annot3']/1000
+                
                 # data augmentation
-                if data_aug['step_rot'] > 0:
-                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
-                    rot = Rotation.from_euler('y', np.deg2rad(data_aug['step_rot'])*np.arange(0, len(cam_3d))).as_matrix()
-                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
-                    new_cam_3d += cam_3d[:, 0:1]
-                    cam_3d = new_cam_3d
-                if data_aug['sinu_pitch_mag'] > 0:
-                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
-                    rot = Rotation.from_euler('x', np.deg2rad(data_aug['sinu_pitch_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_pitch_period']*2*np.pi)).as_matrix()
-                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
-                    new_cam_3d += cam_3d[:, 0:1]
-                    cam_3d = new_cam_3d
-                if data_aug['sinu_roll_mag'] > 0:
-                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
-                    rot = Rotation.from_euler('z', np.deg2rad(data_aug['sinu_roll_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_roll_period']*2*np.pi)).as_matrix()
-                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
-                    new_cam_3d += cam_3d[:, 0:1]
-                    cam_3d = new_cam_3d
+                cam_3d = data_augmentation(cam_3d, data_aug)
                 
                 cam_3ds[subject][seq][cam_id] = cam_3d
-                #num_frames += len(cam_3ds[subject][seq][cam_id])
         else:
             # prerequisites
             save_path_world_3d = save_paths['world_3d']
@@ -454,31 +563,23 @@ def load_cam_3d(dataset_name, save_paths, overwrite=False, only_valid_frame=Fals
                 intrinsic = np.array(cam_param['intrinsic'])
                 # world to cam 
                 cam_3d = np.einsum('ijk,kl->ijl', world_3d, R.T) + t # (N, 17, 3)
+                
                 # data augmentation
-                if data_aug['step_rot'] > 0:
-                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
-                    rot = Rotation.from_euler('y', np.deg2rad(data_aug['step_rot'])*np.arange(0, len(cam_3d))).as_matrix()
-                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
-                    new_cam_3d += cam_3d[:, 0:1]
-                    cam_3d = new_cam_3d
-                if data_aug['sinu_pitch_mag'] > 0:
-                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
-                    rot = Rotation.from_euler('x', np.deg2rad(data_aug['sinu_pitch_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_pitch_period']*2*np.pi)).as_matrix()
-                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
-                    new_cam_3d += cam_3d[:, 0:1]
-                    cam_3d = new_cam_3d
-                if data_aug['sinu_roll_mag'] > 0:
-                    cam_3d_hat = cam_3d.copy() - cam_3d[:, 0:1]
-                    rot = Rotation.from_euler('z', np.deg2rad(data_aug['sinu_roll_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_roll_period']*2*np.pi)).as_matrix()
-                    new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_hat)
-                    new_cam_3d += cam_3d[:, 0:1]
-                    cam_3d = new_cam_3d
+                cam_3d = data_augmentation(cam_3d, data_aug)
+                
                 # store
                 cam_3ds[subject][action][cam_id] = cam_3d.copy()
         savepkl(cam_3ds, save_path_cam_3d)
     return cam_3ds
 
-def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, 
+                          data_aug={'step_rot': 0, 
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+                        'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
+                        'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
+                        }):
+    import random
+    random.seed(0)
     # prerequisites
     assert canonical_type is not None, 'canonical_type is None'
     # pkl path
@@ -511,24 +612,20 @@ def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                 raise ValueError(f'canonical type {canonical_type} not found')
             cam_3d_canonical = cam_3d.copy() - cam_3d[:, 0:1] # move to cam origin
             
-            if data_aug['step_rot'] > 0:
-                rot = Rotation.from_euler('y', np.deg2rad(data_aug['step_rot'])*np.arange(0, len(cam_3d_canonical))).as_matrix()
-                new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_canonical)
-                cam_3d_canonical = new_cam_3d
-            if data_aug['sinu_pitch_mag'] > 0:
-                rot = Rotation.from_euler('x', np.deg2rad(data_aug['sinu_pitch_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_pitch_period']*2*np.pi)).as_matrix()
-                new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_canonical)
-                cam_3d = new_cam_3d
-            if data_aug['sinu_roll_mag'] > 0:
-                rot = Rotation.from_euler('z', np.deg2rad(data_aug['sinu_roll_mag'])*np.sin(np.arange(0, len(cam_3d))/data_aug['sinu_roll_period']*2*np.pi)).as_matrix()
-                new_cam_3d = np.einsum('fij,fkj->fki', rot, cam_3d_canonical)
-                cam_3d = new_cam_3d
+            # data augmentation
+            cam_3d_canonical = data_augmentation(cam_3d_canonical, data_aug)
+                
             cam_3d_canonical[..., 2] += dist[:, None]
             cam_3d_canonicals[subject][action][cam_id] = cam_3d_canonical
         savepkl(cam_3d_canonicals, save_path_cam_3d_canonical)
     return cam_3d_canonicals
 
-def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, adaptive_focal=False, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, adaptive_focal=False, 
+                          data_aug={'step_rot': 0, 
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+                        'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
+                        'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
+                        }):
     # prerequisites
     assert canonical_type is not None, 'canonical_type is None'
     # pkl path
@@ -617,7 +714,12 @@ def load_world_3d(dataset_name, save_paths, overwrite=False):
         savepkl(world_3ds, save_path_world_3d)
     return world_3ds
 
-def load_img_2d(dataset_name, save_paths, overwrite=False, only_valid_frame=False, data_aug={'step_rot': 0, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 'sinu_roll_mag': 0, 'sinu_roll_period': 273}):
+def load_img_2d(dataset_name, save_paths, overwrite=False, only_valid_frame=False, 
+                data_aug={'step_rot': 0, 
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+                        'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
+                        'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
+                        }):
     # pkl path
     save_path_img_2d = save_paths['img_2d']
     # load data
@@ -1717,22 +1819,41 @@ def gernerate_dataset_yaml(subset):
         
     # data augmentation
     step_rot = 0
+    sinu_yaw_mag = 0
     sinu_pitch_mag = 0
-    sinu_pitch_period = 0
     sinu_roll_mag = 0
-    sinu_roll_period = 0
+    sinu_yaw_period = 273*2
+    sinu_pitch_period = 273*2
+    sinu_roll_period = 273*2
+    rand_yaw_mag = 0
+    rand_pitch_mag = 0
+    rand_roll_mag = 0
+    rand_yaw_period = 0
+    rand_pitch_period = 0
+    rand_roll_period = 0
+
     for item in splited:
         if 'STEP_ROT' in item:
             step_rot = float(item.split('_')[-1])
+        elif 'SINU_YAW' in item:
+            sinu_yaw_mag = float(item.split('_')[2].split('M')[1])
+            sinu_yaw_period = float(item.split('_')[3].split('P')[1])
+        elif 'RAND_YAW' in item:
+            rand_yaw_mag = float(item.split('_')[2].split('M')[1])
+            rand_yaw_period = float(item.split('_')[3].split('P')[1])
         if 'SINU_PITCH' in item:
-            #print(item.split('_')[2].split('M')[1], item.split('_')[3].split('P')[1])
             sinu_pitch_mag = float(item.split('_')[2].split('M')[1])
             sinu_pitch_period = float(item.split('_')[3].split('P')[1])
+        elif 'RAND_PITCH' in item:
+            rand_pitch_mag = float(item.split('_')[2].split('M')[1])
+            rand_pitch_period = float(item.split('_')[3].split('P')[1])
         if 'SINU_ROLL' in item:
             sinu_roll_mag = float(item.split('_')[2].split('M')[1])
             sinu_roll_period = float(item.split('_')[3].split('P')[1])
+        elif 'RAND_ROLL' in item:
+            rand_roll_mag = float(item.split('_')[2].split('M')[1])
+            rand_roll_period = float(item.split('_')[3].split('P')[1])
             
-        
     #print(dataset_name, input_source, data_type_list, canonical_type, input_mode, gt_mode)
     
     data = {
@@ -1749,10 +1870,18 @@ def gernerate_dataset_yaml(subset):
         'cam_list': cam_list,
         'adaptive_focal': adaptive_focal,
         'step_rot': step_rot,
+        'sinu_yaw_mag': sinu_yaw_mag,
+        'sinu_yaw_period': sinu_yaw_period,
         'sinu_pitch_mag': sinu_pitch_mag,
         'sinu_pitch_period': sinu_pitch_period,
         'sinu_roll_mag': sinu_roll_mag,
-        'sinu_roll_period': sinu_roll_period
+        'sinu_roll_period': sinu_roll_period,
+        'rand_yaw_mag': rand_yaw_mag,
+        'rand_yaw_period': rand_yaw_period,
+        'rand_pitch_mag': rand_pitch_mag,
+        'rand_pitch_period': rand_pitch_period,
+        'rand_roll_mag': rand_roll_mag,
+        'rand_roll_period': rand_roll_period
     }
     
     with open(os.path.join(yaml_root, f'{subset}.yaml'), 'w') as file:

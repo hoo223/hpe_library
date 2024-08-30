@@ -491,7 +491,7 @@ def data_augmentation(pose3d, data_aug):
     if data_aug['sinu_roll_mag'] > 0:
         sinu_roll_mag = data_aug['sinu_roll_mag']
         sinu_roll_period = data_aug['sinu_roll_period']
-        rot = Rotation.from_euler('z', np.deg2rad(sinu_roll_mag)*np.sin(np.arange(0, len(pose3d))/sinu_roll_period*2*np.pi)).as_matrix
+        rot = Rotation.from_euler('z', np.deg2rad(sinu_roll_mag)*np.sin(np.arange(0, len(pose3d))/sinu_roll_period*2*np.pi)).as_matrix()
     elif data_aug['rand_roll_mag'] > 0:
         sinu_roll_mag = random.randrange(-data_aug['rand_roll_mag'], data_aug['rand_roll_mag'])
         if data_aug['rand_roll_period'] > 0: sinu_roll_period = data_aug['sinu_roll_period'] + random.randrange(-data_aug['rand_roll_period'], data_aug['rand_roll_period'])

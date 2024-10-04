@@ -8,7 +8,7 @@ from hpe_library.my_utils.kookmin_dataset import check_available_frame, check_co
 from hpe_library.my_utils.logger import get_logger, log_configs
 from hpe_library.my_utils.config import arg_as_list, get_configs
 from hpe_library.my_utils.visualization import axes_2d, axes_3d, axes_to_compare_pred_gt, clear_axes, draw_2d_pose, draw_3d_pose, draw_bbox, draw_multiple_2d_pose, draw_multiple_3d_pose, draw_one_segment, draw_rotation_matrix, draw_segment, draw_segments, draw_trajectory, general_plot_func, generate_axes, generate_plot_video, generate_pose_video, get_2d_pose_image, legend_without_duplicate_labels, plot_to_compare_pred_gt, save_h36m_pose_video, show2Dtrajectory, show3Dtrajectory, show_2d_3d, show_whole_segment_trajectories
-from hpe_library.my_utils.mpi_inf_3dhp import convert_intrinsic_from_mm_to_pixel, data_generator_3dhp, get_3dhp_cam_info, load_3dhp_original
+from hpe_library.my_utils.mpi_inf_3dhp import convert_intrinsic_from_mm_to_pixel, get_3dhp_cam_info, get_img_frame_3dhp, load_3dhp_original, test_3dhp_data_generator
 from hpe_library.my_utils.data_aug import data_augmentation
 from hpe_library.my_utils.notion import create_notion_page, get_all_database_pages, get_notion_dicts, update_mpjpe, update_notion_page
 from hpe_library.my_utils.train import check_duplicate_training, get_input_output_candidate, get_num_trial, load_args, load_best_model, load_dataset, load_model, prepare_training, run, run_epoch, save_args, split_array_by_idxs
@@ -24,7 +24,7 @@ group_kookmin_dataset = ['check_available_frame', 'check_continuity', 'draw_base
 group_logger = ['get_logger', 'log_configs']
 group_config = ['arg_as_list', 'get_configs']
 group_visualization = ['axes_2d', 'axes_3d', 'axes_to_compare_pred_gt', 'clear_axes', 'draw_2d_pose', 'draw_3d_pose', 'draw_bbox', 'draw_multiple_2d_pose', 'draw_multiple_3d_pose', 'draw_one_segment', 'draw_rotation_matrix', 'draw_segment', 'draw_segments', 'draw_trajectory', 'general_plot_func', 'generate_axes', 'generate_plot_video', 'generate_pose_video', 'get_2d_pose_image', 'legend_without_duplicate_labels', 'plot_to_compare_pred_gt', 'save_h36m_pose_video', 'show2Dtrajectory', 'show3Dtrajectory', 'show_2d_3d', 'show_whole_segment_trajectories']
-group_mpi_inf_3dhp = ['convert_intrinsic_from_mm_to_pixel', 'data_generator_3dhp', 'get_3dhp_cam_info', 'load_3dhp_original']
+group_mpi_inf_3dhp = ['convert_intrinsic_from_mm_to_pixel', 'get_3dhp_cam_info', 'get_img_frame_3dhp', 'load_3dhp_original', 'test_3dhp_data_generator']
 group_data_aug = ['data_augmentation']
 group_notion = ['create_notion_page', 'get_all_database_pages', 'get_notion_dicts', 'update_mpjpe', 'update_notion_page']
 group_train = ['check_duplicate_training', 'get_input_output_candidate', 'get_num_trial', 'load_args', 'load_best_model', 'load_dataset', 'load_model', 'prepare_training', 'run', 'run_epoch', 'save_args', 'split_array_by_idxs']

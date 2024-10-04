@@ -870,10 +870,18 @@ def generate_axes(fig_idx, configs, fig_title='', figsize=[6.4, 4.8]):
     return fig, ax_list
 
 def general_plot_func(axs, configs, plot_pose_setting, frame_num):
-    # axs: {key: ax}
-    # configs: {key: {'type': '3d' or '2d', 'W': int, 'H': int, 'mode': 'world' or 'cam', 'normalize': True or False}, ...}
-    # plots_and_poses: [(plot, pose), ...]
-    # frame_num: int
+    '''
+    axs: {key: ax}
+    configs: {key: {
+        'type': '3d' or '2d', 
+        'W': int, 'H': int, 
+        'mode': 'world' or 'cam', 
+        'normalize': True or False}, 
+        ...}
+    plots_and_poses: [(plot, pose, img, dataset, color, label, linestyle), ...]
+    frame_num: int
+    '''
+    
     clear_axes([axs[key] for key in axs.keys()])
     for plot, pose, setting in plot_pose_setting:
         ax = axs[plot]
@@ -902,8 +910,8 @@ def general_plot_func(axs, configs, plot_pose_setting, frame_num):
         if configs[plot]['type'] == '3d':
             draw_3d_pose(axs[plot], pose, dataset=dataset, color=color, label=label, linestyle=linestyle)
         elif configs[plot]['type'] == '2d':
-            if 'normalize' in configs[plot]: draw_2d_pose(axs[plot], pose, normalize=True, img=img, dataset=dataset, color=color, label=label)
-            else: draw_2d_pose(axs[plot], pose, W=W, H=H, img=img, dataset=dataset, color=color, label=label, linestyle=linestyle)
+            if 'normalize' in configs[plot]: draw_2d_pose(axs[plot], pose, img=img, dataset=dataset, color=color, label=label, linestyle=linestyle, normalize=True)
+            else:                            draw_2d_pose(axs[plot], pose, img=img, dataset=dataset, color=color, label=label, linestyle=linestyle, W=W, H=H)
         else:
             raise ValueError(f'Invalid type: {configs[plot]["type"]}')
         legend_without_duplicate_labels(ax)

@@ -1,15 +1,11 @@
-from lib_import import *
-from .config import get_configs
-from .dataset import make_one_dimension_list, get_model_input
-from .dh import get_torso_direction, rotate_torso_by_R, projection
-from .train import load_args, load_best_model, load_dataset
-
-user = getpass.getuser()
-motionbert_root = '/home/{}/codes/MotionBERT'.format(user)
-sys.path.append(motionbert_root)
-from lib.utils.utils_data import flip_data
+from hpe_library.lib_import import *
+# from .config import get_configs
+# from .dataset import get_model_input
+# from .dh import get_torso_direction, rotate_torso_by_R, projection
+# from .train import load_args, load_best_model, load_dataset
 
 def args_dict_to_namespace(args_dict, arg_blacklist=['num_trial', 'save_model_path', 'test_loss_lowest', 'best_epoch', 'segment_file', 'input_candidate', 'output_candidate', 'device'], with_result=True):
+    from hpe_library.my_utils import get_configs
     arg_list = []
     for arg in args_dict.keys():
         # blacklist
@@ -35,6 +31,7 @@ def args_dict_to_namespace(args_dict, arg_blacklist=['num_trial', 'save_model_pa
     return args
 
 def get_result(model, input, src_torso, tar_torso=None, label=None, output_type='dp_rotvec_th'):
+    from hpe_library.my_utils import get_torso_direction, rotate_torso_by_R
     output = model(input)
     #src_torso = src_torso.cpu().detach().numpy().reshape(5, 3)
     gt_torso = tar_torso 
@@ -110,6 +107,7 @@ def get_output_type(output_list):
 
 
 def construct_torso_from_output(output_type, output, src_torso):
+    from hpe_library.my_utils import rotate_torso_by_R
     pred_delta_rot = np.eye(3)
     if output_type in ['dp']:
         pred_delta_point = output[0].detach().cpu().numpy()
@@ -128,6 +126,7 @@ def construct_torso_from_output(output_type, output, src_torso):
 
 # 
 def load_best_model_for_inference(out_dir, test_trial):
+    from hpe_library.my_utils import load_args, load_best_model, load_dataset
     # --------------------------------------------- Load args
     args_dict = load_args(out_dir, test_trial) # load args dict 
     args = args_dict_to_namespace(args_dict) # convert args dict to namespace
@@ -144,6 +143,7 @@ def load_best_model_for_inference(out_dir, test_trial):
 
 
 def infer_one_segment(model, args, segment, cam_proj, stride, device='cuda', use_gt_torso=False, use_pred_2d=False):
+    from hpe_library.my_utils import get_model_input, get_output_type, projection
     assert isinstance(segment, dict), 'segment must be a dict'
     assert 'torsos' in segment.keys(), 'segment must have key "torsos"'
     assert 'rots' in segment.keys(), 'segment must have key "rots"'
@@ -342,7 +342,16 @@ def normalize_input(input_data, W, H):
     elif input_data.shape[-1] == 2:
         return input_data / W * 2 - [1, H / W]
     else:
-        assert 0, f'Invalid input shape: {input_data.shape}'
+        raise ValueError('Invalid input shape: {input_data.shape}')
+    
+def denormalize_input(input_data, W, H):
+    # input range: [-1, 1] -> [0, W]
+    if input_data.shape[-1] == 3:
+        return (input_data + [1, H / W, 0]) * W / 2
+    elif input_data.shape[-1] == 2:
+        return (input_data + [1, H / W]) * W / 2
+    else:
+        raise ValueError('Invalid input shape: {input_data.shape}')
 
 # def normalize_3d_pose(pose_3d, W, H):
 #     # input range: [0, W] -> [-1, 1]

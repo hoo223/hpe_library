@@ -1,6 +1,6 @@
-from lib_import import *
-from my_utils import *
-from .test_utils import get_h36m_keypoint_index, get_h36m_keypoints, get_batch_h36m_keypoints
+from hpe_library.lib_import import *
+#from hpe_library. my_utils import *
+#from .test_utils import get_h36m_keypoint_index, get_h36m_keypoints, get_batch_h36m_keypoints
 #from .visualization import draw_3d_pose
 
 def rotation_distance(rot1, rot2, quat=False):
@@ -50,20 +50,28 @@ def generate_camera_frame(cam_ext, mm_to_m=True, name='camera'):
     )
     return cam_frame
 
-def projection(pose_3d, proj_mat):
-    if len(pose_3d.shape) == 2:
-        homo = np.insert(pose_3d, 3, 1, axis=1) # to homogeneous coordinates
-        projected = (proj_mat @ homo.T).T
-        pose_2d = projected / projected[:, 2].repeat(3).reshape(-1, 3)
-        return pose_2d
-    elif len(pose_3d.shape) == 3:
-        pose_2ds = []
-        for pose in pose_3d:
-            homo = np.insert(pose, 3, 1, axis=1) # to homogeneous coordinates
-            projected = (proj_mat @ homo.T).T
-            pose_2d = projected / projected[:, 2].repeat(3).reshape(-1, 3)
-            pose_2ds.append(pose_2d)
-        return np.array(pose_2ds)
+def projection(pose3d, intrinsic):
+    if len(pose3d.shape) == 2:
+        # homo = np.insert(pose3d, 3, 1, axis=1) # to homogeneous coordinates
+        # projected = (intrinsic @ homo.T).T
+        # pose_2d = projected / projected[:, 2].repeat(3).reshape(-1, 3)
+        pose2d = pose3d @ intrinsic.T
+        pose2d = pose2d / pose2d[:, 2:]
+        return pose2d
+    elif len(pose3d.shape) == 3:
+        # pose_2ds = []
+        # for pose in pose_3d:
+        #     homo = np.insert(pose, 3, 1, axis=1) # to homogeneous coordinates
+        #     projected = (proj_mat @ homo.T).T
+        #     pose_2d = projected / projected[:, 2].repeat(3).reshape(-1, 3)
+        #     pose_2ds.append(pose_2d)
+        # return np.array(pose_2ds)
+        assert (pose3d[:, 0, 2] != 0).any(), "z value of pelvis must not be 0"
+        pose2d = np.einsum('njc,cl->njl', pose3d, intrinsic.T) # (N, J, 3)
+        pose2d = pose2d / pose2d[:, :, 2:] # (N, J, 3)
+        return pose2d[...,:2] # (N, J, 2)
+    else:
+         raise ValueError(f"Invalid pose shape: {pose3d.shape}")
     
 def batch_projection(batch_pose_3d, batch_proj_mat):
     if len(batch_pose_3d.shape) == 4:
@@ -91,6 +99,9 @@ def get_torso_direction(torso):
         L_Shoulder = torso[2]
         L_Hip = torso[1]
         R_Hip = torso[4]
+    else:
+        print("Invalid torso shape")
+        return -1
     
     vec1 = L_Hip - R_Hip #  L_Hip - R_Hip
     vec1 /= np.linalg.norm(vec1)
@@ -212,6 +223,8 @@ def get_torso_rotation_matrix(torso):
         l_shoulder = torso[2]
         r_shoulder = torso[3]
         r_hip = torso[4]
+    else:
+        raise ValueError("Invalid torso shape")
         
     left = l_hip - r_hip
     left /= np.linalg.norm(left)
@@ -227,6 +240,7 @@ def get_torso_rotation_matrix(torso):
 def rotation_matrix_torso2torso(torso1, torso2):
     src_R = get_torso_rotation_matrix(torso1)
     tar_R = get_torso_rotation_matrix(torso2)
+    assert src_R != -1 and tar_R != -1, "Invalid torso shape"
     align_R = tar_R @ src_R.T
     return align_R, src_R, tar_R
 
@@ -286,6 +300,8 @@ def rotate_torso_by_R(torso, R):
             root_rel = torso[i] - root
             rotated[i] = (R @ root_rel.T).T + root
         return rotated
+    else:
+        raise ValueError("Invalid shape of torso")
 
 def rotate_torso_by_R_for_batch_tensor(torso_batch, R, device='cuda'):
     # input
@@ -429,8 +445,10 @@ def distance_between_azim_elev(azim1, elev1, azim2, elev2, degrees=False):
     R2 = rotation_matrix_from_angle(azim2, elev2, degrees=degrees)
     return rotation_distance(R1, R2)
     
-def get_optimal_azimuth_elevation(vector, root_R=np.eye(3), prev_azim=0, prev_elev=0, degrees=False):
-    azim1, elev1, azim2, elev2 = calculate_azimuth_elevation(vector, root_R, degrees=degrees, multi_sol=True)
+def get_optimal_azimuth_elevation(vector, root_R=np.eye(3), prev_azim=0.0, prev_elev=0.0, degrees=False):
+    res = calculate_azimuth_elevation(vector, root_R, degrees=degrees, multi_sol=True)
+    if len(res) == 4: azim1, elev1, azim2, elev2 = res
+    else: azim1, elev1 = res
     d1 = distance_between_azim_elev(azim1, elev1, prev_azim, prev_elev, degrees=degrees)
     d2 = distance_between_azim_elev(azim2, elev2, prev_azim, prev_elev, degrees=degrees)
     #d1 = dist_between_points([azim1, elev1], [prev_azim, prev_elev])
@@ -557,8 +575,9 @@ class Appendage:
     def update_link_from_angle(self, link1_azim=None, link1_elev=None, link2_azim=None, link2_elev=None, root_tf=None, degrees=False, mode='all'):
         # update angles
         if type(root_tf) == type(None): root_tf = self.root_tf
-        self.root_tf = root_tf.copy()
-        self.root_R  = root_tf[:3, :3].copy()
+        else:                           self.root_tf = root_tf
+        assert self.root_tf is not None and root_tf is not None, "root_tf should be provided"
+        self.root_R  = self.root_tf[:3, :3].copy()
         if type(link1_azim) == type(None): link1_azim = self.link1_azim
         if type(link1_elev) == type(None): link1_elev = self.link1_elev
         if type(link2_azim) == type(None): link2_azim = self.link2_azim
@@ -593,6 +612,7 @@ class Appendage:
     def update_link_from_vector(self, link1_vec_global, link2_vec_global, root_tf=None):
         # update angles
         if type(root_tf) == type(None): root_tf = self.root_tf
+        assert self.root_tf is not None and root_tf is not None, "root_tf should be provided"
         self.root_tf = root_tf.copy()
         self.root_R  = root_tf[:3, :3].copy()
         # Link 1
@@ -1169,6 +1189,7 @@ def get_frame_from_keypoints(kp1, kp2, kp3, kp4, forward_dir='x'):
     return forward, left, up
 
 def get_lower_torso_frame_from_pose(pose, forward_dir='x'):
+    from my_utils import get_h36m_keypoints
     r_hip, l_hip, pelvis, torso = get_h36m_keypoints(pose, ['r_hip', 'l_hip', 'pelvis', 'torso'])
     forward, left, up = get_frame_from_keypoints(r_hip, l_hip, pelvis, torso, forward_dir)
     lower_origin = pelvis
@@ -1176,6 +1197,7 @@ def get_lower_torso_frame_from_pose(pose, forward_dir='x'):
     return lower_origin, lower_frame_R
 
 def get_upper_torso_frame_from_pose(pose, forward_dir='x'):
+    from my_utils import get_h36m_keypoints
     r_shoulder, l_shoulder, torso, neck = get_h36m_keypoints(pose, ['r_shoulder', 'l_shoulder', 'torso', 'neck'])
     forward, left, up = get_frame_from_keypoints(r_shoulder, l_shoulder, torso, neck, forward_dir)
     upper_origin = (r_shoulder + l_shoulder)/2
@@ -1189,26 +1211,6 @@ def frame_vec_to_matrix(forward, left, up):
     #print(forward, left, up)
     return np.array([forward, left, up]).T
 
-# def generate_vis_frame_from_R(origin, R, name=''):
-#     forward, left, up = R[0], R[1], R[2]
-#     frame = ReferenceFrame(
-#         origin=origin,
-#         dx=forward,
-#         dy=left,
-#         dz=up,
-#         name=name,
-#     )
-#     return frame
-
-# def generate_vis_frame(origin, R, name='dh_frame'):
-#     dh_frame = ReferenceFrame(
-#         origin=origin, 
-#         dx=R[:, 0], 
-#         dy=R[:, 1],
-#         dz=R[:, 2],
-#         name=name,
-#     )
-#     return dh_frame
 
 def generate_vis_frame(origin, R, name='dh_frame'):
     dh_frame = ReferenceFrame(
@@ -1299,10 +1301,12 @@ def get_batch_upper_torso_frame_from_keypoints(batch_r_shoulder, batch_l_shoulde
     return batch_upper_frame_origin, batch_upper_frame_R
 
 def get_batch_lower_torso_frame_from_pose(batch_pose, forward_dir='x'):
+    from my_utils import get_batch_h36m_keypoints
     output = get_batch_h36m_keypoints(batch_pose, ['r_hip', 'l_hip', 'pelvis', 'torso'])
     return get_batch_lower_torso_frame_from_keypoints(output[:, :, 0], output[:, :, 1], output[:, :, 2], output[:, :, 3], forward_dir)
 
 def get_batch_upper_torso_frame_from_pose(batch_pose, forward_dir='x'):
+    from my_utils import get_batch_h36m_keypoints
     output = get_batch_h36m_keypoints(batch_pose, ['r_shoulder', 'l_shoulder', 'torso', 'neck'])
     return get_batch_upper_torso_frame_from_keypoints(output[:, :, 0], output[:, :, 1], output[:, :, 2], output[:, :, 3], forward_dir)
 
@@ -1863,8 +1867,8 @@ class BatchDHModel:
         if by_dict:
             batch_limb_length = {}
             if head:
-                batch_limb_length['h_l1']    = self.batch_head.link1_length
-                batch_limb_length['h_l2']    = self.batch_head.link2_length
+                batch_limb_length['h_l1']    = self.batch_head.batch_link1_length
+                batch_limb_length['h_l2']    = self.batch_head.batch_link2_length
             batch_limb_length['ra_l1']    = self.batch_right_upper_arm_length
             batch_limb_length['ra_l2']    = self.batch_right_lower_arm_length
             batch_limb_length['la_l1']    = self.batch_left_upper_arm_length
@@ -1942,6 +1946,24 @@ class BatchDHModel:
             # batch_dh_angles[..., 16] = self.batch_left_leg.batch_link2_azim
             # batch_dh_angles[..., 17] = self.batch_left_leg.batch_link2_elev
             # (B, F, 18)
+            assert self.batch_head.batch_link1_azim is not None, 'batch_head.batch_link1_azim should not be None'
+            assert self.batch_head.batch_link1_elev is not None, 'batch_head.batch_link1_elev should not be None'
+            assert self.batch_right_arm.batch_link1_azim is not None, 'batch_right_arm.batch_link1_azim should not be None'
+            assert self.batch_right_arm.batch_link1_elev is not None, 'batch_right_arm.batch_link1_elev should not be None'
+            assert self.batch_right_arm.batch_link2_azim is not None, 'batch_right_arm.batch_link2_azim should not be None'
+            assert self.batch_right_arm.batch_link2_elev is not None, 'batch_right_arm.batch_link2_elev should not be None'
+            assert self.batch_left_arm.batch_link1_azim is not None, 'batch_left_arm.batch_link1_azim should not be None'
+            assert self.batch_left_arm.batch_link1_elev is not None, 'batch_left_arm.batch_link1_elev should not be None'
+            assert self.batch_left_arm.batch_link2_azim is not None, 'batch_left_arm.batch_link2_azim should not be None'
+            assert self.batch_left_arm.batch_link2_elev is not None, 'batch_left_arm.batch_link2_elev should not be None'
+            assert self.batch_right_leg.batch_link1_azim is not None, 'batch_right_leg.batch_link1_azim should not be None'
+            assert self.batch_right_leg.batch_link1_elev is not None, 'batch_right_leg.batch_link1_elev should not be None'
+            assert self.batch_right_leg.batch_link2_azim is not None, 'batch_right_leg.batch_link2_azim should not be None'
+            assert self.batch_right_leg.batch_link2_elev is not None, 'batch_right_leg.batch_link2_elev should not be None'
+            assert self.batch_left_leg.batch_link1_azim is not None, 'batch_left_leg.batch_link1_azim should not be None'
+            assert self.batch_left_leg.batch_link1_elev is not None, 'batch_left_leg.batch_link1_elev should not be None'
+            assert self.batch_left_leg.batch_link2_azim is not None, 'batch_left_leg.batch_link2_azim should not be None'
+            assert self.batch_left_leg.batch_link2_elev is not None, 'batch_left_leg.batch_link2_elev should not be None'
             batch_dh_angles = torch.cat([self.batch_head.batch_link1_azim.unsqueeze(-1),  self.batch_head.batch_link1_elev.unsqueeze(-1),
                                          self.batch_right_arm.batch_link1_azim.unsqueeze(-1), self.batch_right_arm.batch_link1_elev.unsqueeze(-1),
                                          self.batch_right_arm.batch_link2_azim.unsqueeze(-1), self.batch_right_arm.batch_link2_elev.unsqueeze(-1),
@@ -1962,23 +1984,33 @@ class BatchDHModel:
         if by_dict:
             batch_appendage_length = {}  
             if self.head_is_dh:
-                batch_appendage_length['h_l1']  = self.batch_head.link1_length
-                batch_appendage_length['h_l2']  = self.batch_head.link2_length
-            batch_appendage_length['ra_l1'] = self.batch_right_arm.link1_length
-            batch_appendage_length['ra_l2'] = self.batch_right_arm.link2_length
-            batch_appendage_length['la_l1'] = self.batch_left_arm.link1_length
-            batch_appendage_length['la_l2'] = self.batch_left_arm.link2_length
-            batch_appendage_length['rl_l1'] = self.batch_right_leg.link1_length
-            batch_appendage_length['rl_l2'] = self.batch_right_leg.link2_length
-            batch_appendage_length['ll_l1'] = self.batch_left_leg.link1_length
-            batch_appendage_length['ll_l2'] = self.batch_left_leg.link2_length
+                batch_appendage_length['h_l1']  = self.batch_head.batch_link1_length
+                batch_appendage_length['h_l2']  = self.batch_head.batch_link2_length
+            batch_appendage_length['ra_l1'] = self.batch_right_arm.batch_link1_length
+            batch_appendage_length['ra_l2'] = self.batch_right_arm.batch_link2_length
+            batch_appendage_length['la_l1'] = self.batch_left_arm.batch_link1_length
+            batch_appendage_length['la_l2'] = self.batch_left_arm.batch_link2_length
+            batch_appendage_length['rl_l1'] = self.batch_right_leg.batch_link1_length
+            batch_appendage_length['rl_l2'] = self.batch_right_leg.batch_link2_length
+            batch_appendage_length['ll_l1'] = self.batch_left_leg.batch_link1_length
+            batch_appendage_length['ll_l2'] = self.batch_left_leg.batch_link2_length
         else:
             # (B, F, 10)
+            assert self.batch_neck_to_nose_length is not None, 'batch_neck_to_nose_length should not be None'
+            assert self.batch_nose_to_head_length is not None, 'batch_nose_to_head_length should not be None'
+            assert self.batch_right_arm.batch_link1_length is not None, 'batch_right_arm.batch_link1_length should not be None'
+            assert self.batch_right_arm.batch_link2_length is not None, 'batch_right_arm.batch_link2_length should not be None'
+            assert self.batch_left_arm.batch_link1_length is not None, 'batch_left_arm.batch_link1_length should not be None'
+            assert self.batch_left_arm.batch_link2_length is not None, 'batch_left_arm.batch_link2_length should not be None'
+            assert self.batch_right_leg.batch_link1_length is not None, 'batch_right_leg.batch_link1_length should not be None'
+            assert self.batch_right_leg.batch_link2_length is not None, 'batch_right_leg.batch_link2_length should not be None'
+            assert self.batch_left_leg.batch_link1_length is not None, 'batch_left_leg.batch_link1_length should not be None'
+            assert self.batch_left_leg.batch_link2_length is not None, 'batch_left_leg.batch_link2_length should not be None'
             batch_appendage_length = torch.cat([self.batch_neck_to_nose_length.unsqueeze(-1), self.batch_nose_to_head_length.unsqueeze(-1),
-                                                self.batch_right_arm.batch_link1_length.unsqueeze(-1), self.batch_right_arm.batch_link2_length.unsqueeze(-1),
-                                                self.batch_left_arm.batch_link1_length.unsqueeze(-1),  self.batch_left_arm.batch_link2_length.unsqueeze(-1),
+                                                self.batch_right_arm.batch_link1_length.unsqueeze(-1), self.batch_right_arm.batch_link2_length.unsqueeze(-1), # type: ignore
+                                                self.batch_left_arm.batch_link1_length.unsqueeze(-1),  self.batch_left_arm.batch_link2_length.unsqueeze(-1), # type: ignore
                                                 self.batch_right_leg.batch_link1_length.unsqueeze(-1), self.batch_right_leg.batch_link2_length.unsqueeze(-1),
-                                                self.batch_left_leg.batch_link1_length.unsqueeze(-1),  self.batch_left_leg.batch_link2_length.unsqueeze(-1)], dim=-1)
+                                                self.batch_left_leg.batch_link1_length.unsqueeze(-1),  self.batch_left_leg.batch_link2_length.unsqueeze(-1)], dim=-1) # type: ignore
             if not head:
                 batch_appendage_length = batch_appendage_length[..., 2:] # (B, F, 8)
         return batch_appendage_length
@@ -2037,6 +2069,7 @@ class BatchDHModel:
         return torch.mean(torch.norm(self.get_batch_pose_3d() - batch_gt, dim=-1))
     
     def draw(self, ax, batch_num, frame_num, draw_frame=False, draw_gt=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False):
+        from my_utils import draw_3d_pose, generate_vis_frame
         if draw_frame:
             #body_frame = self.get_body_frame(batch_num, frame_num)
             #body_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, show_name=show_name)

@@ -1,9 +1,9 @@
-from lib_import import *
-from .dataset import MyCustomDataset
-from .model import TorsoModel
-from .logger import get_logger, log_configs
-from .test_utils import readpkl
-from .dh import rotate_torso_by_R_for_batch_tensor, project_batch_tensor
+from hpe_library.lib_import import *
+# from .dataset import MyCustomDataset
+# from .model import TorsoModel
+# from .logger import get_logger, log_configs
+# from .test_utils import readpkl
+# from .dh import rotate_torso_by_R_for_batch_tensor, project_batch_tensor
 
 # check duplicate training
 def check_duplicate_training(args, blacklist=['gpu']):

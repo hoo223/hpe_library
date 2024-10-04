@@ -1,4 +1,4 @@
-from lib_import import * 
+from hpe_library.lib_import import * 
 
 def get_logger(log_dir, num_trial):
     # Generate log file

@@ -1,4 +1,4 @@
-from lib_import import *
+from hpe_library.lib_import import *
 
 #plt.switch_backend('TkAgg')
 matplotlib.rcParams['pdf.fonttype'] = 42
@@ -20,10 +20,11 @@ def savepkl(data, save_path):
 
 # return keypoint index from keypoint name (h36m)
 def get_h36m_keypoint_index(keypoint_name):
-    for key, value in h36m_keypoints.items():
+    for idx, value in h36m_keypoints.items():
         if value.lower() == keypoint_name.lower():
-            return key
-    assert False, 'Invalid keypoint name: {}'.format(keypoint_name)
+            return idx
+    print('Invalid keypoint name: {}'.format(keypoint_name))
+    return -1
     
 # return keypoints from keypoint list (h36m)
 def get_h36m_keypoints(pose3d, key_list=[]):
@@ -106,6 +107,9 @@ len_ids = {
     'R_LOWER_ARM' : 15
 }
 
+def get_h36m_len_ids():
+    return len_ids
+
 
 # len_id_names = {
 #     0: 'R_HIP',
@@ -174,6 +178,12 @@ def get_h36m_limb_lens(x):
     limbs = limbs[:,:,0,:]-limbs[:,:,1,:] # (F, 16, 3)
     limb_lens = np.linalg.norm(limbs, axis=-1) # (F, 16)
     return limb_lens
+
+def remove_nose_from_h36m(pose):
+    if len(pose.shape) == 2:
+        return np.concatenate([pose[:9], pose[10:]], axis=0)
+    else:
+        return np.concatenate([pose[:, :9], pose[:, 10:]], axis=1)
 
 # h36m_connections = [
 #     (0,1),
@@ -312,26 +322,27 @@ kookmin2_connections = [
     [21, 25]  # Medial malleolus-R -> Hallux Toe-R
 ]
 
-def mpi_inf_3dhp_original2posynda(x):
+def mpi_inf_3dhp2h36m_from_original(x):
     # x: 3D pose (T x V x C) or (V x C)
     '''
-    posynda kp 0  <- original kp 7
-    posynda kp 1  <- original kp 5
-    posynda kp 2  <- original kp 14
-    posynda kp 3  <- original kp 15
-    posynda kp 4  <- original kp 16
-    posynda kp 5  <- original kp 9
-    posynda kp 6  <- original kp 10
-    posynda kp 7  <- original kp 11
-    posynda kp 8  <- original kp 23
-    posynda kp 9  <- original kp 24
-    posynda kp 10 <- original kp 25
-    posynda kp 11 <- original kp 18
-    posynda kp 12 <- original kp 19
-    posynda kp 13 <- original kp 20
-    posynda kp 14 <- original kp 4
-    posynda kp 15 <- original kp 3
-    posynda kp 16 <- original kp 6
+                     # start from 0 to 27
+    kp 0  <- original kp 7  (head_top)
+    kp 1  <- original kp 5  (neck)
+    kp 2  <- original kp 14 (right_shoulder)
+    kp 3  <- original kp 15 (right_elbow)
+    kp 4  <- original kp 16 (right_wrist)
+    kp 5  <- original kp 9  (left_shoulder)
+    kp 6  <- original kp 10 (left_elbow)
+    kp 7  <- original kp 11 (left_wrist)
+    kp 8  <- original kp 23 (right_hip)
+    kp 9  <- original kp 24 (right_knee)
+    kp 10 <- original kp 25 (right_ankle)
+    kp 11 <- original kp 18 (left_hip)
+    kp 12 <- original kp 19 (left_knee)
+    kp 13 <- original kp 20 (left_ankle)
+    kp 14 <- original kp 4  (pelvis)
+    kp 15 <- original kp 3  (spine)
+    kp 16 <- original kp 6  (head)
     '''
     if len(x.shape) == 2:
         V, C = x.shape
@@ -339,24 +350,26 @@ def mpi_inf_3dhp_original2posynda(x):
         x = x.reshape(T, V, C)
     else:
         T, V, C = x.shape
-    y = np.zeros([T,17,C])
-    y[:,0,:] = x[:,7,:]  # Pelvis
-    y[:,1,:] = x[:,5,:]  # R_Hip
-    y[:,2,:] = x[:,14,:]  # R_Knee
-    y[:,3,:] = x[:,15,:]  # R_Ankle
-    y[:,4,:] = x[:,16,:]  # L_Hip
-    y[:,5,:] = x[:,9,:]  # L_Knee
-    y[:,6,:] = x[:,10,:]  # L_Ankle
-    y[:,7,:] = x[:,11,:]  # Torso
-    y[:,8,:] = x[:,23,:]  # Neck
-    y[:,9,:] = x[:,24,:]  # Nose
-    y[:,10,:] = x[:,25,:]  # Head
-    y[:,11,:] = x[:,18,:]  # L_Shoulder
-    y[:,12,:] = x[:,19,:]  # L_Elbow
-    y[:,13,:] = x[:,20,:]  # L_Wrist
-    y[:,14,:] = x[:,4,:]  # R_Shoulder
-    y[:,15,:] = x[:,3,:]  # R_Elbow
-    y[:,16,:] = x[:,6,:]  # R_Wrist
+    # y = np.zeros([T,17,C])
+    # y[:,0,:] = x[:,7,:]  # Pelvis
+    # y[:,1,:] = x[:,5,:]  # R_Hip
+    # y[:,2,:] = x[:,14,:]  # R_Knee
+    # y[:,3,:] = x[:,15,:]  # R_Ankle
+    # y[:,4,:] = x[:,16,:]  # L_Hip
+    # y[:,5,:] = x[:,9,:]  # L_Knee
+    # y[:,6,:] = x[:,10,:]  # L_Ankle
+    # y[:,7,:] = x[:,11,:]  # Torso
+    # y[:,8,:] = x[:,23,:]  # Neck
+    # y[:,9,:] = x[:,24,:]  # Nose
+    # y[:,10,:] = x[:,25,:]  # Head
+    # y[:,11,:] = x[:,18,:]  # L_Shoulder
+    # y[:,12,:] = x[:,19,:]  # L_Elbow
+    # y[:,13,:] = x[:,20,:]  # L_Wrist
+    # y[:,14,:] = x[:,4,:]  # R_Shoulder
+    # y[:,15,:] = x[:,3,:]  # R_Elbow
+    # y[:,16,:] = x[:,6,:]  # R_Wrist
+    
+    y = x.copy()[:, [7, 5, 14, 15, 16, 9, 10, 11, 23, 24, 25, 18, 19, 20, 4, 3, 6]]
     return y
     
 
@@ -364,26 +377,25 @@ def mpi_inf_3dhp_original2posynda(x):
 def mpi_inf_3dhp2h36m(x):
     '''
     Input: x (T x V x C)  
-    //mpi_inf_3dhp 17 body keypoints
-    0'Right Ankle', 3
-    1'Right Knee', 2
-    2'Right Hip', 1
-    3'Left Hip', 4
-    4'Left Knee', 5
-    5'Left Ankle', 6
-    6'Right Wrist', 15
-    7'Right Elbow', 14
-    8'Right Shoulder', 13
-    9'Left Shoulder', 10
-    10'Left Elbow', 11
-    11'Left Wrist', 12
-    12'Neck', 8 
-    13'Top of Head', 9
-    14'Pelvis)', 0
-    15'Thorax', 7 
-    16'Spine', mpi3d
-    17'Jaw', mpi3d
-    18'Head', mpi3d
+    //mpi_inf_3dhp 17 body keypoints   
+    h36m kp 0          <- original kp 14 (pelvis)
+    h36m kp 1          <- original kp 8  (right_hip)
+    h36m kp 2          <- original kp 9  (right_knee)
+    h36m kp 3          <- original kp 10 (right_ankle)
+    h36m kp 4          <- original kp 11 (left_hip)
+    h36m kp 5          <- original kp 12 (left_knee)
+    h36m kp 6          <- original kp 13 (left_ankle)
+    h36m kp 7  (torso) <- original kp 15 (spine)
+    h36m kp 8          <- original kp 1  (neck)
+    h36m kp 9  (nose)  <- original kp 16 (head)
+    h36m kp 10 (head)  <- original kp 0  (head_top)
+    h36m kp 11         <- original kp 5  (left_shoulder)
+    h36m kp 12         <- original kp 6  (left_elbow)
+    h36m kp 13         <- original kp 7  (left_wrist)
+    h36m kp 14         <- original kp 2  (right_shoulder)
+    h36m kp 15         <- original kp 3  (right_elbow)
+    h36m kp 16         <- original kp 4  (right_wrist)
+    
     '''
     if len(x.shape) == 2:
         V, C = x.shape
@@ -393,29 +405,29 @@ def mpi_inf_3dhp2h36m(x):
         T, V, C = x.shape
     
     y = np.zeros([T,17,C])
-    if V == 17: # posynda mpi_inf_3dhp
+    if V == 17: # posynda train/test, original test
         pass
-    elif V == 28: # original mpi_inf_3dhp
-        x = mpi_inf_3dhp_original2posynda(x)
+    elif V == 28: # original train
+        x = mpi_inf_3dhp2h36m_from_original(x)
         assert x.shape == (T, 17, C), 'x shape is wrong'
-    y[:,0,:] = x[:,14,:]  # Pelvis
-    y[:,1,:] = x[:,8,:]   # R_Hip
-    y[:,2,:] = x[:,9,:]   # R_Knee
-    y[:,3,:] = x[:,10,:]   # R_Ankle
-    y[:,4,:] = x[:,11,:]   # L_Hip
-    y[:,5,:] = x[:,12,:]   # L_Knee
-    y[:,6,:] = x[:,13,:]   # L_Ankle
-    y[:,7,:] = x[:,15,:]   # Torso
-    y[:,8,:] = x[:,1,:]   # Neck
-    y[:,9,:] = x[:,16,:]  # Nose
-    y[:,10,:] = x[:,0,:] # Head
-    y[:,11,:] = x[:,5,:] # L_Shoulder
-    y[:,12,:] = x[:,6,:] # L_Elbow
-    y[:,13,:] = x[:,7,:] # L_Wrist
-    y[:,14,:] = x[:,2,:] # R_Shoulder
-    y[:,15,:] = x[:,3,:] # R_Elbow
-    y[:,16,:] = x[:,4,:] # R_Wrist
-    
+    # y[:,0,:] = x[:,14,:]  # Pelvis
+    # y[:,1,:] = x[:,8,:]   # R_Hip
+    # y[:,2,:] = x[:,9,:]   # R_Knee
+    # y[:,3,:] = x[:,10,:]   # R_Ankle
+    # y[:,4,:] = x[:,11,:]   # L_Hip
+    # y[:,5,:] = x[:,12,:]   # L_Knee
+    # y[:,6,:] = x[:,13,:]   # L_Ankle
+    # y[:,7,:] = x[:,15,:]   # Torso
+    # y[:,8,:] = x[:,1,:]   # Neck
+    # y[:,9,:] = x[:,16,:]  # Nose
+    # y[:,10,:] = x[:,0,:] # Head
+    # y[:,11,:] = x[:,5,:] # L_Shoulder
+    # y[:,12,:] = x[:,6,:] # L_Elbow
+    # y[:,13,:] = x[:,7,:] # L_Wrist
+    # y[:,14,:] = x[:,2,:] # R_Shoulder
+    # y[:,15,:] = x[:,3,:] # R_Elbow
+    # y[:,16,:] = x[:,4,:] # R_Wrist
+    y = x.copy()[:, [14, 8, 9, 10, 11, 12, 13, 15, 1, 16, 0, 5, 6, 7, 2, 3, 4]]
     return y
 
 def kookmin2h36m(x):
@@ -1029,194 +1041,6 @@ def draw_skeleton_2d(points, connections, elevation=0, azimuth=0, img_source=Non
 
     fig.show()
 
-
-def get3DResult(img_path, actor_id, output_folder): # /home/lhs/Datasets/HAAI/30_Squat, M160D
-    cam_list = {}
-
-    for folder in os.listdir(img_path): # 30_F160A_1, 30_F160A_7, ..., 30_F170D_4, ..., 30_M160A_1, ...
-        if actor_id in folder: # actor_id에 해당하는 폴더만 - 30_M160D_1, 30_M160D_3, 30_M160D_5, 30_M160D_6, 30_M160D_7 (= 같은 영상에 대한 다른 카메라 시점)
-            cam_num = int(folder.split('_')[-1]) # 카메라 번호 - 1, 3, 5, 6, 7
-            
-            # folder_content = os.listdir(os.path.join(img_path, folder)) # 폴더 내 이미지 목록 - 30_M160D_1_0.jpg, 30_M160D_1_1.jpg, ...
-            
-            # # 이미지 프레임 번호 추출
-            # frame_list = []
-            # for file in folder_content: # 30_M160D_1_0.jpg, 30_M160D_1_1.jpg, ... (반드시 0부터 시작하진 않음, 중간에 비는 번호도 존재)
-            #     frame_num = int(file.split('.')[0].split('_')[-1]) # 이미지 프레임 번호 - 0, 1, ...
-            #     frame_list.append(frame_num)
-            
-            # 이미지 프레임 번호 추출
-            frame_list = []
-            with open("/home/lhs/codes/AlphaPose/examples/res_{}/alphapose-results.json".format(folder)) as f:
-                data = json.load(f) 
-                
-            for i in range(len(data)):
-                image_id = data[i]['image_id'] # '23_M170A_2_0.jpg', ...
-                frame_num = int(image_id.split('.')[0].split('_')[-1]) # 이미지 프레임 번호 - 0, 1, ...
-                frame_list.append(frame_num)
-            
-            # 번호 순으로 정렬 (sorting)
-            for i in range(len(frame_list)):
-                ref = frame_list[i]
-                for j in range(i+1, len(frame_list)):
-                    c = frame_list[j]
-                    if c < ref:
-                        frame_list[i], frame_list[j] = frame_list[j], frame_list[i]
-                        ref = c
-
-            # dictionary에 저장
-            cam_list[folder] = {"frame_list": frame_list, "cam_num": cam_num, "joint_3d_raw": {}, "joint_3d_converted": {}}
-            
-            # 카메라 파라미터 읽어오기
-            try:
-                root = "/home/lhs/Datasets/HAAI/Camera_json/train"
-                json_path = os.path.join(root, folder+".json")
-                cam_js = readJSON(json_path)
-                extrinsics = np.array(cam_js['extrinsics'])
-                intrinsics = np.array(cam_js['intrinsics'])
-                cam_pos = extrinsics[:, 3]
-                cam_rot = intrinsics[:, :3]
-            except Exception as e:
-                print("No Camera Parameter Info: ", folder)
-                cam_pos = None
-                cam_rot = None
-            
-            # 추론 결과 저장
-            root_motionbert = "/home/lhs/codes/MotionBERT"
-            cam = folder
-            name = "MotionBERT_{}".format(cam) # MotionBERT_30_M160D_1, ...
-            path = os.path.join(root_motionbert, output_folder, name) # /home/lhs/codes/MotionBERT/output/MotionBERT_30_M160D_1, ...
-            npy_path = os.path.join(path, name) + '.npy' # /home/lhs/codes/MotionBERT/output/MotionBERT_30_M160D_1/MotionBERT_30_M160D_1.npy, ...
-            
-            if os.path.exists(npy_path): # .npy 파일이 존재하면
-                result_3d = np.load(npy_path) # .npy 파일 로드
-                print(result_3d.shape, type(result_3d)) # (388, 17, 3) = (프레임 수, keypoint 수, 3차원 좌표)
-                print(len(frame_list))
-                if result_3d.shape[0] != len(frame_list):
-                    print("frame number mismatch")
-                    continue
-                for i, frame_num in enumerate(frame_list):
-                    #print(cam_num, i, frame_num)
-                    try:
-                        cam_list[cam]["joint_3d_raw"][frame_num] = {"points": result_3d[i]} # (17, 3)
-                        # cam_list[cam]["joint_3d_converted"][frame_num] = convert3DResult(result_3d[i], cam_num) # {"points", "max", "min", "center_point"}
-                        cam_list[cam]["joint_3d_converted"][frame_num] = convert3DResult(result_3d[i], cam_num, cam_rot) # {"points", "max", "min", "center_point"}
-                    except Exception as e:
-                        print(e)
-                        cam_list[cam]["joint_3d_raw"][frame_num] = None
-                        cam_list[cam]["joint_3d_converted"][frame_num] = None
-                print("cam ", cam_num, "joint 3d loaded")
-            else:
-                print("No .npy file")
-    
-    return cam_list
-
-def convert3DResult(joint_3d_raw, cam_num, cam_rot=None):
-    joint_3d_normalized = {}
-    joint_3d_converted = {}
-    
-    # 데이터 정규화를 위한 max, min 값 계산
-    max_, min_ = check_max_min(joint_3d_raw)
-    
-    # 정답 데이터 정규화 
-    center_point = 0
-    #print(joint_3d_raw.shape)
-    for joint in range(17):
-        pos = joint_3d_raw[joint]
-        x = normalize(pos[0], max_, min_)
-        y = normalize(pos[1], max_, min_)
-        z = normalize(pos[2], max_, min_)
-        joint_3d_normalized[joint] = [x, z, -y]
-        if joint == 0:
-            center_point = [x, z, -y]
-            
-    # Move center_point to origin
-    for key in joint_3d_normalized.keys():
-        joint_3d_normalized[key][0] = joint_3d_normalized[key][0] - center_point[0]
-        joint_3d_normalized[key][1] = joint_3d_normalized[key][1] - center_point[1]
-        joint_3d_normalized[key][2] = joint_3d_normalized[key][2] - center_point[2]       
-    
-    # 회전 보정
-    if cam_rot is None:
-        r_z = Rotation.from_euler('z', cam_rot[cam_num][0], degrees=True)
-        r_y = Rotation.from_euler('y', cam_rot[cam_num][1], degrees=True)
-        r_x = Rotation.from_euler('x', cam_rot[cam_num][2], degrees=True)
-
-        for key in joint_3d_normalized.keys():
-            joint_3d_converted[key] = r_x.apply(r_y.apply(r_z.apply(joint_3d_normalized[key])))
-    else:
-        for key in joint_3d_normalized.keys():
-            joint_3d_converted[key] = np.matmul(cam_rot, joint_3d_normalized[key])
-        
-    return {"points": joint_3d_converted, "max": max_, "min": min_, "center_point": center_point}
-
-# 정답 저장 
-def getGT(gt_path_3d): # /home/lhs/Datasets/HAAI/30_Squat_label3D/30_M160D
-    gt = {"frame_list": [], "joint_3d_raw": {}, "joint_3d_converted": {}}
-    # 3D 정답 데이터가 저장된 폴더가 존재하지 않으면 종료
-    if not os.path.exists(gt_path_3d):
-        print("No such directory: ", gt_path_3d)
-        return None
-    
-    folder_content = os.listdir(gt_path_3d)
-    
-    # json 프레임 번호 추출
-    frame_list = []
-    for json_file in folder_content: # 3D_30_M160D_0.json, 3D_30_M160D_1.json, ... (반드시 0부터 시작하진 않음, 중간에 비는 번호도 존재)
-        frame_num = int(json_file.split('.')[0].split('_')[-1]) # 이미지 프레임 번호 - 0, 1, ...
-        frame_list.append(frame_num)
-        
-        gt["joint_3d_raw"][frame_num] = {}
-        gt["joint_3d_converted"][frame_num] = {}
-        
-        # json 파일 로드
-        with open(os.path.join(gt_path_3d, json_file)) as f:
-            data = json.load(f) # dict_keys(['info', 'annotations'])
-            
-        joint_3d_raw = np.array(data['annotations']['3d_pos'])[:,:3, 0] # (24, 4, 1) list -> (24, 3) np.array
-        gt["joint_3d_raw"][frame_num]["points"] = joint_3d_raw
-            
-        # 데이터 정규화를 위한 max, min 값 계산
-        max_, min_ = check_max_min(joint_3d_raw)
-        gt["joint_3d_converted"][frame_num]["max"] = max_
-        gt["joint_3d_converted"][frame_num]["min"] = min_
-        
-        # 정답 데이터 정규화
-        points = {}
-        for i, part in enumerate(data['info']['3d_pos']):
-            pos = data['annotations']['3d_pos'][i]
-            x = normalize(pos[0][0], max_, min_)
-            y = normalize(pos[2][0], max_, min_)
-            z = normalize(pos[1][0], max_, min_)
-            points[part] = [x, y, z]
-            
-        # 중심점 계산
-        center_point = [(points['R_Hip'][0] + points['L_Hip'][0])/2.0, 
-                        (points['R_Hip'][1] + points['L_Hip'][1])/2.0,
-                        (points['R_Hip'][2] + points['L_Hip'][2])/2.0]
-        gt["joint_3d_converted"][frame_num]["center_point"] = center_point
-        
-        # 중심점을 기준으로 좌표 이동
-        for key in points.keys():
-            points[key][0] -= center_point[0]
-            points[key][1] -= center_point[1]
-            points[key][2] -= center_point[2]
-            
-        gt["joint_3d_converted"][frame_num]["points"] = points
-        
-    # 번호 순으로 정렬 (sorting)
-    for i in range(len(frame_list)):
-        ref = frame_list[i]
-        for j in range(i+1, len(frame_list)):
-            c = frame_list[j]
-            if c < ref:
-                frame_list[i], frame_list[j] = frame_list[j], frame_list[i]
-                ref = c
-    gt["frame_list"] = frame_list
-
-    return gt
-
-
 def MPJPE(points1, points2, scale=1517.7871, offset=63.2871): # scale -> max-min, offset -> min
     sum = 0
     for key in h36m_keypoints.keys():
@@ -1362,13 +1186,14 @@ def infer_box(pose3d, camera, rootIdx):
     return np.array([tl2d[0], tl2d[1], br2d[0], br2d[1]])
 
 def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.00005, stop_tolerance=0.000001, gpus='0, 1'):
+    import torch
+    from torch.autograd import Variable
+    
     # cam_cs_hat, img_cs_hat: (17, 3)
     os.environ['CUDA_VISIBLE_DEVICES'] = gpus
     os.environ["NCCL_P2P_DISABLE"]= '1'
 
     # https://towardsdatascience.com/linear-regression-with-pytorch-eb6dedead817
-    import torch
-    from torch.autograd import Variable
     class linearRegression(torch.nn.Module):
         def __init__(self, inputSize, outputSize):
             super(linearRegression, self).__init__()
@@ -1510,13 +1335,18 @@ def get_video_frame(video_path, frame_id=None):
 def get_bbox_area(bbox, input_type='xyxy'):
     if input_type == 'xxyy':
         x1, x2, y1, y2 = bbox
+        return (x2 - x1) * (y2 - y1)
     elif input_type == 'xyxy':
         x1, y1, x2, y2 = bbox
+        return (x2 - x1) * (y2 - y1)
     elif input_type == 'xywh':
         x1, y1, w, h = bbox
         x2 = x1 + w
         y2 = y1 + h
-    return (x2 - x1) * (y2 - y1)
+        return (x2 - x1) * (y2 - y1)
+    else:
+        print('Invalid input_type')
+        return -1
 
 def get_bbox_from_pose2d(pose_2d, output_type='xyxy'):
     assert len(pose_2d.shape) == 2, 'pose_2d should be (num_joints, 2)'
@@ -1533,6 +1363,8 @@ def get_bbox_from_pose2d(pose_2d, output_type='xyxy'):
         return cx, cy, x2 - x1, y2 - y1
     elif output_type == 'xxyy':
         return x1, x2, y1, y2
+    else:
+        return -1, -1, -1, -1
     
 def get_batch_bbox_from_pose2d(batch_pose_2d):
     assert type(batch_pose_2d) == torch.Tensor, 'batch_pose_2d should be torch.Tensor'
@@ -1555,12 +1387,17 @@ def change_bbox_convention(bbox, input_type='xyxy', output_type='xywh'):
     elif input_type == 'xywh':
         cx, cy, w, h = bbox
         x1, y1, x2, y2 = cx - w/2, cy - h/2, cx + w/2, cy + h/2
+    else:
+        raise ValueError(f'Invalid input_type: {input_type}')
+        
     if output_type == 'xxyy':
         return int(x1), int(x2), int(y1), int(y2)
     elif output_type == 'xyxy':
         return int(x1), int(y1), int(x2), int(y2)
     elif output_type == 'xywh':
         return int(x1 + (x2 - x1) / 2), int(y1 + (y2 - y1) / 2), int(x2 - x1), int(y2 - y1)
+    else:
+        raise ValueError(f'Invalid output_type: {output_type}')
     
     
 ## ------------------------------------------  from pytorch3d
@@ -1764,3 +1601,50 @@ def get_canonical_3d(world_3d, cam_3d, C, R, fixed_dist=3.5, return_vector_cam_f
         return canonical_3d, vec_cam_forward
     else:
         return canonical_3d
+    
+def undistort_pose2d(pose_2d, k1, k2, p1, p2, k3, fx, fy, cx, cy):
+    """
+    주어진 2D pose 좌표 배열(Jx2)에 왜곡 계수를 사용하여 왜곡을 보정하는 함수
+    
+    매개변수:
+    pose_2d - Jx2 형태의 2D 좌표 배열, 각 행이 (x, y) 형태의 좌표
+    k1, k2, p1, p2, k3 - 왜곡 계수
+    fx, fy - 카메라의 초점 거리 (focal length)
+    cx, cy - 카메라의 주점(principal point)
+
+    반환값:
+    undistorted_pose - Jx2 형태의 보정된 2D 좌표 배열
+    """
+    
+    # J개의 좌표 추출
+    x = pose_2d[:, 0]
+    y = pose_2d[:, 1]
+    
+    # 보정 전 좌표를 중심점 기준으로 정규화
+    x_normalized = (x - cx) / fx
+    y_normalized = (y - cy) / fy
+    
+    # r^2 계산 (r은 거리)
+    r2 = x_normalized**2 + y_normalized**2
+    r4 = r2**2
+    r6 = r2**3
+    
+    # 방사형 왜곡 보정
+    radial_distortion = 1 + k1 * r2 + k2 * r4 + k3 * r6
+    
+    # 접선 왜곡 보정
+    x_tangential = 2 * p1 * x_normalized * y_normalized + p2 * (r2 + 2 * x_normalized**2)
+    y_tangential = p1 * (r2 + 2 * y_normalized**2) + 2 * p2 * x_normalized * y_normalized
+    
+    # 보정된 좌표 계산
+    x_corrected = x_normalized * radial_distortion + x_tangential
+    y_corrected = y_normalized * radial_distortion + y_tangential
+    
+    # 보정된 좌표를 다시 픽셀 좌표로 변환
+    undistorted_x = fx * x_corrected + cx
+    undistorted_y = fy * y_corrected + cy
+    
+    # Jx2 형태로 보정된 좌표 반환
+    undistorted_pose = np.vstack((undistorted_x, undistorted_y)).T
+    
+    return undistorted_pose

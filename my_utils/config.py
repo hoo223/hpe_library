@@ -1,4 +1,4 @@
-from lib_import import *
+from hpe_library.lib_import import *
 
 # https://dodonam.tistory.com/185 
 def arg_as_list(s):

@@ -5,7 +5,7 @@
 # https://github.com/weigq/3d_pose_baseline_pytorch/blob/master/src/model.py
 # https://github.com/una-dinosauria/3d-pose-baseline/blob/master/src/linear_model.py
 
-from lib_import import *
+from hpe_library.lib_import import *
 
 def init_weights(module):
     """Initialize weights of the baseline linear model.

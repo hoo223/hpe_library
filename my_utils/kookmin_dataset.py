@@ -1,7 +1,6 @@
-from lib_import import *
-from .test_utils import kookmin2h36m, World2CameraCoordinate, get_rootrel_pose, infer_box, camera_to_image_frame, optimize_scaling_factor, savepkl, get_video_info, get_video_frame, kookmin2h36m_with_nose
-from .dh import rotate_torso_by_R
-
+from hpe_library.lib_import import *
+# from .test_utils import kookmin2h36m, World2CameraCoordinate, get_rootrel_pose, infer_box, camera_to_image_frame, optimize_scaling_factor, savepkl, get_video_info, get_video_frame, kookmin2h36m_with_nose
+# from .dh import rotate_torso_by_R
 
 LBOT = np.array([-0.53090762,  1.47796592,  0.00880748])
 
@@ -48,6 +47,7 @@ def load_csv_kookmin(subject, action, phase, root='/home/hrai/Datasets/HAAI/국�
     return rdr
 
 def load_pose3d_kookmin(subject, action, phase, origin=np.zeros(3), root='/home/hrai/Datasets/HAAI/국민대데이터/data/gist data/', h36m=False, with_nose=True):
+    from hpe_library.my_utils import kookmin2h36m, kookmin2h36m_with_nose
     rdr = load_csv_kookmin(subject, action, phase, root)
     pose_3d_list = []
     attribute_list = []
@@ -91,11 +91,13 @@ def draw_base_marker_3d(ax, lbot, ltop, rbot, rtop, center1, center2):
     ax.plot(center2[0], center2[1], center2[2], 'ro')
     
 def get_video_frame_kookmin(subject, action, camera_id, frame_id=None):
+    from hpe_library.my_utils import get_video_frame
     video_path = '/home/hrai/Datasets/HAAI/국민대데이터/data/videos/{}/{}_{}_{}.mp4'.format(subject, subject, action, camera_id)
     #video_path = glob('/home/hrai/Datasets/HAAI/국민대데이터/data/videos/{}/{}_{}_{}.*'.format(subject, subject, action, camera_id))[0]
     return get_video_frame(video_path, frame_id)
     
 def get_video_num_frame_kookmin(subject, action, camera_id):
+    from hpe_library.my_utils import get_video_info
     video_path = '/home/hrai/Datasets/HAAI/국민대데이터/data/videos/{}/{}_{}_{}.mp4'.format(subject, subject, action, camera_id)
     width, height, num_frame, fps = get_video_info(video_path)
     return num_frame
@@ -143,6 +145,7 @@ def check_available_frame(pose3d_list, necessary_joints, interpolate_spine=False
             return None, 0
         
 def generate_kookmin_pkl_for_each_video(pose3d_list, available_frames, subject, camera_id, action, phase, camera_param, save_folder, trans=None, rot=None, centered_root=False, overwrite=False):
+    from hpe_library.my_utils import World2CameraCoordinate, get_rootrel_pose, infer_box, camera_to_image_frame, optimize_scaling_factor, savepkl, rotate_torso_by_R
     '''
     pose3d_list: (num_frames, num_joints, 3)
     available_frames: list of available frames

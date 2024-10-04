@@ -1,55 +1,17 @@
-from math import e
-from re import S
-from lib_import import *
-from .dh import rotate_torso_by_R, get_torso_direction, rotation_matrix_to_vector_align, projection, get_torso_rotation_matrix, calculate_batch_azimuth_elevation
-from .test_utils import readJSON, readpkl, savepkl, halpe2h36m, get_video_info, get_video_frame, get_bbox_area_from_pose2d, get_bbox_from_pose2d, change_bbox_convention, get_bbox_area
-from .test_utils import get_h36m_keypoint_index, mpi_inf_3dhp2h36m
-from .test_utils import World2CameraCoordinate, get_rootrel_pose, optimize_scaling_factor, infer_box, camera_to_image_frame
-from posynda_utils import Human36mDataset
+from traitlets import Instance
+from hpe_library.lib_import import *
+# from .dh import rotate_torso_by_R, get_torso_direction, rotation_matrix_to_vector_align, projection, get_torso_rotation_matrix, calculate_batch_azimuth_elevation
+# from .test_utils import readJSON, readpkl, savepkl, halpe2h36m, get_video_info, get_video_frame, get_bbox_area_from_pose2d, get_bbox_from_pose2d, change_bbox_convention, get_bbox_area
+# from .test_utils import get_h36m_keypoint_index
+# from .test_utils import get_rootrel_pose, optimize_scaling_factor, infer_box, camera_to_image_frame
+
+# from .data_aug import data_augmentation
+# from .canonical import canonicalization_cam_3d
+# from posynda_utils import Human36mDataset
 
 ## for general
 
-dt_file_mapping = {
-    'H36M-GT': 'h36m_gt',
-    'H36M-GT-CAM_NO_FACTOR': 'h36m_gt',
-    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_DIST': 'h36m_gt_canonical_3d_same_dist',
-    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_DIST-S15678_TR_54138969_TS_OTHERS': 'h36m_gt_canonical_3d_same_dist_s15678_tr_54138969_ts_others',
-    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_DIST-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_same_dist_tr_s1_ts_s5678',
-    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z': 'h36m_gt_canonical_3d_same_z',
-    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_same_z_tr_s1_ts_s5678',
-    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S1_TS_S5678_BY_CANON1_6_PRED': 'h36m_gt_canonical_3d_same_z_tr_s1_ts_s5678',
-    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S1_TS_S5678_BY_CANON2_2_PRED': 'h36m_gt_canonical_3d_same_z_tr_s1_ts_s5678',
-    'H36M-GT-CAM_NO_FACTOR-S15678_TR_54138969_TS_OTHERS': 'h36m_gt_s15678_tr_54138969_ts_others',
-    'H36M-GT-CAM_NO_FACTOR-TR_S1_TS_S5678': 'h36m_gt_tr_s1_ts_s5678',
-    'H36M-GT-INPUT_FROM_3D_CANONICAL_SAME_DIST-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_same_dist_tr_s1_ts_s5678',
-    'H36M-GT-TR_S1_TS_S5678': 'h36m_gt_tr_s1_ts_s5678',
-    'H36M-GT-WORLD_NO_FACTOR': 'h36m_gt',
-    'H36M-SH': 'h36m_sh_conf_cam_source_final',
-    'H36M-CANONICALIZATION-GT-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_same_z_tr_s1_ts_s5678',
-    'FIT3D-GT-ALL_TEST': 'fit3d_gt_all_test',
-    'FIT3D-GT-CAM_NO_FACTOR-ALL_TEST': 'fit3d_gt_all_test',
-    'FIT3D-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-ALL_TEST': 'fit3d_gt_canonical_3d_same_z_all_test',
-    'FIT3D-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TR_S03': 'fit3d_gt_canonical_3d_same_z_tr_s03',
-    'FIT3D-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TS_S4710': 'fit3d_gt_canonical_3d_same_z_ts_s4710',
-    'FIT3D-GT-CAM_NO_FACTOR-TS_S4710': 'fit3d_gt_ts_s4710',
-    'FIT3D-GT-TS_S4710': 'fit3d_gt_ts_s4710',
-    'FIT3D-GT-CAM_NO_FACTOR-TR_S03': 'fit3d_gt_tr_s03',
-    '3DHP-GT-CAM_NO_FACTOR-POSEAUG_TEST_2929': 'poseaug_3dhp_test',
-    '3DHP-GT-CAM_NO_FACTOR-POSYNDA_TESTSET': '3dhp_gt_test',
-    '3DHP-GT-CAM_NO_FACTOR-TEST_ALL_TRAIN': '3dhp_gt_test_all_train',
-    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TEST_ALL_TRAIN': '3dhp_gt_canonical_3d_same_z_test_all_train',
-    '3DHP-GT-CAM_NO_FACTOR-TEST_TS1_4': '3dhp_gt_test_TS1_4',
-    '3DHP-GT-CAM_NO_FACTOR-TEST_TS1_6': '3dhp_gt_test_TS1_6',
-    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TEST_TS1_4': '3dhp_gt_test_canonical_3d_from_same_z_TS1_4',
-    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_SAME_Z-TEST_TS1_6': '3dhp_gt_test_canonical_3d_from_same_z_TS1_6',
-    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5': 'h36m_gt_canonical_3d_fixed_dist_5',
-    'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5-TR_S1_TS_S5678': 'h36m_gt_canonical_3d_fixed_dist_5_tr_s1_ts_s5678',
-    'FIT3D-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5-ALL_TEST': 'fit3d_gt_canonical_3d_fixed_dist_5_all_test',
-    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5-TEST_TS1_6': '3dhp_gt_test_canonical_3d_from_fixed_dist_5_TS1_6',
-    '3DHP-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_FIXED_DIST_5-TEST_ALL_TRAIN': '3dhp_gt_canonical_3d_fixed_dist_5_test_all_train'
-}
-
-def split_source_name(source, dataset_name):
+def split_source_name(source:str, dataset_name:str) -> Tuple[str, Optional[str], Optional[str]]:
     if dataset_name == 'h36m':
         subject, cam_id, action = source.split('_')
         return subject, cam_id, action
@@ -71,7 +33,7 @@ def split_source_name(source, dataset_name):
     else:
         raise ValueError(f'{dataset_name} not found')
 
-def load_plot_configs(dataset_name):
+def load_plot_configs(dataset_name:str):
     user = getpass.getuser()
     save_root = f'/home/{user}/codes/MotionBERT/custom_codes/total_process/plot_configs'
     save_path_plot_configs = os.path.join(save_root, f'{dataset_name}_plot_configs.yaml')
@@ -79,22 +41,38 @@ def load_plot_configs(dataset_name):
         plot_configs = yaml.safe_load(file)
     return plot_configs
 
-def get_save_paths(save_root, dataset_name, canonical_type, data_aug):
-    step_rot = data_aug['step_rot']
+def get_save_paths(save_root:str, dataset_name:str, canonical_type:str, univ:bool,
+                   data_aug:dict[str, int]={'step_rot': 0, 
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+                        'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
+                        'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
+                    }) -> dict[str, str]:
     
-    step_rot = data_aug['step_rot']
-    sinu_yaw_mag = data_aug['sinu_yaw_mag']
-    sinu_yaw_period = data_aug['sinu_yaw_period']
-    sinu_pitch_mag = data_aug['sinu_pitch_mag']
-    sinu_pitch_period = data_aug['sinu_pitch_period']
-    sinu_roll_mag = data_aug['sinu_roll_mag']
-    sinu_roll_period = data_aug['sinu_roll_period']
-    rand_yaw_mag = data_aug['rand_yaw_mag']
-    rand_yaw_period = data_aug['rand_yaw_period']
-    rand_pitch_mag = data_aug['rand_pitch_mag']
-    rand_pitch_period = data_aug['rand_pitch_period']
-    rand_roll_mag = data_aug['rand_roll_mag']
-    rand_roll_period = data_aug['rand_roll_period']
+    def add_data_aug_info(path, data_aug):
+        step_rot = data_aug['step_rot']
+        sinu_yaw_mag = data_aug['sinu_yaw_mag']
+        sinu_yaw_period = data_aug['sinu_yaw_period']
+        sinu_pitch_mag = data_aug['sinu_pitch_mag']
+        sinu_pitch_period = data_aug['sinu_pitch_period']
+        sinu_roll_mag = data_aug['sinu_roll_mag']
+        sinu_roll_period = data_aug['sinu_roll_period']
+        rand_yaw_mag = data_aug['rand_yaw_mag']
+        rand_yaw_period = data_aug['rand_yaw_period']
+        rand_pitch_mag = data_aug['rand_pitch_mag']
+        rand_pitch_period = data_aug['rand_pitch_period']
+        rand_roll_mag = data_aug['rand_roll_mag']
+        rand_roll_period = data_aug['rand_roll_period']
+        
+        if step_rot != 0: path += f'-steprot_{step_rot}'
+        elif sinu_yaw_mag != 0: path += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
+        elif rand_yaw_mag != 0: path += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
+        if sinu_pitch_mag != 0: path += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+        elif rand_pitch_mag != 0: path += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
+        if sinu_roll_mag != 0:  path += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
+        elif rand_roll_mag != 0: path += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
+        path += '.pkl'
+        return path
+    
     # source_list
     save_path_source_list = os.path.join(save_root, f'{dataset_name}-source_list.pkl')
     # cam_params
@@ -102,54 +80,74 @@ def get_save_paths(save_root, dataset_name, canonical_type, data_aug):
     save_path_cam_params_adaptive_focal = os.path.join(save_root, f'{dataset_name}-cam_param-adaptive_focal.pkl')
     # cam_3d
     save_path_cam_3d = os.path.join(save_root, f'{dataset_name}-cam_3d')
-    if step_rot != 0: save_path_cam_3d += f'-steprot_{step_rot}'
-    elif sinu_yaw_mag != 0: save_path_cam_3d += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
-    elif rand_yaw_mag != 0: save_path_cam_3d += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
-    if sinu_pitch_mag != 0: save_path_cam_3d += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
-    elif rand_pitch_mag != 0: save_path_cam_3d += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
-    if sinu_roll_mag != 0:  save_path_cam_3d += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
-    elif rand_roll_mag != 0: save_path_cam_3d += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
-    save_path_cam_3d += '.pkl'
+    if dataset_name == '3dhp' and univ: save_path_cam_3d += '_univ'
+    save_path_cam_3d = add_data_aug_info(save_path_cam_3d, data_aug)
+    # if step_rot != 0: save_path_cam_3d += f'-steprot_{step_rot}'
+    # elif sinu_yaw_mag != 0: save_path_cam_3d += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
+    # elif rand_yaw_mag != 0: save_path_cam_3d += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
+    # if sinu_pitch_mag != 0: save_path_cam_3d += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    # elif rand_pitch_mag != 0: save_path_cam_3d += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
+    # if sinu_roll_mag != 0:  save_path_cam_3d += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
+    # elif rand_roll_mag != 0: save_path_cam_3d += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
+    # save_path_cam_3d += '.pkl'
+    
     # cam_3d_canonical
-    save_path_cam_3d_canonical = os.path.join(save_root, f'{dataset_name}-cam_3d-canonical_{canonical_type}')
-    if step_rot != 0: save_path_cam_3d_canonical += f'-steprot_{step_rot}'
-    elif sinu_yaw_mag != 0: save_path_cam_3d_canonical += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
-    elif rand_yaw_mag != 0: save_path_cam_3d_canonical += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
-    if sinu_pitch_mag != 0: save_path_cam_3d_canonical += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
-    elif rand_pitch_mag != 0: save_path_cam_3d_canonical += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
-    if sinu_roll_mag != 0:  save_path_cam_3d_canonical += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
-    elif rand_roll_mag != 0: save_path_cam_3d_canonical += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
-    save_path_cam_3d_canonical += '.pkl'
+    save_path_cam_3d_canonical = os.path.join(save_root, f'{dataset_name}-cam_3d')
+    if dataset_name == '3dhp' and univ: save_path_cam_3d_canonical += '_univ'
+    save_path_cam_3d_canonical += f"-canonical_{canonical_type}"
+    save_path_cam_3d_canonical = add_data_aug_info(save_path_cam_3d_canonical, data_aug)
+    # if step_rot != 0: save_path_cam_3d_canonical += f'-steprot_{step_rot}'
+    # elif sinu_yaw_mag != 0: save_path_cam_3d_canonical += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
+    # elif rand_yaw_mag != 0: save_path_cam_3d_canonical += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
+    # if sinu_pitch_mag != 0: save_path_cam_3d_canonical += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    # elif rand_pitch_mag != 0: save_path_cam_3d_canonical += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
+    # if sinu_roll_mag != 0:  save_path_cam_3d_canonical += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
+    # elif rand_roll_mag != 0: save_path_cam_3d_canonical += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
+    # save_path_cam_3d_canonical += '.pkl'
+    
     # img_2d
     save_path_img_2d = os.path.join(save_root, f'{dataset_name}-img_2d')
-    if step_rot != 0: save_path_img_2d += f'-steprot_{step_rot}'
-    elif sinu_yaw_mag != 0: save_path_img_2d += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
-    elif rand_yaw_mag != 0: save_path_img_2d += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
-    if sinu_pitch_mag != 0: save_path_img_2d += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
-    elif rand_pitch_mag != 0: save_path_img_2d += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
-    if sinu_roll_mag != 0:  save_path_img_2d += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
-    elif rand_roll_mag != 0: save_path_img_2d += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
-    save_path_img_2d += '.pkl'
+    save_path_img_2d = add_data_aug_info(save_path_img_2d, data_aug)
+    # if step_rot != 0: save_path_img_2d += f'-steprot_{step_rot}'
+    # elif sinu_yaw_mag != 0: save_path_img_2d += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
+    # elif rand_yaw_mag != 0: save_path_img_2d += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
+    # if sinu_pitch_mag != 0: save_path_img_2d += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    # elif rand_pitch_mag != 0: save_path_img_2d += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
+    # if sinu_roll_mag != 0:  save_path_img_2d += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
+    # elif rand_roll_mag != 0: save_path_img_2d += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
+    # save_path_img_2d += '.pkl'
+    
     # img_2d_canonical
-    save_path_img_2d_canonical = os.path.join(save_root, f'{dataset_name}-img_2d-canonical_{canonical_type}')
-    if step_rot != 0: save_path_img_2d_canonical += f'-steprot_{step_rot}'
-    elif sinu_yaw_mag != 0: save_path_img_2d_canonical += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
-    elif rand_yaw_mag != 0: save_path_img_2d_canonical += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
-    if sinu_pitch_mag != 0: save_path_img_2d_canonical += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
-    elif rand_pitch_mag != 0: save_path_img_2d_canonical += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
-    if sinu_roll_mag != 0:  save_path_img_2d_canonical += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
-    elif rand_roll_mag != 0: save_path_img_2d_canonical += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
-    save_path_img_2d_canonical += '.pkl'
+    save_path_img_2d_canonical = os.path.join(save_root, f'{dataset_name}-img_2d')
+    save_path_img_2d_canonical += f"-canonical_{canonical_type}"
+    save_path_img_2d_canonical = add_data_aug_info(save_path_img_2d_canonical, data_aug)
+    # if step_rot != 0: save_path_img_2d_canonical += f'-steprot_{step_rot}'
+    # elif sinu_yaw_mag != 0: save_path_img_2d_canonical += f'-sinu_yaw_m{int(sinu_yaw_mag)}_p{int(sinu_yaw_period)}'
+    # elif rand_yaw_mag != 0: save_path_img_2d_canonical += f'-rand_yaw_m{int(rand_yaw_mag)}_p{int(rand_yaw_period)}'
+    # if sinu_pitch_mag != 0: save_path_img_2d_canonical += f'-sinu_pitch_m{int(sinu_pitch_mag)}_p{int(sinu_pitch_period)}'
+    # elif rand_pitch_mag != 0: save_path_img_2d_canonical += f'-rand_pitch_m{int(rand_pitch_mag)}_p{int(rand_pitch_period)}'
+    # if sinu_roll_mag != 0:  save_path_img_2d_canonical += f'-sinu_roll_m{int(sinu_roll_mag)}_p{int(sinu_roll_period)}'
+    # elif rand_roll_mag != 0: save_path_img_2d_canonical += f'-rand_roll_m{int(rand_roll_mag)}_p{int(rand_roll_period)}'
+    # save_path_img_2d_canonical += '.pkl'
+    
     # img_2d_canonical_adaptive_focal
     save_path_img_2d_canonical_adaptive_focal = os.path.join(save_root, f'{dataset_name}-img_2d-canonical_adaptive_focal.pkl')
     # world_3d
-    save_path_world_3d = os.path.join(save_root, f'{dataset_name}-world_3d.pkl')
+    save_path_world_3d = os.path.join(save_root, f'{dataset_name}-world_3d')
+    if dataset_name == '3dhp' and univ: save_path_world_3d += '_univ'
+    save_path_world_3d += '.pkl'
     # img_3d
-    save_path_img_3d = os.path.join(save_root, f'{dataset_name}-img_3d.pkl')
+    save_path_img_3d = os.path.join(save_root, f'{dataset_name}-img_3d')
+    if dataset_name == '3dhp' and univ: save_path_img_3d += '_univ'
+    save_path_img_3d += '.pkl'
     # scale_factor
-    save_path_scale_factor = os.path.join(save_root, f'{dataset_name}-scale_factor.pkl')
+    save_path_scale_factor = os.path.join(save_root, f'{dataset_name}-scale_factor')
+    if dataset_name == '3dhp' and univ: save_path_scale_factor += '_univ'
+    save_path_scale_factor += '.pkl'
     # img_25d
-    save_path_img_25d = os.path.join(save_root, f'{dataset_name}-img_25d.pkl')
+    save_path_img_25d = os.path.join(save_root, f'{dataset_name}-img_25d')
+    if dataset_name == '3dhp' and univ: save_path_img_25d += '_univ'
+    save_path_img_25d += '.pkl'
     
     save_paths = {
         'source_list': save_path_source_list,
@@ -167,7 +165,7 @@ def get_save_paths(save_root, dataset_name, canonical_type, data_aug):
     }
     return save_paths
 
-def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_list=[], canonical_type=None, only_valid_frame=True, adaptive_focal=False, verbose=True, 
+def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_list=[], canonical_type=None, only_visible_frame=True, univ=False, no_save=False, adaptive_focal=False, verbose=True, 
               data_aug={'step_rot': 0, 
                         'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
@@ -191,7 +189,7 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
     rand_roll_mag = data_aug['rand_roll_mag']
     rand_roll_period = data_aug['rand_roll_period']
     
-    # only_valid_frame -> for 3dhp
+    # only_visible_frame -> for 3dhp
     if data_type in overwrite_list: 
         overwrite = True
     else:
@@ -218,18 +216,18 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
         print(f"[overwrite: {overwrite}] ==> Loading {dataset_name.upper()} {final_data_type}...")
         
     # save path
-    save_paths = get_save_paths(save_root, dataset_name, canonical_type, data_aug)
+    save_paths = get_save_paths(save_root, dataset_name, canonical_type, univ, data_aug)
     
-    if data_type   == 'source_list':      return load_source_list(dataset_name, save_paths, overwrite)
-    elif data_type == 'cam_param':        return load_cam_params(dataset_name, save_paths, overwrite, only_valid_frame, adaptive_focal)
-    elif data_type == 'world_3d':         return load_world_3d(dataset_name, save_paths, overwrite)
-    elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, save_paths, overwrite, only_valid_frame, data_aug)
-    elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_paths, overwrite, only_valid_frame, data_aug)
-    elif data_type == 'img_3d':           return load_img_3d(dataset_name, save_paths, overwrite)
-    elif data_type == 'img_25d':          return load_img25d(dataset_name, save_paths, overwrite)
-    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, save_paths, overwrite)
-    elif data_type == 'cam_3d_canonical': return load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite, data_aug)
-    elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite, adaptive_focal, data_aug)
+    if data_type   == 'source_list':      return load_source_list(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'cam_param':        return load_cam_params(dataset_name, save_paths, overwrite, no_save, only_visible_frame, adaptive_focal)
+    elif data_type == 'world_3d':         return load_world_3d(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, save_paths, overwrite, no_save, univ, only_visible_frame, data_aug)
+    elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_paths, overwrite, no_save, univ, only_visible_frame, data_aug)
+    elif data_type == 'img_3d':           return load_img_3d(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'img_25d':          return load_img25d(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'cam_3d_canonical': return load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, data_aug)
+    elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, adaptive_focal, data_aug)
     else:                                 raise ValueError(f'{data_type} not found')
     
 def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, 
@@ -282,16 +280,18 @@ def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=T
         data_dict[key] = load_data(dataset_name=dataset_name, data_type=data_type, canonical_type=canonical_type, overwrite_list=overwrite_list, adaptive_focal=adaptive_focal, verbose=verbose, data_aug=data_aug)
     return data_dict
     
-def load_source_list(dataset_name, save_paths, overwrite=False):
+def load_source_list(dataset_name, save_paths, overwrite=False, no_save=False):
+    from my_utils import load_3dhp_original, readpkl, savepkl
+    from posynda_utils import Human36mDataset
     user = getpass.getuser()
     save_path_source_list = save_paths['source_list']
-    if os.path.exists(save_path_source_list) and not overwrite:
+    if os.path.exists(save_path_source_list) and not overwrite and not no_save:
         source_list = readpkl(save_path_source_list)
     else:
         source_list = []
         if dataset_name == 'h36m':
-            try: del h36m_dataset
-            except: pass
+            if 'h36m_dataset' in globals(): del globals()['h36m_dataset']
+            if 'h36m_dataset' in locals(): del locals()['h36m_dataset']
             h36m_dataset = Human36mDataset(f'/home/{user}/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
             subject_list = h36m_dataset.keys()
             cam_list = ['54138969', '60457274', '55011271', '58860488']
@@ -322,13 +322,15 @@ def load_source_list(dataset_name, save_paths, overwrite=False):
                 source_list.append(f'{subject}_{cam_id}_{seq}')
         else:
             raise ValueError(f'{dataset_name} not found')
-        savepkl(source_list, save_path_source_list)
+        if not no_save: savepkl(source_list, save_path_source_list)
     return source_list
 
-def load_cam_params(dataset_name, save_paths, overwrite=False, only_valid_frame=False, adaptive_focal=False):
+def load_cam_params(dataset_name, save_paths, overwrite=False, no_save=False, only_visible_frame=False, adaptive_focal=False):
+    from my_utils import load_3dhp_original, readpkl, savepkl, readJSON, get_video_info
+    from posynda_utils import Human36mDataset
     if adaptive_focal: save_path_cam_params = save_paths['cam_param_adaptive_focal']
     else: save_path_cam_params = save_paths['cam_param']
-    if os.path.exists(save_path_cam_params) and not overwrite:
+    if os.path.exists(save_path_cam_params) and not overwrite and not no_save:
         cam_params = readpkl(save_path_cam_params)
     else:
         save_path_source_list = save_paths['source_list']
@@ -336,8 +338,8 @@ def load_cam_params(dataset_name, save_paths, overwrite=False, only_valid_frame=
         source_list = readpkl(save_path_source_list)
         cam_params = {}    
         if dataset_name == 'h36m':
-            try: del h36m_dataset
-            except: pass
+            if 'h36m_dataset' in globals(): del globals()['h36m_dataset']
+            if 'h36m_dataset' in locals(): del locals()['h36m_dataset']
             h36m_dataset = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
             cam_params_h36m = readJSON('/home/hrai/codes/hpe_library/data/h36m_camera-parameters.json')
             for source in tqdm(source_list):
@@ -357,19 +359,14 @@ def load_cam_params(dataset_name, save_paths, overwrite=False, only_valid_frame=
                     intrinsic[0][0] = W
                     intrinsic[1][1] = H
                 cam_params[subject][action][cam_id] = {
-                    'intrinsic': intrinsic,
-                    'extrinsic': extrinsic,
-                    'C': C,
-                    'R': R,
-                    't': t,
-                    'W': W,
-                    'H': H,
-                    'num_frames': num_frames
+                    'intrinsic': intrinsic, 'extrinsic': extrinsic, 'C': C, 'R': R, 't': t, 'W': W, 'H': H, 'num_frames': num_frames
                 }
         elif dataset_name == 'fit3d':
             fit3d_root = f'/home/{user}/Datasets/HAAI/Fit3D/train'
             for source in tqdm(source_list):
                 subject, cam_id, action = split_source_name(source, dataset_name)
+                assert cam_id != None, f'cam_id is None for {source}'
+                assert action != None, f'action is None for {source}'
                 if subject not in cam_params.keys():         cam_params[subject] = {}
                 if action not in cam_params[subject].keys(): cam_params[subject][action] = {}
                 subject_root = os.path.join(fit3d_root, subject)
@@ -387,15 +384,7 @@ def load_cam_params(dataset_name, save_paths, overwrite=False, only_valid_frame=
                 W, H, _, fps = get_video_info(video_path)
                 num_frames = len(np.array(readJSON(gt_3d_path)['joints3d_25'])[:, :17])
                 cam_params[subject][action][cam_id] = {
-                    'intrinsic': intrinsic,
-                    'extrinsic': extrinsic,
-                    'C': C,
-                    'R': R,
-                    't': t,
-                    'W': W,
-                    'H': H,
-                    'num_frames': num_frames,
-                    'fps': fps
+                    'intrinsic': intrinsic, 'extrinsic': extrinsic, 'C': C, 'R': R, 't': t, 'W': W, 'H': H, 'num_frames': num_frames, 'fps': fps
                 }
         elif dataset_name == '3dhp':
             data_dict_3dhp_train, cam_param_3dhp_train = load_3dhp_original('train')
@@ -407,28 +396,27 @@ def load_cam_params(dataset_name, save_paths, overwrite=False, only_valid_frame=
                 subject, cam_id, seq = split_source_name(source, dataset_name)
                 if subject not in cam_params.keys():      cam_params[subject] = {}
                 if seq not in cam_params[subject].keys(): cam_params[subject][seq] = {}
-                
                 if cam_id == None: 
-                    if only_valid_frame:
-                        num_frames = data_dict_3dhp[f'{subject}']['valid_frame'].sum()
+                    if only_visible_frame:
+                        num_frames = data_dict_3dhp[f'{subject}']['visible_frame'].sum()
                     else:
                         num_frames = data_dict_3dhp[f'{subject}']['annot3'].shape[0] # test data
                     cam_params[subject][seq][cam_id] = cam_param_3dhp[subject].copy() # copy 안하면 원본 데이터가 바뀜
                 else:
-                    if only_valid_frame:
-                        num_frames = data_dict_3dhp[f'{subject}_{seq}_{cam_id}']['valid_frame'].sum()
+                    if only_visible_frame:
+                        num_frames = data_dict_3dhp[f'{subject}_{seq}_{cam_id}']['visible_frame'].sum()
                     else:      
                         num_frames = data_dict_3dhp[f'{subject}_{seq}_{cam_id}']['annot3'].shape[0] # train data
                     cam_params[subject][seq][cam_id] = cam_param_3dhp[cam_id].copy() # copy 안하면 원본 데이터가 바뀜
                 
-                    
                 cam_params[subject][seq][cam_id]['num_frames'] = num_frames
         else:
             raise ValueError(f'{dataset_name} not found')
-        savepkl(cam_params, save_path_cam_params)  
+        if not no_save: savepkl(cam_params, save_path_cam_params)  
     return cam_params
 
 def load_image_frame(dataset_name, source, frame_num):
+    from my_utils import split_source_name, get_video_frame, load_cam_params
     user = getpass.getuser()
     subject, cam_id, action = split_source_name(source, dataset_name)
     cam_params = load_cam_params(dataset_name, f'/home/{user}/codes/MotionBERT/data/motion3d')
@@ -439,6 +427,8 @@ def load_image_frame(dataset_name, source, frame_num):
         if 'TS' in subject: # testset
             img = cv2.imread(f'/home/{user}/Datasets/HAAI/3DHP/original/test/{subject}/imageSequence/img_{frame_num+1:06d}.jpg')
         else: # trainset
+            assert cam_id != None, f'cam_id is None for {source}'
+            assert action != None, f'action is None for {source}'
             video_path = f'/home/{user}/Datasets/HAAI/3DHP/original/train/{subject}/{action}/imageSequence/video_{cam_id.split("cam")[1]}.avi'
             img = get_video_frame(video_path, frame_num)
     elif dataset_name == 'fit3d':
@@ -446,77 +436,21 @@ def load_image_frame(dataset_name, source, frame_num):
         img = get_video_frame(video_path, frame_num)
     else:
         img = None
-    
     return img
 
-def data_augmentation(pose3d, data_aug):
-    assert len(pose3d.shape) == 3, f'pose3d shape should be (num_frames, num_joints, 3), but got {pose3d.shape}'
-    assert pose3d.shape[1] == 17, f'pose3d shape should be (num_frames, 17, 3), but got {pose3d.shape}'
-    
-    pose3d_hat = pose3d.copy() - pose3d[:, 0:1]
-    if data_aug['step_rot'] > 0:
-        rot = Rotation.from_euler('y', np.deg2rad(data_aug['step_rot'])*np.arange(0, len(pose3d))).as_matrix()
-    elif data_aug['sinu_yaw_mag'] > 0:
-        sinu_yaw_mag = data_aug['sinu_yaw_mag']
-        sinu_yaw_period = data_aug['sinu_yaw_period']
-        rot = Rotation.from_euler('y', np.deg2rad(sinu_yaw_mag)*np.sin(np.arange(0, len(pose3d))/sinu_yaw_period*2*np.pi)).as_matrix()
-    elif data_aug['rand_yaw_mag'] > 0:
-        sinu_yaw_mag = random.randrange(-data_aug['rand_yaw_mag'], data_aug['rand_yaw_mag'])
-        if data_aug['rand_yaw_period'] > 0: sinu_yaw_period = data_aug['sinu_yaw_period'] + random.randrange(-data_aug['rand_yaw_period'], data_aug['rand_yaw_period'])
-        else : sinu_yaw_period = data_aug['sinu_yaw_period']
-        rot = Rotation.from_euler('y', np.deg2rad(sinu_yaw_mag)*np.sin(np.arange(0, len(pose3d))/sinu_yaw_period*2*np.pi)).as_matrix()
-    else:
-        rot = np.eye(3).reshape(1, 3, 3).repeat(len(pose3d), axis=0)
-    new_pose3d = np.einsum('fij,fkj->fki', rot, pose3d_hat)
-    new_pose3d += pose3d[:, 0:1]
-    pose3d = new_pose3d
-        
-    pose3d_hat = pose3d.copy() - pose3d[:, 0:1]
-    if data_aug['sinu_pitch_mag'] > 0:
-        sinu_pitch_mag = data_aug['sinu_pitch_mag']
-        sinu_pitch_period = data_aug['sinu_pitch_period']
-        rot = Rotation.from_euler('x', np.deg2rad(sinu_pitch_mag)*np.sin(np.arange(0, len(pose3d))/sinu_pitch_period*2*np.pi)).as_matrix()
-    elif data_aug['rand_pitch_mag'] > 0:
-        sinu_pitch_mag = random.randrange(-data_aug['rand_pitch_mag'], data_aug['rand_pitch_mag'])
-        if data_aug['rand_pitch_period'] > 0: sinu_pitch_period = data_aug['sinu_pitch_period'] + random.randrange(-data_aug['rand_pitch_period'], data_aug['rand_pitch_period'])
-        else: sinu_pitch_period = data_aug['sinu_pitch_period']
-        rot = Rotation.from_euler('x', np.deg2rad(sinu_pitch_mag)*np.sin(np.arange(0, len(pose3d))/sinu_pitch_period*2*np.pi)).as_matrix()
-    else:
-        rot = np.eye(3).reshape(1, 3, 3).repeat(len(pose3d), axis=0)
-    new_pose3d = np.einsum('fij,fkj->fki', rot, pose3d_hat)
-    new_pose3d += pose3d[:, 0:1]
-    pose3d = new_pose3d
-    
-    pose3d_hat = pose3d.copy() - pose3d[:, 0:1]
-    if data_aug['sinu_roll_mag'] > 0:
-        sinu_roll_mag = data_aug['sinu_roll_mag']
-        sinu_roll_period = data_aug['sinu_roll_period']
-        rot = Rotation.from_euler('z', np.deg2rad(sinu_roll_mag)*np.sin(np.arange(0, len(pose3d))/sinu_roll_period*2*np.pi)).as_matrix()
-    elif data_aug['rand_roll_mag'] > 0:
-        sinu_roll_mag = random.randrange(-data_aug['rand_roll_mag'], data_aug['rand_roll_mag'])
-        if data_aug['rand_roll_period'] > 0: sinu_roll_period = data_aug['sinu_roll_period'] + random.randrange(-data_aug['rand_roll_period'], data_aug['rand_roll_period'])
-        else: sinu_roll_period = data_aug['sinu_roll_period']
-        rot = Rotation.from_euler('z', np.deg2rad(sinu_roll_mag)*np.sin(np.arange(0, len(pose3d))/sinu_roll_period*2*np.pi)).as_matrix()
-    else:
-        rot = np.eye(3).reshape(1, 3, 3).repeat(len(pose3d), axis=0)
-    new_pose3d = np.einsum('fij,fkj->fki', rot, pose3d_hat)
-    new_pose3d += pose3d[:, 0:1]
-    pose3d = new_pose3d
-    
-    return pose3d
-    
-def load_cam_3d(dataset_name, save_paths, overwrite=False, only_valid_frame=False, 
+def load_cam_3d(dataset_name, save_paths, overwrite=False, no_save=False, univ=False, only_visible_frame=False, 
                 data_aug={'step_rot': 0, 
                         'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                         'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                         }):
+    from my_utils import load_3dhp_original, data_augmentation, readpkl, savepkl, split_source_name, get_video_info
     import random
     random.seed(0)
     # pkl path
     save_path_cam_3d = save_paths['cam_3d']
     # load data
-    if os.path.exists(save_path_cam_3d) and not overwrite:
+    if os.path.exists(save_path_cam_3d) and not overwrite and not no_save:
         cam_3ds = readpkl(save_path_cam_3d)
     else:
         # prerequisites
@@ -525,8 +459,8 @@ def load_cam_3d(dataset_name, save_paths, overwrite=False, only_valid_frame=Fals
         source_list = readpkl(save_path_source_list)
         cam_3ds = {}
         if dataset_name == '3dhp':
-            data_dict_3dhp_train, _ = load_3dhp_original('train')
-            data_dict_3dhp_test, _ = load_3dhp_original('test')
+            data_dict_3dhp_train, _ = load_3dhp_original('train', overwrite=True)
+            data_dict_3dhp_test, _ = load_3dhp_original('test', overwrite=True)
             data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
             #num_frames = 0
             for source in tqdm(source_list):
@@ -535,15 +469,15 @@ def load_cam_3d(dataset_name, save_paths, overwrite=False, only_valid_frame=Fals
                 else: source = subject
                 if subject not in cam_3ds.keys():      cam_3ds[subject] = {}
                 if seq not in cam_3ds[subject].keys(): cam_3ds[subject][seq] = {}
-                if only_valid_frame:
-                    valid_frame = data_dict_3dhp[source]['valid_frame']
-                    cam_3d = data_dict_3dhp[source]['annot3'][valid_frame]/1000
+                annot_type = 'univ_annot3' if univ else 'annot3'
+                if only_visible_frame:
+                    visible_frame = data_dict_3dhp[source]['visible_frame']
+                    cam_3d = data_dict_3dhp[source][annot_type][visible_frame]/1000
                 else:
-                    cam_3d = data_dict_3dhp[source]['annot3']/1000
-                
+                    cam_3d = data_dict_3dhp[source][annot_type]/1000
                 # data augmentation
                 cam_3d = data_augmentation(cam_3d, data_aug)
-                
+                # store
                 cam_3ds[subject][seq][cam_id] = cam_3d
         else:
             # prerequisites
@@ -561,25 +495,80 @@ def load_cam_3d(dataset_name, save_paths, overwrite=False, only_valid_frame=Fals
                 world_3d = world_3ds[subject][action]
                 # cam_param
                 cam_param = cam_params[subject][action][cam_id]
-                R, t, C, W, H = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H']
-                intrinsic = np.array(cam_param['intrinsic'])
+                R, t = cam_param['R'], cam_param['t']
                 # world to cam 
                 cam_3d = np.einsum('ijk,kl->ijl', world_3d, R.T) + t # (N, 17, 3)
-                
                 # data augmentation
                 cam_3d = data_augmentation(cam_3d, data_aug)
-                
                 # store
                 cam_3ds[subject][action][cam_id] = cam_3d.copy()
-        savepkl(cam_3ds, save_path_cam_3d)
+        if not no_save: savepkl(cam_3ds, save_path_cam_3d)
     return cam_3ds
 
-def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, 
+def load_img_2d(dataset_name, save_paths, overwrite=False, no_save=False, univ=False, only_visible_frame=False, 
+                data_aug={'step_rot': 0, 
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+                        'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
+                        'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
+                        }):
+    from my_utils import load_3dhp_original, readpkl, savepkl, projection
+    # pkl path
+    save_path_img_2d = save_paths['img_2d']
+    # load data
+    if os.path.exists(save_path_img_2d) and not overwrite and not no_save:
+        img_2ds = readpkl(save_path_img_2d)
+    else:
+        # prerequisites
+        save_path_source_list = save_paths['source_list']
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        source_list = readpkl(save_path_source_list)
+        
+        img_2ds = {}
+        if dataset_name == '3dhp':
+            data_dict_3dhp_train, cam_param_3dhp_train = load_3dhp_original('train')
+            data_dict_3dhp_test, cam_param_3dhp_test = load_3dhp_original('test')
+            data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
+            for source in tqdm(source_list):
+                subject, cam_id, seq = split_source_name(source, '3dhp')
+                if seq is not None: source = f'{subject}_{seq}_{cam_id}'
+                else: source = subject
+                if subject not in img_2ds.keys():      img_2ds[subject] = {}
+                if seq not in img_2ds[subject].keys(): img_2ds[subject][seq] = {}
+                if only_visible_frame:
+                    visible_frame = data_dict_3dhp[source]['visible_frame']
+                    img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2'][visible_frame]
+                else:
+                    img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2']
+        else:
+            save_path_cam_3d = save_paths['cam_3d']
+            save_path_cam_params = save_paths['cam_param']
+            assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
+            assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+            cam_3ds = readpkl(save_path_cam_3d)
+            cam_params = readpkl(save_path_cam_params)
+            for source in tqdm(source_list):
+                subject, cam_id, action = split_source_name(source, dataset_name)
+                if subject not in img_2ds:          img_2ds[subject] = {}
+                if action  not in img_2ds[subject]: img_2ds[subject][action] = {}
+                # cam_3d
+                cam_3d = cam_3ds[subject][action][cam_id]
+                # cam_param
+                cam_param = cam_params[subject][action][cam_id]
+                intrinsic = np.array(cam_param['intrinsic'])
+                # cam to img
+                img_2d = projection(cam_3d, intrinsic) # (N, 17, 2)
+                # store
+                img_2ds[subject][action][cam_id] = img_2d
+        if not no_save: savepkl(img_2ds, save_path_img_2d)
+    return img_2ds
+
+def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, no_save=False, 
                           data_aug={'step_rot': 0, 
                                     'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
                                     'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                                     'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                                     }):
+    from my_utils import canonicalization_cam_3d, readpkl, savepkl
     import random
     random.seed(0)
     # prerequisites
@@ -587,7 +576,7 @@ def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
     # pkl path
     save_path_cam_3d_canonical = save_paths['cam_3d_canonical']
     # load data
-    if os.path.exists(save_path_cam_3d_canonical) and not overwrite:
+    if os.path.exists(save_path_cam_3d_canonical) and not overwrite and not no_save:
         cam_3d_canonicals = readpkl(save_path_cam_3d_canonical)
     else:
         # prerequisites
@@ -603,38 +592,29 @@ def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
             subject, cam_id, action = split_source_name(source, dataset_name) 
             if subject not in cam_3d_canonicals:          cam_3d_canonicals[subject] = {} 
             if action  not in cam_3d_canonicals[subject]: cam_3d_canonicals[subject][action] = {} 
+            # load cam_3d
             cam_3d = cam_3ds[subject][action][cam_id]
-            if 'same_z' in canonical_type:
-                dist = cam_3d[:, 0, 2] # z value of pelvis joint for each frame 
-            elif canonical_type == 'same_dist': 
-                dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame 
-            elif 'fixed_dist' in canonical_type: 
-                dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d)) 
-            else: 
-                raise ValueError(f'canonical type {canonical_type} not found')
-            cam_3d_canonical = cam_3d.copy() - cam_3d[:, 0:1] # move to cam origin
-            
-            # # data augmentation
-            #cam_3d_canonical = data_augmentation(cam_3d_canonical, data_aug)
-                
-            cam_3d_canonical[..., 2] += dist[:, None]
+            # canonicalization
+            cam_3d_canonical = canonicalization_cam_3d(cam_3d, canonical_type)
+            # store
             cam_3d_canonicals[subject][action][cam_id] = cam_3d_canonical
-        savepkl(cam_3d_canonicals, save_path_cam_3d_canonical)
+        if not no_save: savepkl(cam_3d_canonicals, save_path_cam_3d_canonical)
     return cam_3d_canonicals
 
-def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, adaptive_focal=False, 
+def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, no_save=False, adaptive_focal=False, 
                           data_aug={'step_rot': 0, 
                         'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                         'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                         }):
+    from my_utils import readpkl, savepkl, projection
     # prerequisites
     assert canonical_type is not None, 'canonical_type is None'
     # pkl path
     if adaptive_focal: save_path_img_2d_canonical = save_paths['img_2d_canonical_adaptive_focal']
     else:save_path_img_2d_canonical = save_paths['img_2d_canonical']
     # load data
-    if os.path.exists(save_path_img_2d_canonical) and not overwrite:
+    if os.path.exists(save_path_img_2d_canonical) and not overwrite and not no_save:
         img_2d_canonicals = readpkl(save_path_img_2d_canonical)
     else:
         # prerequisites
@@ -656,19 +636,20 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
             if action  not in img_2d_canonicals[subject]: img_2d_canonicals[subject][action] = {}
             cam_3d_canonical = cam_3d_canonicals[subject][action][cam_id]
             cam_param = cam_params[subject][action][cam_id]
-            R, t, C, W, H = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H']
             intrinsic = np.array(cam_param['intrinsic'])
-            img_2d_canonical = np.einsum('ijk,kl->ijl', cam_3d_canonical, intrinsic.T) # (N, 17, 2)
-            img_2d_canonical = img_2d_canonical / img_2d_canonical[:, :, 2:] # (N, 17, 2)
-            img_2d_canonicals[subject][action][cam_id] = img_2d_canonical[...,:2]
-        savepkl(img_2d_canonicals, save_path_img_2d_canonical)
+            img_2d_canonical = projection(cam_3d_canonical, intrinsic)
+            img_2d_canonicals[subject][action][cam_id] = img_2d_canonical
+        if not no_save: savepkl(img_2d_canonicals, save_path_img_2d_canonical)
         
     return img_2d_canonicals
 
-def load_world_3d(dataset_name, save_paths, overwrite=False):
+def load_world_3d(dataset_name, save_paths, overwrite=False, no_save=False):
+    from my_utils import readpkl, savepkl, split_source_name, readJSON
+    from posynda_utils import Human36mDataset
+    user = getpass.getuser()
     # pkl path
     save_path_world_3d = save_paths['world_3d']
-    if os.path.exists(save_path_world_3d) and not overwrite:
+    if os.path.exists(save_path_world_3d) and not overwrite and not no_save:
         world_3ds = readpkl(save_path_world_3d)
     else:
         # prerequisites
@@ -678,8 +659,8 @@ def load_world_3d(dataset_name, save_paths, overwrite=False):
         
         world_3ds = {}
         if dataset_name == 'h36m':
-            try: del h36m_dataset
-            except: pass
+            if 'h36m_dataset' in globals(): del globals()['h36m_dataset']
+            if 'h36m_dataset' in locals(): del locals()['h36m_dataset']
             h36m_dataset = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
             for source in source_list:
                 subject, cam_id, action = split_source_name(source, dataset_name)
@@ -689,6 +670,8 @@ def load_world_3d(dataset_name, save_paths, overwrite=False):
             fit3d_root = f'/home/{user}/Datasets/HAAI/Fit3D/train'
             for source in tqdm(source_list):
                 subject, cam_id, action = split_source_name(source, dataset_name)
+                assert cam_id != None, f'cam_id is None for {source}'
+                assert action != None, f'action is None for {source}'
                 if subject not in world_3ds.keys(): world_3ds[subject] = {}
                 gt_3d_path = os.path.join(fit3d_root, subject, 'joints3d_25', action+'.json')
                 gt_3d = np.array(readJSON(gt_3d_path)['joints3d_25'])[:, :17] # (F, 17, 3)
@@ -708,75 +691,18 @@ def load_world_3d(dataset_name, save_paths, overwrite=False):
                 # cam_3d & cam_param
                 cam_3d = cam_3ds[subject][action][cam_id]
                 cam_param = cam_params[subject][action][cam_id]
-                R, t, C, W, H = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H']
+                R, C = cam_param['R'], cam_param['C']
                 # cam to world
                 world_3d = np.einsum('ijk,kl->ijl', cam_3d, R) + C # (N, 17, 3)
                 # store
                 world_3ds[subject][action] = world_3d.copy()
-        savepkl(world_3ds, save_path_world_3d)
+        if not no_save: savepkl(world_3ds, save_path_world_3d)
     return world_3ds
 
-def load_img_2d(dataset_name, save_paths, overwrite=False, only_valid_frame=False, 
-                data_aug={'step_rot': 0, 
-                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
-                        'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
-                        'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
-                        }):
-    # pkl path
-    save_path_img_2d = save_paths['img_2d']
-    # load data
-    if os.path.exists(save_path_img_2d) and not overwrite:
-        img_2ds = readpkl(save_path_img_2d)
-    else:
-        # prerequisites
-        save_path_source_list = save_paths['source_list']
-        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
-        source_list = readpkl(save_path_source_list)
-        
-        img_2ds = {}
-        if dataset_name == '3dhp':
-            data_dict_3dhp_train, cam_param_3dhp_train = load_3dhp_original('train')
-            data_dict_3dhp_test, cam_param_3dhp_test = load_3dhp_original('test')
-            data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
-            for source in tqdm(source_list):
-                subject, cam_id, seq = split_source_name(source, '3dhp')
-                if seq is not None: source = f'{subject}_{seq}_{cam_id}'
-                else: source = subject
-                if subject not in img_2ds.keys():      img_2ds[subject] = {}
-                if seq not in img_2ds[subject].keys(): img_2ds[subject][seq] = {}
-                if only_valid_frame:
-                    valid_frame = data_dict_3dhp[source]['valid_frame']
-                    img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2'][valid_frame]
-                else:
-                    img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2']
-        else:
-            save_path_cam_3d = save_paths['cam_3d']
-            save_path_cam_params = save_paths['cam_param']
-            assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
-            assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
-            cam_3ds = readpkl(save_path_cam_3d)
-            cam_params = readpkl(save_path_cam_params)
-            for source in tqdm(source_list):
-                subject, cam_id, action = split_source_name(source, dataset_name)
-                if subject not in img_2ds:          img_2ds[subject] = {}
-                if action  not in img_2ds[subject]: img_2ds[subject][action] = {}
-                # cam_3d
-                cam_3d = cam_3ds[subject][action][cam_id]
-                # cam_param
-                cam_param = cam_params[subject][action][cam_id]
-                R, t, C, W, H = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H']
-                intrinsic = np.array(cam_param['intrinsic'])
-                # cam to img
-                img_2d = np.einsum('ijk,kl->ijl', cam_3d, intrinsic.T) # (N, 17, 2)
-                img_2d = img_2d / img_2d[:, :, 2:] # (N, 17, 2)
-                # store
-                img_2ds[subject][action][cam_id] = img_2d[...,:2].copy()
-        savepkl(img_2ds, save_path_img_2d)
-    return img_2ds
-
-def load_img_3d(dataset_name, save_paths, overwrite=False):
+def load_img_3d(dataset_name, save_paths, overwrite=False, no_save=False):
+    from my_utils import readpkl, savepkl, split_source_name
     save_path_img_3d = save_paths['img_3d']
-    if os.path.exists(save_path_img_3d) and not overwrite:
+    if os.path.exists(save_path_img_3d) and not overwrite and not no_save:
         img_3ds = readpkl(save_path_img_3d)
     else:
         # prerequisites
@@ -803,7 +729,7 @@ def load_img_3d(dataset_name, save_paths, overwrite=False):
             img_2d = img_2ds[subject][action][cam_id]
             # cam_param
             cam_param = cam_params[subject][action][cam_id]
-            R, t, C, W, H, intrinsic = cam_param['R'], cam_param['t'], cam_param['C'], cam_param['W'], cam_param['H'], cam_param['intrinsic']
+            intrinsic = cam_param['intrinsic']
             # img_3d depth
             root_joint = cam_3d[:, 0] # (N, 3)
             tl_joint = root_joint.copy() # top left point of the bounding box
@@ -823,13 +749,14 @@ def load_img_3d(dataset_name, save_paths, overwrite=False):
             img_3d[...,2] = img_3d_depth.copy()
             # store
             img_3ds[subject][action][cam_id] = img_3d.copy()
-        savepkl(img_3ds, save_path_img_3d)
+        if not no_save: savepkl(img_3ds, save_path_img_3d)
         #print(f'{dataset_name} img_3d generated and saved\n')
     return img_3ds
 
-def load_scale_factor(dataset_name, save_paths, overwrite=False):
+def load_scale_factor(dataset_name, save_paths, overwrite=False, no_save=False):
+    from my_utils import readpkl, savepkl, split_source_name, optimize_scaling_factor
     save_path_scale_factor = save_paths['scale_factor']
-    if os.path.exists(save_path_scale_factor) and not overwrite:
+    if os.path.exists(save_path_scale_factor) and not overwrite and not no_save:
         scale_factors = readpkl(save_path_scale_factor)
     else:
         save_path_cam_3d = save_paths['cam_3d']
@@ -866,13 +793,14 @@ def load_scale_factor(dataset_name, save_paths, overwrite=False):
                 #pred_lambda, losses3 = optimize_scaling_factor(img_3d_hat[frame_num], cam_3d_hat[frame_num], learningRate=0.00001) # x,y,z 사용
                 
             scale_factors[subject][action][cam_id] = np.array(scale_factor) # (N,)
-        savepkl(scale_factors, save_path_scale_factor)
+        if not no_save: savepkl(scale_factors, save_path_scale_factor)
     
     return scale_factors
 
-def load_img25d(dataset_name, save_paths, overwrite=False):
+def load_img25d(dataset_name, save_paths, overwrite=False, no_save=False):
+    from my_utils import readpkl, savepkl, split_source_name
     save_path_img_25d = save_paths['img_25d']
-    if os.path.exists(save_path_img_25d) and not overwrite:
+    if os.path.exists(save_path_img_25d) and not overwrite and not no_save:
         img_25ds = readpkl(save_path_img_25d)
     else:
         save_path_img_3d = save_paths['img_3d']
@@ -897,21 +825,25 @@ def load_img25d(dataset_name, save_paths, overwrite=False):
             scale_factor = scale_factors[subject][action][cam_id]
             img_25d = cam_3d.copy() * scale_factor[:, None, None]
             img_25ds[subject][action][cam_id] = img_25d
-        savepkl(img_25ds, save_path_img_25d)
+        if not no_save: savepkl(img_25ds, save_path_img_25d)
     
     return img_25ds
-            
+
 def load_h36m():
+    from posynda_utils import Human36mDataset
+    from my_utils import readJSON
+    
     # camera parameters
     cam_param = readJSON('/home/hrai/codes/hpe_library/data/h36m_camera-parameters.json')
     print('==> Loading 3D data wrt World CS...')
-    try:    del h36m_3d_world
-    except: pass
+    if 'h36m_3d_world' not in globals(): del globals()['h36m_3d_world']
+    if 'h36m_3d_world' not in locals(): del locals()['h36m_3d_world']
     h36m_3d_world = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
 
     return h36m_3d_world, cam_param
 
 def load_fit3d_one_video(fit3d_root, cam_num, data_type='train', subject='s03', action='burpees'):
+    from my_utils import readJSON
     # load gt 3d
     subject_path = os.path.join(fit3d_root, data_type, subject)
     gt_3d_path = os.path.join(subject_path, 'joints3d_25', action + '.json')
@@ -932,64 +864,6 @@ def load_fit3d_one_video(fit3d_root, cam_num, data_type='train', subject='s03', 
     camera_param = {'extrinsic': extrinsic_matrix, 'intrinsic': intrinsic_matrix}
     return gt_3d, camera_param
 
-def load_3dhp_original(data_type='test', overwrite=False):
-    #print(f"==> Loading 3DHP {data_type} data...")
-    user = getpass.getuser()
-    cam_param = readpkl(f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/3dhp/3dhp_{data_type}_cam_params.pkl')
-    data_dict_path = f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/3dhp/3dhp_{data_type}_data_dict.pkl'
-    if os.path.exists(data_dict_path) and not overwrite:
-        data_dict = readpkl(data_dict_path)
-    else:
-        folder = f'/home/{user}/Datasets/HAAI/3DHP/original/{data_type}'
-        data_dict = {}
-        if data_type == 'test':
-            for subject in natsorted(os.listdir(folder)):
-                if 'TS' not in subject: continue
-                data_dict[subject] = {}
-                data = scipy.io.loadmat(f'/home/{user}/Datasets/HAAI/3DHP/original/test/{subject}/annot_data.mat')
-                annot2 = mpi_inf_3dhp2h36m(np.transpose(data['annot2'][:, :, 0, :], (2, 1, 0))).copy()
-                annot3 = mpi_inf_3dhp2h36m(np.transpose(data['annot3'][:, :, 0, :], (2, 1, 0))).copy()
-                
-                # get valid frame
-                w_over_range = (annot2[:, :, 0] > 2048) | (annot2[:, :, 0] < 0)
-                h_over_range = (annot2[:, :, 1] > 2048) | (annot2[:, :, 1] < 0)
-                over_range = np.logical_or(w_over_range, h_over_range)
-                valid_frame = np.logical_not(np.any(over_range, axis=1))
-                num_valid_frame = len(np.where(valid_frame == True)[0])
-                
-                data_dict[subject]['annot2'] = annot2
-                data_dict[subject]['annot3'] = annot3
-                data_dict[subject]['valid_frame'] = valid_frame
-                data_dict[subject]['num_valid_frame'] = num_valid_frame
-                
-                #data_dict[subject]['valid_frame'] = data['valid_frame'][0].copy()
-                #print(subject, data_dict[subject]['annot2'].shape, data_dict[subject]['annot3'].shape, data_dict[subject]['valid_frame'].shape)
-        elif data_type == 'train':
-            for subject in tqdm(natsorted(os.listdir(folder))):
-                for seq in natsorted(os.listdir(os.path.join(folder, subject))):
-                    data = scipy.io.loadmat(os.path.join(folder, subject, seq, 'annot.mat'))
-                    for cam_num in range(14):
-                        source = '_'.join([subject, seq, f'cam{cam_num}'])
-                        data_dict[source] = {}
-                        annot2 = mpi_inf_3dhp2h36m(np.array(data['annot2'][cam_num][0].reshape(-1, 28, 2)).copy())
-                        annot3 = mpi_inf_3dhp2h36m(np.array(data['annot3'][cam_num][0].reshape(-1, 28, 3)).copy())
-                        univ_annot3 = np.array(data['univ_annot3'][cam_num][0].copy().reshape(-1, 28, 3))
-                        # get valid frame
-                        w_over_range = (annot2[:, :, 0] > 2048) | (annot2[:, :, 0] < 0)
-                        h_over_range = (annot2[:, :, 1] > 2048) | (annot2[:, :, 1] < 0)
-                        over_range = np.logical_or(w_over_range, h_over_range)
-                        valid_frame = np.logical_not(np.any(over_range, axis=1))
-                        num_valid_frame = len(np.where(valid_frame == True)[0])
-                        
-                        data_dict[source]['annot2'] = annot2
-                        data_dict[source]['annot3'] = annot3
-                        data_dict[source]['univ_annot3'] = univ_annot3
-                        data_dict[source]['valid_frame'] = valid_frame
-                        data_dict[source]['num_valid_frame'] = num_valid_frame
-        savepkl(data_dict, data_dict_path)    
-        
-    return data_dict, cam_param
-
 def get_cam_param(camera_sub_act, subject, cam_params):
     cam_param_for_sub_act = {}
     for i in range(4):
@@ -1009,6 +883,7 @@ def get_pose_seq_and_cam_param(h36m_3d_world, h36m_cam_param, subject, action):
     return pose3d, cam_param
 
 def get_part_traj(pose_traj, part):
+    from my_utils import get_h36m_keypoint_index
     # h36m 기준
     pelvis_idx = get_h36m_keypoint_index('Pelvis')
     l_hip_idx = get_h36m_keypoint_index('L_Hip')
@@ -1037,7 +912,7 @@ def get_part_traj(pose_traj, part):
     return part_traj
 
 def get_aligned_init_torso(torso, forward, height=0.86):
-    from my_utils import get_torso_rotation_matrix
+    from my_utils import get_torso_rotation_matrix, rotation_matrix_to_vector_align, rotate_torso_by_R, get_torso_direction
     # align to world origin
     rot_from_world = get_torso_rotation_matrix(torso)
     align_R = rot_from_world.T
@@ -1062,6 +937,7 @@ def get_aligned_init_torso(torso, forward, height=0.86):
     return aligned_init_torso
 
 def generate_random_trajectory(seed_offest, start_torso, cam_proj, num_points=5000, max_deg=5, max_dist=10, max_bias=5, step_size=0.01, rt_type='rxryrztxtytz', seed=None):
+    from my_utils import get_torso_rotation_matrix, rotate_torso_by_R, projection
     # max_dist [cm]
     cm_to_m = 0.01
     start_point = start_torso[0]
@@ -1086,6 +962,7 @@ def generate_random_trajectory(seed_offest, start_torso, cam_proj, num_points=50
         max_dist_y = max_dist
         max_dist_z = max_dist
     elif isinstance(max_dist, list):
+        assert len(max_dist) == 3, 'max_dist should be [max_dist_x, max_dist_y, max_dist_z]'
         max_dist_x, max_dist_y, max_dist_z = max_dist
     else:
         max_dist_x, max_dist_y, max_dist_z = 5, 5, 5
@@ -1376,7 +1253,7 @@ class MyCustomDataset(Dataset):
                 # input = []
                 # for item in self.input_list:
                 #     input += make_one_dimension_list(temp_pair[item]) # 3d data
-                input = get_model_input(self.input_list, device=None, input_dict=temp_pair)
+                input = get_model_input(self.input_list, device='cuda', input_dict=temp_pair)
 
                 # extract label
                 # label = []
@@ -1421,6 +1298,7 @@ def get_backbone_line_from_torso(torso):
     return line
 
 def get_ap_pose_2d(video_path, ap_result_path, dataset='h36m'):
+    from my_utils import get_video_info, readJSON, get_bbox_from_pose2d, get_bbox_area, change_bbox_convention, halpe2h36m
     W, H, video_length, _ = get_video_info(video_path)
     ap_result = readJSON(os.path.join(ap_result_path, 'alphapose-results.json'))
     if dataset == 'h36m': num_keypoints = 17
@@ -1468,6 +1346,7 @@ def parse_args_by_model_name(target):
     return opts
 
 def get_limb_angle(batch_pose):
+    from my_utils import get_h36m_keypoint_index, calculate_batch_azimuth_elevation
     # batch_gt: (B, T, 17, 3)
     if type(batch_pose) != torch.Tensor:
         batch_pose = torch.tensor(batch_pose).float()
@@ -1544,6 +1423,7 @@ def get_limb_angle(batch_pose):
 def get_input_gt_for_onevec(batch_input, batch_gt):
     # batch_input: (B, T, 17, 3) 
     # batch_gt: (B, T, 17, 3)
+    from my_utils import get_h36m_keypoint_index, calculate_batch_azimuth_elevation
     
     # get the keypoint index
     r_hip = get_h36m_keypoint_index('r_hip')
@@ -1642,6 +1522,7 @@ def get_h36m_camera_info(h36m_3d_world, h36m_cam_param, subject, action, camera_
     return calibration_matrix, camera_param, H, W, fx, fy, cx, cy
 
 def h36m_data_processing(pose3d_list, camera_param, fx, fy, cx, cy, length=243):
+    from my_utils import World2CameraCoordinate, get_rootrel_pose, infer_box, camera_to_image_frame, optimize_scaling_factor
     pose_2d_list = []
     cam_3d_list = []
     img_3d_list = []

@@ -1,9 +1,10 @@
-from lib_import import *
+from hpe_library.lib_import import *
 
 class Camera:
     def __init__(self, origin, calib_mat, cam_ext=None, R=None, cam_default_R=None, 
                  roll=0, pitch=0, yaw=0,
                  IMAGE_HEIGHT=1000, IMAGE_WIDTH=1000, cam_name='camera'):
+        from hpe_library.camera_models_utils import ReferenceFrame, PrincipalAxis, ImagePlane
         mm_to_m = 0.001
         m_to_mm = 1000
         self.cam_name = cam_name
@@ -101,6 +102,7 @@ class Camera:
         )
         
     def update_camera_parameter(self, calib_mat=None, origin=None, roll=None, pitch=None, yaw=None, H=None, W=None):
+        from hpe_library.camera_models_utils import ReferenceFrame, PrincipalAxis, ImagePlane
         mm_to_m = 0.001
         m_to_mm = 1000
         if H is not None:
@@ -113,12 +115,9 @@ class Camera:
         # extrinsic parameter
         if origin is not None:
             self.C = origin
-        if roll is not None:
-            self.rot_z = Rotation.from_euler('z', roll, degrees=True).as_matrix()
-        if yaw is not None:
-            self.rot_y = Rotation.from_euler('y', yaw, degrees=True).as_matrix()
-        if pitch is not None:
-            self.rot_x = Rotation.from_euler('x', pitch, degrees=True).as_matrix()
+        if roll is not None: self.rot_z = Rotation.from_euler('z', roll, degrees=True).as_matrix()
+        if yaw is not None: self.rot_y = Rotation.from_euler('y', yaw, degrees=True).as_matrix()
+        if pitch is not None: self.rot_x = Rotation.from_euler('x', pitch, degrees=True).as_matrix()
         #self.R = (self.rot_x @ self.rot_y @ self.rot_z).T @ self.cam_default_R 
         self.R = (self.rot_z @ self.rot_y @ self.rot_x).T @ self.cam_default_R
         self.t = (- self.R @ self.C).reshape(-1,1) * m_to_mm # [mm]
@@ -172,6 +171,7 @@ class Camera:
         )
 
     def generate_camera_frame(self, cam_ext, mm_to_m=True, name='camera'):
+        from hpe_library.camera_models_utils import ReferenceFrame
         R = np.array(cam_ext['R']) #Rotation.from_quat(cam['orientation']).as_matrix()
         R_C = R.transpose()
         if mm_to_m:
@@ -190,6 +190,7 @@ class Camera:
         return cam_frame
     
     def update_torso_projection(self, torsos):
+        from hpe_library.camera_models_utils import GenericPoint, get_plane_from_three_points
         self.Gs = []
         self.pies = []
         self.xs = []
@@ -212,6 +213,7 @@ class Camera:
             self.proj_torsos.append(np.array(self.xs[i*5:(i+1)*5]))
             
     def update_pose_projection(self, poses):
+        from hpe_library.camera_models_utils import GenericPoint, get_plane_from_three_points
         self.Gs = []
         self.pies = []
         self.xs = []
@@ -230,6 +232,7 @@ class Camera:
                 self.xs.append(G.get_x(pi, C=self.C))
 
     def update_point_projection(self, points):
+        from hpe_library.camera_models_utils import GenericPoint, get_plane_from_three_points
         self.Gs = []
         self.pies = []
         self.xs = []
@@ -251,6 +254,7 @@ class Camera:
             self.proj_points.append(np.array(self.xs[i*5:(i+1)*5]))     
             
     def update_line_projection(self, lines):
+        from hpe_library.camera_models_utils import GenericPoint, get_plane_from_three_points
         self.Gs = []
         self.pies = []
         self.xs = []

@@ -49,6 +49,33 @@ def get_batch_h36m_keypoints(batch_pose3d, key_list=[]):
             output[:, :, i] = batch_pose3d[:, :, key_idx]
     return output
 
+SMPL_JOINT_NAMES = {
+    0 : "pelvis",
+    1 : "left_hip",
+    2 : "right_hip",
+    3 : "spine1",
+    4 : "left_knee",
+    5 : "right_knee",
+    6 : "spine2",
+    7 : "left_ankle",
+    8 : "right_ankle",
+    9 : "spine3",
+    10 : "left_foot",
+    11 : "right_foot",
+    12 : "neck",
+    13 : "left_collar",
+    14 : "right_collar",
+    15 : "head",
+    16 : "left_shoulder",
+    17 : "right_shoulder",
+    18 : "left_elbow",
+    19 : "right_elbow",
+    20 : "left_wrist",
+    21 : "right_wrist",
+    22 : "left_hand",
+    23 : "right_hand",
+}
+
 h36m_keypoints ={
     0 : 'Pelvis',
     1 : 'R_Hip',
@@ -395,7 +422,6 @@ def mpi_inf_3dhp2h36m(x):
     h36m kp 14         <- original kp 2  (right_shoulder)
     h36m kp 15         <- original kp 3  (right_elbow)
     h36m kp 16         <- original kp 4  (right_wrist)
-    
     '''
     if len(x.shape) == 2:
         V, C = x.shape
@@ -403,7 +429,7 @@ def mpi_inf_3dhp2h36m(x):
         x = x.reshape(T, V, C)
     else:
         T, V, C = x.shape
-    
+
     y = np.zeros([T,17,C])
     if V == 17: # posynda train/test, original test
         pass
@@ -428,6 +454,80 @@ def mpi_inf_3dhp2h36m(x):
     # y[:,15,:] = x[:,3,:] # R_Elbow
     # y[:,16,:] = x[:,4,:] # R_Wrist
     y = x.copy()[:, [14, 8, 9, 10, 11, 12, 13, 15, 1, 16, 0, 5, 6, 7, 2, 3, 4]]
+    return y
+
+def smpl2h36m(x, with_nose=True):
+    '''
+     0 : "pelvis",
+    1 : "left_hip",
+    2 : "right_hip",
+    3 : "spine1",
+    4 : "left_knee",
+    5 : "right_knee",
+    6 : "spine2",
+    7 : "left_ankle",
+    8 : "right_ankle",
+    9 : "spine3",
+    10 : "left_foot",
+    11 : "right_foot",
+    12 : "neck",
+    13 : "left_collar",
+    14 : "right_collar",
+    15 : "head",
+    16 : "left_shoulder",
+    17 : "right_shoulder",
+    18 : "left_elbow",
+    19 : "right_elbow",
+    20 : "left_wrist",
+    21 : "right_wrist",
+    22 : "left_hand",
+    23 : "right_hand",
+    '''
+    if len(x.shape) == 2:
+        V, C = x.shape
+        T = 1
+        x = x.reshape(T, V, C)
+    else:
+        T, V, C = x.shape
+
+    if with_nose:
+        y = np.zeros([T,17,C])
+        y[:, 0, :]  = (x[:, 2, :] + x[:, 1, :]) / 2 # x[:, 0, :]   # Pelvis (H36M 0)
+        y[:, 1, :]  = x[:, 2, :]   # Right Hip (H36M 1)
+        y[:, 2, :]  = x[:, 5, :]   # Right Knee (H36M 2)
+        y[:, 3, :]  = x[:, 8, :]   # Right Ankle (H36M 3)
+        y[:, 4, :]  = x[:, 1, :]   # Left Hip (H36M 4)
+        y[:, 5, :]  = x[:, 4, :]   # Left Knee (H36M 5)
+        y[:, 6, :]  = x[:, 7, :]   # Left Ankle (H36M 6)
+        y[:, 7, :]  = (x[:, 3, :] + x[:, 9, :]) / 2  # Torso (H36M 7) - Spine 평균값
+        y[:, 8, :]  = x[:, 12, :]  # Neck (H36M 8)
+        y[:, 9, :]  = x[:, 15, :]  # Nose (H36M 9) - SMPL의 Head로 매핑
+        y[:, 10, :] = x[:, 15, :] # Head (H36M 10) - SMPL의 Head로 매핑
+        y[:, 11, :] = x[:, 16, :] # Left Shoulder (H36M 11)
+        y[:, 12, :] = x[:, 18, :] # Left Elbow (H36M 12)
+        y[:, 13, :] = x[:, 20, :] # Left Wrist (H36M 13)
+        y[:, 14, :] = x[:, 17, :] # Right Shoulder (H36M 14)
+        y[:, 15, :] = x[:, 19, :] # Right Elbow (H36M 15)
+        y[:, 16, :] = x[:, 21, :] # Right Wrist (H36M 16)
+    else:
+        y = np.zeros([T,16,C])
+        y[:, 0, :]  = (x[:, 2, :] + x[:, 1, :]) / 2 # x[:, 0, :]   # Pelvis (H36M 0)
+        y[:, 1, :]  = x[:, 2, :]   # Right Hip (H36M 1)
+        y[:, 2, :]  = x[:, 5, :]   # Right Knee (H36M 2)
+        y[:, 3, :]  = x[:, 8, :]   # Right Ankle (H36M 3)
+        y[:, 4, :]  = x[:, 1, :]   # Left Hip (H36M 4)
+        y[:, 5, :]  = x[:, 4, :]   # Left Knee (H36M 5)
+        y[:, 6, :]  = x[:, 7, :]   # Left Ankle (H36M 6)
+        y[:, 7, :]  = (x[:, 3, :] + x[:, 9, :]) / 2  # Torso (H36M 7) - Spine 평균값
+        y[:, 8, :]  = x[:, 12, :]  # Neck (H36M 8)
+        y[:, 9, :]  = x[:, 15, :] # Head (H36M 10) - SMPL의 Head로 매핑
+        y[:, 10, :] = x[:, 16, :] # Left Shoulder (H36M 11)
+        y[:, 11, :] = x[:, 18, :] # Left Elbow (H36M 12)
+        y[:, 12, :] = x[:, 20, :] # Left Wrist (H36M 13)
+        y[:, 13, :] = x[:, 17, :] # Right Shoulder (H36M 14)
+        y[:, 14, :] = x[:, 19, :] # Right Elbow (H36M 15)
+        y[:, 15, :] = x[:, 21, :] # Right Wrist (H36M 16)
+
     return y
 
 def kookmin2h36m(x):
@@ -675,7 +775,7 @@ def halpe2h36m(x):
 
 def aihub2h36m(x, mode='3d'):
     '''
-        Input: x (T x V x C)  
+        Input: x (T x V x C)
        //aihub 24 body keypoints
     {0, "Pelvis"},
     {1, "L_Hip"},

@@ -19,6 +19,7 @@ def rotation_distance(rot1, rot2, quat=False):
 
 
 def generate_world_frame():
+    from camera_models_utils import ReferenceFrame
     world_origin = np.zeros(3)
     #print(world_origin.shape)
     dx, dy, dz = np.eye(3)
@@ -33,6 +34,7 @@ def generate_world_frame():
     return world_frame
 
 def generate_camera_frame(cam_ext, mm_to_m=True, name='camera'):
+    from camera_models_utils import ReferenceFrame
     R = np.array(cam_ext['R']) #Rotation.from_quat(cam['orientation']).as_matrix()
     R_C = R.transpose()
     if mm_to_m:

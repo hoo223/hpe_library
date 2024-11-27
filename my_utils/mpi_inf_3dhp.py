@@ -91,7 +91,7 @@ def load_3dhp_original(data_type='test', overwrite=False, no_save=False):
                 cam_param = cam_params[subject]
                 W, H = cam_param['W'], cam_param['H']
                 data_dict[subject] = {}
-                data = scipy.io.loadmat(f'/home/{user}/Datasets/HAAI/3DHP/original/test/{subject}/annot_data.mat')
+                data = scipy.io.loadmat(f'/home/{user}/Datasets/HAAI/3DHP/original/test/{subject}/annot_data_modi.mat')
                 annot2 = mpi_inf_3dhp2h36m(np.transpose(data['annot2'][:, :, 0, :], (2, 1, 0))).copy()
                 annot2_norm = normalize_input(annot2.copy(), W, H)
                 annot3 = mpi_inf_3dhp2h36m(np.transpose(data['annot3'][:, :, 0, :], (2, 1, 0))).copy()
@@ -139,7 +139,7 @@ def load_3dhp_original(data_type='test', overwrite=False, no_save=False):
                         visible = np.logical_not(np.any(over_range, axis=1))
                         visible_frame = np.where(visible == True)[0]
                         num_visible_frames = len(visible_frame)
-                        3 # save data
+                        # save data
                         data_dict[source]['annot2'] = annot2
                         data_dict[source]['annot2_norm'] = annot2_norm
                         data_dict[source]['annot3'] = annot3

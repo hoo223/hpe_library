@@ -8,7 +8,7 @@ def clear_axes(ax, blacklist=[]):
             if 'line' not in blacklist:
                 for line in ax_.lines[:]:
                     line.remove()  # Remove lines
-            if 'collection' not in blacklist:   
+            if 'collection' not in blacklist:
                 for collection in ax_.collections[:]:
                     collection.remove()  # Remove collections, e.g., scatter plots
             if 'patch' not in blacklist:
@@ -24,7 +24,7 @@ def clear_axes(ax, blacklist=[]):
         if 'line' not in blacklist:
             for line in ax.lines[:]:
                 line.remove()  # Remove lines
-        if 'collection' not in blacklist:   
+        if 'collection' not in blacklist:
             for collection in ax.collections[:]:
                 collection.remove()  # Remove collections, e.g., scatter plots
         if 'patch' not in blacklist:
@@ -71,7 +71,7 @@ def axes_2d(fig=None, rect=None, loc=None, locvec=None, W=1000, H=1000, xlim=Non
     return ax
 
 def axes_3d(fig=None, rect=None, loc=None, locvec=None, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2), scale=1.0, xlabel='X', ylabel='Y', zlabel='Z', title='', view=[0, 0], show_axis=True, ax=None, mode='world', grid=True, normalize=False) -> Axes3D:
-    if fig == None: 
+    if fig == None:
         fig = plt.gcf() # get current figure
     if ax == None:
         if rect != None:
@@ -91,6 +91,8 @@ def axes_3d(fig=None, rect=None, loc=None, locvec=None, xlim=(-2, 2), ylim=(-2, 
         zlim = np.array(zlim) * scale
     if mode == 'cam':
         view = (-90, -90)
+    elif mode == 'cam_top':
+        view = (0, -90)
     ax.set_xlim(*xlim)
     ax.set_ylim(*ylim)
     ax.set_zlim(*zlim)
@@ -131,7 +133,7 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         joint_pairs = [[0, 1], [0, 2], [0, 3], [3, 4], [4, 5], [5, 6], [4, 7], [4, 8]]
         joint_pairs_left = [[0, 2],[4, 7]]
         joint_pairs_right = [[0, 1], [4, 8]]
-    elif dataset == 'torso_small': 
+    elif dataset == 'torso_small':
         # 0: pelvis, 1: r_hip, 4: l_shoulder, 3: neck, 5:r_shoulder, 2: l_hip
         joint_pairs = [[0, 1], [1, 5], [5, 3], [3, 4], [4, 2], [2, 0]]
         joint_pairs_left = [[3, 4], [4, 2], [2, 0]]
@@ -182,10 +184,10 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
         color_mid = '0.1' # "#00457E"
         color_left = 'r' # "#02315E"
         color_right = 'b' # "#2F70AF"
-    
+
     j3d = pose
     assert j3d.shape[1] > 2, 'Only single 3d pose is supported.'
-    
+
     # plt.tick_params(left = True, right = True , labelleft = False ,
     #                 labelbottom = False, bottom = False)
     # 좀 더 보기 좋게 하기 위해 y <-> z, - 붙임
@@ -195,16 +197,16 @@ def draw_3d_pose(ax, pose, dataset='h36m', lw=1, markersize=1, markeredgewidth=0
             xs, zs, ys = [-np.array([j3d[limb[0], j], j3d[limb[1], j]]) for j in range(3)]
         elif dataset in ['aihub', 'h36m_world', 'h36m_torso', 'torso', 'base', 'fit3d', 'h36m', 'kookmin', 'kookmin2', 'dhdst_torso', 'limb', 'h36m_without_pelvis', 'h36m_without_nose', 'vector', 'torso_small']:
             xs, ys, zs = [np.array([j3d[limb[0], j], j3d[limb[1], j]]) for j in range(3)]
-            
+
         if joint_pairs[i] in joint_pairs_left:
-            ax.plot(xs, ys, zs, color=color_left, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, label=label, linestyle=linestyle) 
+            ax.plot(xs, ys, zs, color=color_left, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, label=label, linestyle=linestyle)
         elif joint_pairs[i] in joint_pairs_right:
-            ax.plot(xs, ys, zs, color=color_right, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, label=label, linestyle=linestyle) 
+            ax.plot(xs, ys, zs, color=color_right, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, label=label, linestyle=linestyle)
         else:
-            ax.plot(xs, ys, zs, color=color_mid, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, label=label, linestyle=linestyle) 
-            
-def draw_2d_pose(ax, pose2d, img=None, 
-                 H=None, W=None, xlim=None, ylim=None, normalize=False, 
+            ax.plot(xs, ys, zs, color=color_mid, lw=lw, marker='o', markerfacecolor='w', markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, label=label, linestyle=linestyle)
+
+def draw_2d_pose(ax, pose2d, img=None,
+                 H=None, W=None, xlim=None, ylim=None, normalize=False,
                  dataset='h36m', color=None, linestyle='-',
                  label:Optional['str']=''):
     if normalize:
@@ -226,22 +228,22 @@ def draw_2d_pose(ax, pose2d, img=None,
                 ax.set_ylim(H, 0)
             else:
                 ax.set_ylim(ax.get_ylim())
-    
+
     if dataset == 'h36m':
-        connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], 
-                    [5, 6], [0, 7], [7, 8], [8, 9], [9, 10], 
-                    [8, 11], [11, 12], [12, 13], [8, 14], [14, 15], [15, 16]] 
-        LR = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0], dtype=bool) 
+        connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5],
+                    [5, 6], [0, 7], [7, 8], [8, 9], [9, 10],
+                    [8, 11], [11, 12], [12, 13], [8, 14], [14, 15], [15, 16]]
+        LR = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0], dtype=bool)
     elif dataset == 'h36m_torso':
         connections = [[0, 1], [0, 4], [4, 11], [11, 14], [14, 0]]
         LR = np.array([0, 0, 1, 1, 0], dtype=bool)
     elif dataset == 'h36m_without_nose':
         # 9 nose -> head
         # 11~16 -> 10~15
-        connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], 
-                    [5, 6], [0, 7], [7, 8], [8, 9], 
-                    [8, 10], [10, 11], [11, 12], [8, 13], [13, 14], [14, 15]] 
-        LR = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0], dtype=bool) 
+        connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5],
+                    [5, 6], [0, 7], [7, 8], [8, 9],
+                    [8, 10], [10, 11], [11, 12], [8, 13], [13, 14], [14, 15]]
+        LR = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0], dtype=bool)
     elif dataset == 'torso': # pelvis l_hip l_shoulder r_shoulder r_hip
         connections = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]]
         LR = np.array([1, 1, 2, 0, 0], dtype=int)
@@ -276,7 +278,7 @@ def draw_2d_pose(ax, pose2d, img=None,
                     0, 0, # left leg
                     1, 1, # right leg
                     ], dtype=bool)
-        
+
     if type(color) != type(None):
         colors = [color, color, color]
     else:
@@ -303,10 +305,10 @@ def draw_2d_pose(ax, pose2d, img=None,
 # https://github.com/Vegetebird/MHFormer/blob/main/demo/vis.py
 def get_2d_pose_image(kps, img=None, H=1080, W=1920, box=None, thickness=10, dataset='h36m'):
     if dataset == 'h36m':
-        connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], 
-                       [5, 6], [0, 7], [7, 8], [8, 9], [9, 10], 
-                       [8, 11], [11, 12], [12, 13], [8, 14], [14, 15], [15, 16]] 
-        LR = np.array([0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=bool) 
+        connections = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5],
+                       [5, 6], [0, 7], [7, 8], [8, 9], [9, 10],
+                       [8, 11], [11, 12], [12, 13], [8, 14], [14, 15], [15, 16]]
+        LR = np.array([0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], dtype=bool)
     elif dataset == 'h36m_torso':
         connections = [[0, 1], [0, 4], [4, 11], [11, 14], [14, 0]]
         LR = np.array([0, 0, 1, 1, 0], dtype=bool)
@@ -367,20 +369,20 @@ def get_2d_pose_image(kps, img=None, H=1080, W=1920, box=None, thickness=10, dat
 
     return img
 
-def show_2d_3d(fig_idx, 
-               camera, 
-               torsos, 
-               xlim=(-1, 1), ylim=(-1, 1), zlim=(-1, 1), 
+def show_2d_3d(fig_idx,
+               camera,
+               torsos,
+               xlim=(-1, 1), ylim=(-1, 1), zlim=(-1, 1),
                H=1000, W=1000,
-               plot_2d=True, 
+               plot_2d=True,
                plot_3d=True,
-               title='', 
+               title='',
                dataset='torso',
-               show=True, 
-               proj_line=False, 
+               show=True,
+               proj_line=False,
                save=None):
     from hpe_library.my_utils import projection, generate_world_frame
-    
+
     torsos = np.array(torsos).reshape(-1, 5, 3)
     camera.update_torso_projection(torsos)
     torsos_projected = projection(torsos, camera.cam_proj)
@@ -390,17 +392,17 @@ def show_2d_3d(fig_idx,
 
     # create axes
     if plot_3d and plot_2d:
-        ax1 = axes_3d(fig=fig, loc=121, 
-                      xlim=xlim, ylim=ylim, zlim=zlim, 
-                      xlabel='X', ylabel='Y', zlabel='Z', 
+        ax1 = axes_3d(fig=fig, loc=121,
+                      xlim=xlim, ylim=ylim, zlim=zlim,
+                      xlabel='X', ylabel='Y', zlabel='Z',
                       title=title)
         ax2 = axes_2d(fig=fig, loc=122, W=W, H=H)
     elif plot_2d:
         ax2 = axes_2d(fig=fig, loc=111, W=W, H=H)
     elif plot_3d:
-        ax1 = axes_3d(fig=fig, loc=111, 
-                      xlim=xlim, ylim=ylim, zlim=zlim, 
-                      xlabel='X', ylabel='Y', zlabel='Z', 
+        ax1 = axes_3d(fig=fig, loc=111,
+                      xlim=xlim, ylim=ylim, zlim=zlim,
+                      xlabel='X', ylabel='Y', zlabel='Z',
                       title=title)
 
     # draw 3d pose
@@ -422,7 +424,7 @@ def show_2d_3d(fig_idx,
         else:
             for torso in camera.proj_torsos:
                 draw_3d_pose(ax1, torso, dataset=dataset)
-    
+
     # draw 2d pose
     if plot_2d:
         plt.sca(ax2)
@@ -534,24 +536,24 @@ def axes_to_compare_pred_gt(fig_idx, xlim=(1.5, 4.5), ylim=(-1.5, 1.5), zlim=(0,
     # --------------------------------------------- Figure setting
     fig = plt.figure(fig_idx, figsize=(10, 10))
     fig.clear()
-    ax_gt3d = axes_3d(fig=fig, loc=221, 
+    ax_gt3d = axes_3d(fig=fig, loc=221,
                       xlim=xlim, ylim=ylim, zlim=zlim, view=view,
                       xlabel='X', ylabel='Y', zlabel='Z', title='GT 3D')
 
-    ax_gt2d = axes_2d(fig=fig, loc=222, W=W, H=H, 
+    ax_gt2d = axes_2d(fig=fig, loc=222, W=W, H=H,
                       xlabel='X', ylabel='Y', title='GT 2D')
 
-    ax_pred3d = axes_3d(fig=fig, loc=223, 
+    ax_pred3d = axes_3d(fig=fig, loc=223,
                         xlim=xlim, ylim=ylim, zlim=zlim, view=view,
                         xlabel='X', ylabel='Y', zlabel='Z', title='Pred 3D')
 
-    ax_pred2d = axes_2d(fig=fig, loc=224, W=W, H=H, 
+    ax_pred2d = axes_2d(fig=fig, loc=224, W=W, H=H,
                         xlabel='X', ylabel='Y', title='Pred 2D')
-    
+
     return ax_gt3d, ax_gt2d, ax_pred3d, ax_pred2d
 
 def plot_to_compare_pred_gt(fig_idx, preds_3d, preds_2d, gts_3d, gts_2d, start=0, length=-1, save=None):
-    
+
     ax_gt3d, ax_gt2d, ax_pred3d, ax_pred2d = axes_to_compare_pred_gt(fig_idx)
     # --------------------------------------------- Plot
     plt.sca(ax_gt3d)
@@ -574,13 +576,13 @@ def show_whole_segment_trajectories(fig_idx, traj_segment_dataset):
     # ---------------------------------------------- Figure setting
     fig = plt.figure(fig_idx)
     fig.clear()
-    ax1 = axes_3d(fig=fig, loc=121, 
+    ax1 = axes_3d(fig=fig, loc=121,
                 xlim=(1.5, 4.5), ylim=(-1.5, 1.5), zlim=(0, 3),
-                xlabel='X', ylabel='Y', zlabel='Z', title='train segments', 
+                xlabel='X', ylabel='Y', zlabel='Z', title='train segments',
                 view=(90, 0))
-    ax2 = axes_3d(fig=fig, loc=122, 
+    ax2 = axes_3d(fig=fig, loc=122,
                 xlim=(1.5, 4.5), ylim=(-1.5, 1.5), zlim=(0, 3),
-                xlabel='X', ylabel='Y', zlabel='Z', title='test segments', 
+                xlabel='X', ylabel='Y', zlabel='Z', title='test segments',
                 view=(90, 0))
     # ---------------------------------------------- Plot trajectories
     draw_segments(ax1, train_segments)
@@ -592,14 +594,23 @@ def show_whole_segment_trajectories(fig_idx, traj_segment_dataset):
 
     plt.suptitle('{} train / {} test segments'.format(len(train_segments), len(test_segments)))
     plt.show()
-    
+
 # Remove duplicate labels in legend
-def legend_without_duplicate_labels(ax, fontsize=5):
+def legend_without_duplicate_labels(ax, fontsize=5, loc='', bbox_to_anchor=''):
     handles, labels = ax.get_legend_handles_labels()
     unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
     if len(unique) > 0:
-        ax.legend(*zip(*unique), fontsize=fontsize)
-    
+        if loc == '':
+            if bbox_to_anchor == '':
+                ax.legend(*zip(*unique), fontsize=fontsize)
+            else:
+                ax.legend(*zip(*unique), fontsize=fontsize, bbox_to_anchor=bbox_to_anchor)
+        else:
+            if bbox_to_anchor == '':
+                ax.legend(*zip(*unique), fontsize=fontsize, loc=loc)
+            else:
+                ax.legend(*zip(*unique), fontsize=fontsize, loc=loc, bbox_to_anchor=bbox_to_anchor)
+
 def draw_one_segment(fig_idx, segment, cam_proj, period=1, W=1000, H=1000, show_3d_pose=True, show_2d_pose=True):
     from hpe_library.my_utils import projection
     # Plot one segment
@@ -612,26 +623,26 @@ def draw_one_segment(fig_idx, segment, cam_proj, period=1, W=1000, H=1000, show_
 
     fig = plt.figure(fig_idx)
     fig.clear()
-    ax1 = axes_3d(fig=fig, loc=121, 
+    ax1 = axes_3d(fig=fig, loc=121,
                 xlim=(1.5, 4.5), ylim=(-1.5, 1.5), zlim=(0, 3),
                 xlabel='X', ylabel='Y', zlabel='Z', title='3D trajectory',
                 view=(45, 180))
-    ax2 = axes_2d(fig=fig, loc=122, W=W, H=H, 
+    ax2 = axes_2d(fig=fig, loc=122, W=W, H=H,
                 xlabel='X', ylabel='Y', title='2D trajectory')
 
     # ---------------------------------------------- 3D plot
     plt.sca(ax1)
     draw_segment(ax1, points, dim='3d')
-    if show_3d_pose: draw_multiple_3d_pose(ax1, torsos, dataset='torso', period=period) 
+    if show_3d_pose: draw_multiple_3d_pose(ax1, torsos, dataset='torso', period=period)
     legend_without_duplicate_labels(ax1)
     # ---------------------------------------------- 2D plot
     plt.sca(ax2)
     points_projected = projection(points, cam_proj)
     draw_segment(ax2, points_projected, dim='2d')
     if show_2d_pose: draw_multiple_2d_pose(ax2, torso_projected, dataset='torso', period=period)
-    
+
     plt.show()
-    
+
 def draw_bbox(ax, bbox, box_type='xyxy', color="red", linestyle='-', linewidth=1, dim_type='2d'):
     if box_type == 'xyxy':
         x1, y1, x2, y2 = bbox
@@ -665,10 +676,10 @@ def draw_bbox(ax, bbox, box_type='xyxy', color="red", linestyle='-', linewidth=1
         ax.plot([upper_right[0], lower_right[0]], [upper_right[1], lower_right[1]], [upper_right[2], lower_right[2]], color=color, linewidth=linewidth)
         ax.plot([lower_right[0], lower_left[0]], [lower_right[1], lower_left[1]], [lower_right[2], lower_left[2]], color=color, linewidth=linewidth)
         ax.plot([lower_left[0], upper_left[0]], [lower_left[1], upper_left[1]], [lower_left[2], upper_left[2]], color=color, linewidth=linewidth)
-    
+
 def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=None, gt=[], W=None, H=None, pose_type='3d', fps=30,
                          xlim=(-0.5, 0.5), ylim=(-0.5, 0.5), zlim=(0, 1), view=(0, 45),
-                         centered_xy=False, cam_space=False, on_ground=False, refine_tilt=False,  
+                         centered_xy=False, cam_space=False, on_ground=False, refine_tilt=False,
                          dynamic_view=False, dual_view=False,
                          imgs=None,
                          show_axis=False, grid=True):
@@ -680,7 +691,7 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
         if dual_view:
             ax1 = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 45), show_axis=show_axis, grid=grid)
             ax2 = axes_3d(fig, loc=122, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, -45), show_axis=show_axis, grid=grid)
-        elif dynamic_view: 
+        elif dynamic_view:
             ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 0), show_axis=show_axis, grid=grid)# (0, 10*(sin(2*radians(frame)))+45))
         else:
             ax = axes_3d(fig, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis, grid=grid)
@@ -690,7 +701,7 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
         assert pose_2d_list != None, 'pose_2d_list should be provided'
         assert len(pose_2d_list) == len(pose_list), 'pose_2d_list should have same length as pose_list'
         assert dual_view == False, 'dual_view is not supported in 2d3d mode'
-        if dynamic_view: 
+        if dynamic_view:
             ax = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=(0, 0), show_axis=show_axis, grid=grid)# (0, 10*(sin(2*radians(frame)))+45))
         else:
             ax = axes_3d(fig, loc=121, xlim=xlim, ylim=ylim, zlim=zlim, view=view, show_axis=show_axis, grid=grid)
@@ -729,15 +740,15 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
                     R3 = Rotation.from_rotvec([0, np.radians(tilt), 0]).as_matrix() # tilt around y-axis
                     pose = rotate_torso_by_R(pose, R3)
             #pose = get_rootrel_pose(pose) # root-relative
-            
-            if len(pose_gt) != 0: 
+
+            if len(pose_gt) != 0:
                 if centered_xy:
                     idx = get_h36m_keypoint_index('Pelvis')
                     assert idx != -1, 'Pelvis keypoint not found'
                     pose_gt[:, 0] -= pose_gt[idx, 0]
                     pose_gt[:, 1] -= pose_gt[idx, 1]
                 if cam_space:
-                    R3 = Rotation.from_rotvec([0, 0, np.pi/2]).as_matrix() # 
+                    R3 = Rotation.from_rotvec([0, 0, np.pi/2]).as_matrix() #
                     pose_gt = rotate_torso_by_R(pose_gt, R3 @ R1)
                 if on_ground or refine_tilt:
                     l_ankle_gt = pose_gt[get_h36m_keypoint_index('L_Ankle')]
@@ -760,24 +771,24 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
                 ax1.set_title('frame {}'.format(frame))
                 ax2.set_title('frame {}'.format(frame))
             else:
-                if dynamic_view: 
+                if dynamic_view:
                     ax.view_init(0, frame/fps*30)
                 clear_axes(ax)
                 draw_3d_pose(ax, pose, dataset=dataset)
                 if type(gt) != type(None):
                     draw_3d_pose(ax, pose_gt, dataset=dataset)
-                ax.set_title('frame {}'.format(frame)) 
+                ax.set_title('frame {}'.format(frame))
         elif pose_type == '2d':
             clear_axes(ax)
             if type(imgs) != type(None):
                 assert len(imgs) == len(pose_list), 'imgs should have same length as pose_list'
-                #img = get_2d_pose_image(pose, img=imgs[frame], W=W, H=H, dataset=dataset)   
+                #img = get_2d_pose_image(pose, img=imgs[frame], W=W, H=H, dataset=dataset)
                 draw_2d_pose(ax, pose, normalize=True, img=imgs[frame])
-            else: 
+            else:
                 draw_2d_pose(ax, pose, normalize=True)
         elif pose_type == '2d3d':
             clear_axes(ax)
-            if dynamic_view: 
+            if dynamic_view:
                 ax.view_init(0, frame)
             draw_3d_pose(ax, pose, dataset=dataset)
             if len(pose_gt) != 0:
@@ -789,15 +800,15 @@ def save_h36m_pose_video(pose_list, video_path, dataset='h36m', pose_2d_list=Non
         canvas = FigureCanvas(fig)
         canvas.draw()
         image_from_plot = np.array(canvas.renderer._renderer)
-        image_from_plot = cv2.cvtColor(image_from_plot, cv2.COLOR_RGB2BGR)       
+        image_from_plot = cv2.cvtColor(image_from_plot, cv2.COLOR_RGB2BGR)
         videowriter.append_data(image_from_plot)
     videowriter.close()
-    
+
 def generate_pose_video(fig, save_path, ax_pose, fps=30, stride=1, normalize_2d=False):
     # fig: matplotlib.figure.Figure
     # save_path: str
     # ax_pose: [(ax, pose), ...]
-    if os.path.exists(save_path): 
+    if os.path.exists(save_path):
         print(f'Already exists: {os.path.abspath(save_path)}')
         return
     length_list = [pose.shape[0] for ax, pose in ax_pose]
@@ -816,13 +827,13 @@ def generate_pose_video(fig, save_path, ax_pose, fps=30, stride=1, normalize_2d=
             image_from_plot = image_from_plot.reshape(canvas.get_width_height()[::-1] + (3,))
             videowriter.append_data(image_from_plot)
     print(f'Saved: {os.path.abspath(save_path)}')
-    
+
 def generate_plot_video(fig, save_path, total_frame, plot_func, fps=30, stride=1, overwrite=False):
     # fig: matplotlib.figure.Figure
     # save_path: str
     # total_frame: int
     # plot_func: function
-    if os.path.exists(save_path) and not overwrite: 
+    if os.path.exists(save_path) and not overwrite:
         print(f'Already exists: {os.path.abspath(save_path)}')
         return
     with imageio.get_writer(save_path, fps=fps) as videowriter:
@@ -834,7 +845,7 @@ def generate_plot_video(fig, save_path, total_frame, plot_func, fps=30, stride=1
             image_from_plot = image_from_plot.reshape(canvas.get_width_height()[::-1] + (3,))
             videowriter.append_data(image_from_plot)
     print(f'Saved: {os.path.abspath(save_path)}')
-            
+
 def generate_axes(fig_idx, configs, fig_title='', figsize=[6.4, 4.8]):
     fig = plt.figure(fig_idx, figsize=figsize)
     fig.clear()
@@ -853,11 +864,11 @@ def generate_axes(fig_idx, configs, fig_title='', figsize=[6.4, 4.8]):
             if 'view' in config: ax.view_init(config['view'][0], config['view'][1])
             ax.set_aspect('equal', 'box')
         elif config['type'] == '2d':
-            if 'normalize' in config: 
+            if 'normalize' in config:
                 assert config['normalize'] == True, 'normalize should be True'
                 if locvec == None: ax = axes_2d(fig, loc=loc, normalize=config['normalize'])
                 else: ax = axes_2d(fig, locvec=locvec, normalize=config['normalize'])
-            else: 
+            else:
                 assert 'W' in config and 'H' in config, 'W and H should be provided'
                 W, H = config['W'], config['H']
                 if locvec == None: ax = axes_2d(fig, loc=loc, W=W, H=H)
@@ -869,19 +880,19 @@ def generate_axes(fig_idx, configs, fig_title='', figsize=[6.4, 4.8]):
         ax_list[key] = ax
     return fig, ax_list
 
-def general_plot_func(axs, configs, plot_pose_setting, frame_num):
+def general_plot_func(axs, configs, plot_pose_setting, frame_num, legend_fontsize=5, legend_loc='', legend_bbox_to_anchor=''):
     '''
     axs: {key: ax}
     configs: {key: {
-        'type': '3d' or '2d', 
-        'W': int, 'H': int, 
-        'mode': 'world' or 'cam', 
-        'normalize': True or False}, 
+        'type': '3d' or '2d',
+        'W': int, 'H': int,
+        'mode': 'world' or 'cam',
+        'normalize': True or False},
         ...}
     plots_and_poses: [(plot, pose, img, dataset, color, label, linestyle), ...]
     frame_num: int
     '''
-    
+
     clear_axes([axs[key] for key in axs.keys()])
     for plot, pose, setting in plot_pose_setting:
         ax = axs[plot]
@@ -889,7 +900,7 @@ def general_plot_func(axs, configs, plot_pose_setting, frame_num):
         color = setting['color'] if 'color' in setting and setting['color'] != '' else None
         label = setting['label'] if 'label' in setting and setting['label'] != '' else None
         linestyle = setting['linestyle'] if 'linestyle' in setting and setting['linestyle'] != '' else '-'
-        if 'img' in setting: 
+        if 'img' in setting:
             if type(setting['img']) == list: img = setting['img'][frame_num]
             else: img = setting['img']
         else: img = None
@@ -914,4 +925,4 @@ def general_plot_func(axs, configs, plot_pose_setting, frame_num):
             else:                            draw_2d_pose(axs[plot], pose, img=img, dataset=dataset, color=color, label=label, linestyle=linestyle, W=W, H=H)
         else:
             raise ValueError(f'Invalid type: {configs[plot]["type"]}')
-        legend_without_duplicate_labels(ax)
+        legend_without_duplicate_labels(ax, fontsize=legend_fontsize, loc=legend_loc, bbox_to_anchor=legend_bbox_to_anchor)

@@ -15,8 +15,8 @@ def args_dict_to_namespace(args_dict, arg_blacklist=['num_trial', 'save_model_pa
             continue
         arg_list.append('--'+arg)
         # if args_dict[arg] in [True, False]: # boolean은 str로 변환하면 parser에서 무조건 True로 인식함
-        #     arg_list.append(args_dict[arg]) 
-        # else:                        
+        #     arg_list.append(args_dict[arg])
+        # else:
         arg_list.append(str(args_dict[arg]))
         #print(arg, args_dict[arg])
     #print(arg_list)
@@ -34,7 +34,7 @@ def get_result(model, input, src_torso, tar_torso=None, label=None, output_type=
     from hpe_library.my_utils import get_torso_direction, rotate_torso_by_R
     output = model(input)
     #src_torso = src_torso.cpu().detach().numpy().reshape(5, 3)
-    gt_torso = tar_torso 
+    gt_torso = tar_torso
     if output_type == 'torso':
         pred_torso = output.cpu().detach().numpy().reshape(5, 3)
         if label is not None:
@@ -55,7 +55,7 @@ def get_result(model, input, src_torso, tar_torso=None, label=None, output_type=
         pred_theta = pred_theta.cpu().detach().numpy()
         pred_rotmat = Rotation.from_rotvec(pred_theta*pred_rotvec).as_matrix()
         pred_torso = rotate_torso_by_R(src_torso, pred_rotmat[0]) + pred_delta_point
-        
+
         if label is not None:
             #print('label in')
             gt_delta_point, gt_rotvec, gt_theta = label[:, :3], label[:, 3:6], label[:, 6]
@@ -65,7 +65,7 @@ def get_result(model, input, src_torso, tar_torso=None, label=None, output_type=
             src_direction = get_torso_direction(src_torso)
             tar_direction = get_torso_direction(tar_torso)
             gt_delta_point = tar_torso - src_torso
-            gt_rotvec = np.cross(src_direction, tar_direction) 
+            gt_rotvec = np.cross(src_direction, tar_direction)
             gt_theta  = np.arccos(np.dot(src_direction, tar_direction))
             #print(pred_rotvec.cpu().detach().numpy(), gt_rotvec)
             #print(pred_theta.cpu().detach().numpy(), gt_theta)
@@ -77,7 +77,7 @@ def get_result(model, input, src_torso, tar_torso=None, label=None, output_type=
             src_direction = get_torso_direction(src_torso)
             tar_direction = get_torso_direction(tar_torso)
             gt_delta_point = tar_torso - src_torso
-            gt_rotvec = np.cross(src_direction, tar_direction) 
+            gt_rotvec = np.cross(src_direction, tar_direction)
             gt_theta  = np.arccos(np.dot(src_direction, tar_direction))
             pred_rotmat = Rotation.from_rotvec(gt_theta*gt_rotvec).as_matrix()
             pred_torso = rotate_torso_by_R(src_torso, pred_rotmat) + gt_delta_point
@@ -101,7 +101,7 @@ def get_output_type(output_list):
         elif 'tar_delta_point'  == output: output_type += 'dp_'
         elif 'tar_delta_quat'   == output: output_type += 'dq_'
         elif 'tar_delta_rotvec' == output: output_type += 'drv'
-        
+
     output_type = output_type[:-1]
     return output_type
 
@@ -113,7 +113,7 @@ def construct_torso_from_output(output_type, output, src_torso):
         pred_delta_point = output[0].detach().cpu().numpy()
     elif output_type in ['dt', 'tt']:
         pred_delta_point = output[0].detach().cpu().numpy().reshape(5,3)
-    elif output_type == 'dp_dq': 
+    elif output_type == 'dp_dq':
         pred_delta_point, pred_delta_quat = output
         pred_delta_point = pred_delta_point[0].detach().cpu().numpy()
         pred_delta_quat = pred_delta_quat[0].detach().cpu().numpy()
@@ -124,11 +124,11 @@ def construct_torso_from_output(output_type, output, src_torso):
     pred_torso = rotate_torso_by_R(src_torso, pred_delta_rot) + pred_delta_point
     return pred_torso
 
-# 
+#
 def load_best_model_for_inference(out_dir, test_trial):
     from hpe_library.my_utils import load_args, load_best_model, load_dataset
     # --------------------------------------------- Load args
-    args_dict = load_args(out_dir, test_trial) # load args dict 
+    args_dict = load_args(out_dir, test_trial) # load args dict
     args = args_dict_to_namespace(args_dict) # convert args dict to namespace
     # --------------------------------------------- Load best model
     # Load dataset
@@ -149,12 +149,12 @@ def infer_one_segment(model, args, segment, cam_proj, stride, device='cuda', use
     assert 'rots' in segment.keys(), 'segment must have key "rots"'
     assert 'torsos_projected' in segment.keys(), 'segment must have key "torsos_projected"'
     assert len(segment['torsos']) > 1, 'segment must have more than 1 frame'
-    
+
     torsos = segment['torsos']
     rots = segment['rots']
     torsos_projected = segment['torsos_projected']
     #print('num frames', len(torsos))
-    
+
     # --------------------------------------------- Get output type
     output_type = get_output_type(args.output_list)
     #print(output_type)
@@ -168,9 +168,9 @@ def infer_one_segment(model, args, segment, cam_proj, stride, device='cuda', use
     prev_torso_projected = torsos_projected[0]
     for i in range(0, len(torsos)-stride, stride):
         # Prepare inputs
-        src_torso = torsos[i].copy() if use_gt_torso else prev_torso 
+        src_torso = torsos[i].copy() if use_gt_torso else prev_torso
         src_2d_old = prev_torso_projected if use_pred_2d else torsos_projected[i].copy()
-        tar_torso = torsos[i+1].copy() 
+        tar_torso = torsos[i+1].copy()
         src_2d_new = torsos_projected[i+1].copy()
         src_rot = rots[i].copy()
 
@@ -185,7 +185,7 @@ def infer_one_segment(model, args, segment, cam_proj, stride, device='cuda', use
         pred_torso = construct_torso_from_output(output_type, output, src_torso)
         # Project torso to 2D
         pred_torso_projected = projection(pred_torso, cam_proj)
-        # Store 
+        # Store
         preds_3d.append(pred_torso)
         preds_2d.append(pred_torso_projected)
         gts_3d.append(tar_torso)
@@ -198,7 +198,7 @@ def infer_one_segment(model, args, segment, cam_proj, stride, device='cuda', use
     preds_3d = np.array(preds_3d)
     gts_2d = np.array(gts_2d)
     preds_2d = np.array(preds_2d)
-    
+
     return preds_3d, preds_2d, gts_3d, gts_2d
 
 def test_model_by_segment_file(out_dir, test_trial, segment_file='', data_type='test', stride=5, use_gt_torso=False, use_pred_2d=False):
@@ -223,7 +223,7 @@ def test_model_by_segment_file(out_dir, test_trial, segment_file='', data_type='
         #print('3D error: ', mpjpe)
         mpjpe_list.append(mpjpe)
     avg_mpjpe = np.mean(mpjpe_list)
-    
+
     return avg_mpjpe
 
 def get_dataset_info_from_segment_folder(segment_folder):
@@ -231,7 +231,7 @@ def get_dataset_info_from_segment_folder(segment_folder):
     return float(step_size), max_dist, max_deg, mac_bias, rt_type, xyz_range, stride.split('stride')[1], window_size.split('window')[1]
 
 def denormalize_motionbert_result(test_data, W, H):
-    # data: (N, n_frames, 51) or data: (N, n_frames, 17, 3)        
+    # data: (N, n_frames, 51) or data: (N, n_frames, 17, 3)
     n_clips = test_data.shape[0]
     data = test_data.reshape([n_clips, -1, 17, 3])
     # denormalize (x,y,z) coordiantes for results
@@ -242,7 +242,7 @@ def denormalize_motionbert_result(test_data, W, H):
     return data # [n_clips, -1, 17, 3]
 
 def get_inference_from_motionbert(model, input_data, args, W, H):
-    model.eval()  
+    model.eval()
     output = []
     with torch.no_grad():
         if torch.cuda.is_available():
@@ -261,7 +261,7 @@ def get_inference_from_motionbert(model, input_data, args, W, H):
     return output
 
 def get_inference_from_dhdst(model, input_data, args, W, H, denormalize=False, input_type='video'):
-    model.eval()  
+    model.eval()
     output = []
     with torch.no_grad():
         if torch.cuda.is_available():
@@ -281,7 +281,7 @@ def get_inference_from_dhdst(model, input_data, args, W, H, denormalize=False, i
     return output
 
 def get_inference_from_dhdst_torso(model, input_data, args, W, H, denormalize=False, with_frame=False,  input_type='video'):
-    model.eval()  
+    model.eval()
     pred_torso_output = []
     if with_frame:
         pred_lower_frame_R_output = []
@@ -316,7 +316,7 @@ def get_inference_from_dhdst_torso(model, input_data, args, W, H, denormalize=Fa
         return pred_torso_output
 
 def get_inference_from_DHDSTformer_limb(model, input_data, args, W, H, denormalize=False, input_type='video'):
-    model.eval()  
+    model.eval()
     output = []
     with torch.no_grad():
         if torch.cuda.is_available():
@@ -337,19 +337,21 @@ def get_inference_from_DHDSTformer_limb(model, input_data, args, W, H, denormali
 
 def normalize_input(input_data, W, H):
     # input range: [0, W] -> [-1, 1]
+    den = W if W >= H else H
     if input_data.shape[-1] == 3:
-        return input_data / W * 2 - [1, H / W, 0]
+        return (input_data * 2 - [W, H, 0]) / den
     elif input_data.shape[-1] == 2:
-        return input_data / W * 2 - [1, H / W]
+        return (input_data * 2 - [W, H]) / den # (input_data * 2 - [W, H]) / W
     else:
         raise ValueError('Invalid input shape: {input_data.shape}')
-    
+
 def denormalize_input(input_data, W, H):
     # input range: [-1, 1] -> [0, W]
+    den = W if W >= H else H
     if input_data.shape[-1] == 3:
-        return (input_data + [1, H / W, 0]) * W / 2
+        return (input_data * den + [W, H, 0]) / 2
     elif input_data.shape[-1] == 2:
-        return (input_data + [1, H / W]) * W / 2
+        return (input_data * den + [W, H]) / 2
     else:
         raise ValueError('Invalid input shape: {input_data.shape}')
 

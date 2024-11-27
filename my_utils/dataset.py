@@ -190,7 +190,7 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
     rand_roll_period = data_aug['rand_roll_period']
     
     # only_visible_frame -> for 3dhp
-    if data_type in overwrite_list: 
+    if data_type in overwrite_list:
         overwrite = True
     else:
         if canonical_type != None:
@@ -222,7 +222,7 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
     elif data_type == 'cam_param':        return load_cam_params(dataset_name, save_paths, overwrite, no_save, only_visible_frame, adaptive_focal)
     elif data_type == 'world_3d':         return load_world_3d(dataset_name, save_paths, overwrite, no_save)
     elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, save_paths, overwrite, no_save, univ, only_visible_frame, data_aug)
-    elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_paths, overwrite, no_save, univ, only_visible_frame, data_aug)
+    elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_paths, overwrite, no_save, only_visible_frame, data_aug)
     elif data_type == 'img_3d':           return load_img_3d(dataset_name, save_paths, overwrite, no_save)
     elif data_type == 'img_25d':          return load_img25d(dataset_name, save_paths, overwrite, no_save)
     elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, save_paths, overwrite, no_save)
@@ -230,9 +230,9 @@ def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_li
     elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, adaptive_focal, data_aug)
     else:                                 raise ValueError(f'{data_type} not found')
     
-def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, 
-                   data_aug={'step_rot': 0, 
-                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, univ=False,
+                   data_aug={'step_rot': 0,
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273,
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                         'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                         }):
@@ -254,7 +254,7 @@ def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=T
     for data_type in data_type_list:
         key = data_type
         
-        if 'adaptive_focal' in data_type: 
+        if 'adaptive_focal' in data_type:
             data_type = data_type.split('_adaptive_focal')[0]
             adaptive_focal = True
         else: adaptive_focal = False
@@ -266,7 +266,7 @@ def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=T
             canonical_type = data_type.split('canonical_')[-1]
             data_type = 'img_2d_canonical'
         else:
-            canonical_type = None 
+            canonical_type = None
             
         # if data_type in ['cam_3d', 'img_2d', 'cam_3d_canonical', 'img_2d_canonical']:
         #     if step_rot != 0: key += f'-steprot_{step_rot}'
@@ -277,7 +277,7 @@ def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=T
         #     if sinu_roll_mag != 0: key += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
         #     elif rand_roll_mag != 0: key += f'rand_roll_m{rand_roll_mag}_p{rand_roll_period}'
             
-        data_dict[key] = load_data(dataset_name=dataset_name, data_type=data_type, canonical_type=canonical_type, overwrite_list=overwrite_list, adaptive_focal=adaptive_focal, verbose=verbose, data_aug=data_aug)
+        data_dict[key] = load_data(dataset_name=dataset_name, data_type=data_type, canonical_type=canonical_type, overwrite_list=overwrite_list, adaptive_focal=adaptive_focal, verbose=verbose, univ=univ, data_aug=data_aug)
     return data_dict
     
 def load_source_list(dataset_name, save_paths, overwrite=False, no_save=False):
@@ -505,9 +505,9 @@ def load_cam_3d(dataset_name, save_paths, overwrite=False, no_save=False, univ=F
         if not no_save: savepkl(cam_3ds, save_path_cam_3d)
     return cam_3ds
 
-def load_img_2d(dataset_name, save_paths, overwrite=False, no_save=False, univ=False, only_visible_frame=False, 
-                data_aug={'step_rot': 0, 
-                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
+def load_img_2d(dataset_name, save_paths, overwrite=False, no_save=False, only_visible_frame=False,
+                data_aug={'step_rot': 0,
+                        'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273,
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                         'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                         }):
@@ -562,8 +562,8 @@ def load_img_2d(dataset_name, save_paths, overwrite=False, no_save=False, univ=F
         if not no_save: savepkl(img_2ds, save_path_img_2d)
     return img_2ds
 
-def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, no_save=False, 
-                          data_aug={'step_rot': 0, 
+def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, no_save=False,
+                          data_aug={'step_rot': 0,
                                     'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273, 
                                     'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                                     'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
@@ -832,12 +832,11 @@ def load_img25d(dataset_name, save_paths, overwrite=False, no_save=False):
 def load_h36m():
     from posynda_utils import Human36mDataset
     from my_utils import readJSON
-    
     # camera parameters
     cam_param = readJSON('/home/hrai/codes/hpe_library/data/h36m_camera-parameters.json')
     print('==> Loading 3D data wrt World CS...')
-    if 'h36m_3d_world' not in globals(): del globals()['h36m_3d_world']
-    if 'h36m_3d_world' not in locals(): del locals()['h36m_3d_world']
+    #if 'h36m_3d_world' not in globals(): del globals()['h36m_3d_world']
+    #if 'h36m_3d_world' not in locals(): del locals()['h36m_3d_world']
     h36m_3d_world = Human36mDataset('/home/hrai/codes/hpe_library/data/data_3d_h36m.npz', remove_static_joints=True)._data
 
     return h36m_3d_world, cam_param
@@ -1617,6 +1616,7 @@ def gernerate_dataset_yaml(subset):
     train_cam = []
     test_cam = []
     cam_list = []
+    univ = False
     if dataset_name == 'h36m': 
         if 'TR_S1_TS_S5678' in subset: 
             train_subject = ['S1']
@@ -1656,6 +1656,7 @@ def gernerate_dataset_yaml(subset):
         elif 'TS1_4' in subset: 
             test_subject = [f'TS{i}' for i in range(1, 5)]
         else: raise ValueError(f'Invalid item: {subset}') 
+        if 'UNIV' in subset: univ = True
     
     #print(train_subject, test_subject)
 
@@ -1764,8 +1765,10 @@ def gernerate_dataset_yaml(subset):
         'rand_pitch_mag': rand_pitch_mag,
         'rand_pitch_period': rand_pitch_period,
         'rand_roll_mag': rand_roll_mag,
-        'rand_roll_period': rand_roll_period
+        'rand_roll_period': rand_roll_period,
+        'univ': univ
     }
     
     with open(os.path.join(yaml_root, f'{subset}.yaml'), 'w') as file:
         yaml.dump(data, file, default_flow_style=False, allow_unicode=True)
+    print(os.path.join(yaml_root, f'{subset}.yaml'))

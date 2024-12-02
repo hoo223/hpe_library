@@ -2,25 +2,51 @@ from hpe_library.lib_import import *
 
 def canonicalization_cam_3d(cam_3d, canonical_type):
     if len(cam_3d.shape) == 2:
-        if 'same_z' in canonical_type:       dist = cam_3d[0, 2] # z value of pelvis joint for each frame 
-        elif canonical_type == 'same_dist':  dist = np.linalg.norm(cam_3d[0], axis=1) # dist from origin to pelvis joint for each frame 
-        elif 'fixed_dist' in canonical_type: dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d)) 
+        if 'same_z' in canonical_type:       dist = cam_3d[0, 2] # z value of pelvis joint for each frame
+        elif 'same_dist' in canonical_type:  dist = np.linalg.norm(cam_3d[0], axis=1) # dist from origin to pelvis joint for each frame
+        elif 'fixed_dist' in canonical_type: dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d))
+        #elif 'revolute' in canonical_type: dist = np.linalg.norm(cam_3d[0], axis=1) # dist from origin to pelvis joint for each frame
         else: raise ValueError(f'canonical type {canonical_type} not found')
         cam_3d_canonical = cam_3d.copy() - cam_3d[0, None] # move to cam origin
         cam_3d_canonical[..., 2] += dist[None]
     elif len(cam_3d.shape) == 3:
-        if 'same_z' in canonical_type:       dist = cam_3d[:, 0, 2] # z value of pelvis joint for each frame 
-        elif canonical_type == 'same_dist':  dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame 
-        elif 'fixed_dist' in canonical_type: dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d)) 
-        else: raise ValueError(f'canonical type {canonical_type} not found')
         cam_3d_canonical = cam_3d.copy() - cam_3d[:, 0, None] # move to cam origin
+        if 'same_z' in canonical_type:       dist = cam_3d[:, 0, 2] # z value of pelvis joint for each frame
+        elif canonical_type == 'same_dist':  dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame
+        elif 'fixed_dist' in canonical_type: dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d))
+        elif 'revolute' in canonical_type:
+            dist = np.linalg.norm(cam_3d[:, 0], axis=1)
+            v_origin_to_pelvis = cam_3d[:, 0] / dist[:, None]
+            v_origin_to_revolute = np.array([0, 0, 1]).reshape(1, 3).repeat(len(cam_3d), axis=0)
+            rot_pelvis_to_revolute = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_revolute)
+            rot_pelvis_to_revolute_inv = np.linalg.inv(rot_pelvis_to_revolute)
+            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, rot_pelvis_to_revolute_inv)
+        else: raise ValueError(f'canonical type {canonical_type} not found')
         cam_3d_canonical[..., 2] += dist[:, None]
     else:
         raise ValueError(f'cam_3d shape {cam_3d.shape} not supported')
     return cam_3d_canonical
 
+def genertate_pcl_img_2d(img_2d, cam_param):
+    from hpe_library.my_utils.dh import projection
+    K = cam_param['intrinsic']
+    K_inv = np.linalg.inv(K)
+    locations = img_2d[:, 0]
+    locations = np.hstack([locations, np.ones((locations.shape[0], 1))]) # to homogeneous coordinates
+    locations = locations @ K_inv.T
+    R_virt2reals = batch_virtualCameraRotationFromPosition(locations)
+    # R_real2virts = np.linalg.inv(R_virt2reals)
+    R_real2virts_inv = R_virt2reals
+
+    norm_2d = img_2d.copy() # np.stack([img_2d, np.ones([img_2d.shape[0], img_2d.shape[1], 1])])
+    norm_2d = np.concatenate([norm_2d, np.ones((norm_2d.shape[0], norm_2d.shape[1], 1))], axis=-1)
+    norm_2d = norm_2d @ K_inv.T
+    norm_2d_virt = np.einsum('ijk,ikl->ijl', norm_2d, R_real2virts_inv)
+    img_2d_pcl = projection(norm_2d_virt, K)
+    return img_2d_pcl
+
 # Function to compute rotation matrices from 2D pose batch input
-def compute_rotation_matrix(input_2d_p):
+def batch_virtualCameraRotationFromBatchInput(input_2d_p, inverse=False):
     # Extract pelvis coordinates (0th joint, [x, y])
     pelvis_coords = input_2d_p[..., 0, :]  # Shape: [B, F, 2]
     px = pelvis_coords[..., 0]  # Shape: [B, F]
@@ -49,17 +75,97 @@ def compute_rotation_matrix(input_2d_p):
         torch.stack([r21, r22, r23], dim=-1),  # Second row
         torch.stack([r31, r32, r33], dim=-1)   # Third row
     ], dim=-2)  # Shape: [B, F, 3, 3]
+    if inverse:
+        R = R.transpose(-2, -1)
 
     return R
 
-# Function to apply rotation matrices to 3D pose output
-def rotate_3d_pose(input_3d_pose, rotation_matrices):
-    # Reshape input_3d_pose to match rotation_matrices dimensions for batch matrix multiplication
-    B, F, J, C = input_3d_pose.shape  # Shape: [B, F, 17, 3]
-    input_3d_pose_expanded = input_3d_pose.view(B, F, J, C, 1)  # Shape: [B, F, 17, 3, 1]
+def batch_rotation_matrix_from_vectors_torch(vec1, vec2):
+    """
+    Returns the rotation matrices that align vec1 to vec2 for a batch of vectors using torch tensors.
+    :param vec1: A batch of 3d "source" vectors. Shape (batch, frame, 3)
+    :param vec2: A batch of 3d "destination" vectors. Shape (batch, frame, 3)
+    :return: A batch of transformation matrices (batch, frame, 3, 3) which when applied to vec1, aligns it with vec2.
+    """
+    # Normalize the input vectors
+    a = vec1 / torch.norm(vec1, dim=2, keepdim=True)
+    b = vec2 / torch.norm(vec2, dim=2, keepdim=True)
+    v = torch.cross(a, b, dim=2)
+    c = torch.einsum('bij,bij->bi', a, b)
+    s = torch.norm(v, dim=2)
 
-    # Apply rotation
-    rotated_pose = torch.matmul(rotation_matrices.unsqueeze(2), input_3d_pose_expanded)  # Shape: [B, F, 17, 3, 1]
-    rotated_pose = rotated_pose.squeeze(-1)  # Shape: [B, F, 17, 3]
+    # Compute the skew-symmetric cross-product matrices of v
+    kmat = torch.zeros((vec1.shape[0], vec1.shape[1], 3, 3), device=vec1.device)
+    kmat[:, :, 0, 1] = -v[:, :, 2]
+    kmat[:, :, 0, 2] = v[:, :, 1]
+    kmat[:, :, 1, 0] = v[:, :, 2]
+    kmat[:, :, 1, 2] = -v[:, :, 0]
+    kmat[:, :, 2, 0] = -v[:, :, 1]
+    kmat[:, :, 2, 1] = v[:, :, 0]
 
-    return rotated_pose
+    # Compute the rotation matrices
+    eye = torch.eye(3, device=vec1.device).reshape(1, 1, 3, 3)
+    rotation_matrices = eye + kmat + torch.einsum('bijk,bikl->bijl', kmat, kmat) * ((1 - c) / (s ** 2)).unsqueeze(-1).unsqueeze(-1)
+
+    return rotation_matrices
+
+def batch_inverse_rotation_matrices(rotation_matrices):
+    """
+    Returns the inverse of a batch of rotation matrices.
+    :param rotation_matrices: A batch of rotation matrices. Shape (Batch, Frame, 3, 3)
+    :return: A batch of inverse rotation matrices. Shape (Batch, Frame, 3, 3)
+    """
+    return torch.linalg.inv(rotation_matrices)
+
+def batch_rotation_matrix_from_vectors(vec1, vec2):
+    """
+    Returns the rotation matrices that align vec1 to vec2 for a batch of vectors.
+    :param vec1: A batch of 3d "source" vectors. Shape (N, 3)
+    :param vec2: A batch of 3d "destination" vectors. Shape (N, 3)
+    :return: A batch of transformation matrices (N, 3, 3) which when applied to vec1, aligns it with vec2.
+    """
+    # Normalize the input vectors
+    a = vec1 / np.linalg.norm(vec1, axis=1, keepdims=True)
+    b = vec2 / np.linalg.norm(vec2, axis=1, keepdims=True)
+    v = np.cross(a, b)
+    c = np.einsum('ij,ij->i', a, b)
+    s = np.linalg.norm(v, axis=1)
+
+    # Compute the skew-symmetric cross-product matrices of v
+    kmat = np.zeros((vec1.shape[0], 3, 3))
+    kmat[:, 0, 1] = -v[:, 2]
+    kmat[:, 0, 2] = v[:, 1]
+    kmat[:, 1, 0] = v[:, 2]
+    kmat[:, 1, 2] = -v[:, 0]
+    kmat[:, 2, 0] = -v[:, 1]
+    kmat[:, 2, 1] = v[:, 0]
+
+    # Compute the rotation matrices
+    eye = np.eye(3).reshape(1, 3, 3)
+    rotation_matrices = eye + kmat + np.einsum('ijk,ikl->ijl', kmat, kmat) * ((1 - c) / (s ** 2))[:, None, None]
+
+    return rotation_matrices
+
+def batch_virtualCameraRotationFromPosition(positions):
+    """
+    Returns the rotation matrices for a batch of positions.
+    :param positions: A batch of 3d positions. Shape (N, 3)
+    :return: A batch of rotation matrices (N, 3, 3)
+    """
+    x, y, z = positions[:, 0], positions[:, 1], positions[:, 2]
+    n1x = np.sqrt(1 + x ** 2)
+    d1x = 1 / n1x
+    d1xy = 1 / np.sqrt(1 + x ** 2 + y ** 2)
+    d1xy1x = 1 / np.sqrt((1 + x ** 2 + y ** 2) * (1 + x ** 2))
+
+    R_virt2orig = np.zeros((positions.shape[0], 3, 3))
+    R_virt2orig[:, 0, 0] = d1x
+    R_virt2orig[:, 0, 1] = -x * y * d1xy1x
+    R_virt2orig[:, 0, 2] = x * d1xy
+    R_virt2orig[:, 1, 1] = n1x * d1xy
+    R_virt2orig[:, 1, 2] = y * d1xy
+    R_virt2orig[:, 2, 0] = -x * d1x
+    R_virt2orig[:, 2, 1] = -y * d1xy1x
+    R_virt2orig[:, 2, 2] = d1xy
+
+    return R_virt2orig

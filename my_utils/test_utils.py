@@ -25,7 +25,7 @@ def get_h36m_keypoint_index(keypoint_name):
             return idx
     print('Invalid keypoint name: {}'.format(keypoint_name))
     return -1
-    
+
 # return keypoints from keypoint list (h36m)
 def get_h36m_keypoints(pose3d, key_list=[]):
     assert pose3d.shape == (17, 3), 'pose3d shape is wrong'
@@ -176,11 +176,11 @@ part_ids = {
 # }
 
 h36m_part_keypoints = [
-    [14, 15, 16], 
-    [11, 12, 13], 
-    [1, 2, 3], 
-    [4, 5, 6], 
-    [0, 1, 4, 8, 11, 14], 
+    [14, 15, 16],
+    [11, 12, 13],
+    [1, 2, 3],
+    [4, 5, 6],
+    [0, 1, 4, 8, 11, 14],
     [0, 1, 4, 7, 8, 9, 10, 11, 14]
 ]
 
@@ -260,30 +260,30 @@ kookmin_keypoints = {
 }
 
 kookmin_connections = [
-    [0, 1], 
-    [1, 2], 
-    [1, 3], 
-    [1, 4], 
-    [3, 5], 
-    [5, 7], 
-    [7, 9], 
-    [4, 6], 
-    [6, 8], 
-    [8, 10], 
-    [2, 11], 
-    [2, 12], 
-    [11, 13], 
-    [12, 14], 
-    [13, 14], 
-    [13, 15], 
-    [15, 17], 
-    [15, 19], 
-    [17, 19], 
-    [17, 21], 
-    [19, 23], 
-    [14, 16], 
-    [16, 18], 
-    [16, 20], 
+    [0, 1],
+    [1, 2],
+    [1, 3],
+    [1, 4],
+    [3, 5],
+    [5, 7],
+    [7, 9],
+    [4, 6],
+    [6, 8],
+    [8, 10],
+    [2, 11],
+    [2, 12],
+    [11, 13],
+    [12, 14],
+    [13, 14],
+    [13, 15],
+    [15, 17],
+    [15, 19],
+    [17, 19],
+    [17, 21],
+    [19, 23],
+    [14, 16],
+    [16, 18],
+    [16, 20],
     [18, 20],
     [18, 22],
     [20, 24]
@@ -291,15 +291,15 @@ kookmin_connections = [
 
 kookmin2_keypoints = {
     1  : 'Head-top',             # 0
-    2  : 'Nose',                 # 1 
-    3  : 'Neck',                 # 2 
-    4  : 'Spine',                # 3  
+    2  : 'Nose',                 # 1
+    3  : 'Neck',                 # 2
+    4  : 'Spine',                # 3
     5  : 'Shoulder-L',           # 4
-    6  : 'Shoulder-R',           # 5 
-    7  : 'Elbow-L',              # 6 
-    8  : 'Elbow-R',              # 7 
-    9  : 'Wrist-L',              # 8 
-    10 : 'Wrist-R',              # 9 
+    6  : 'Shoulder-R',           # 5
+    7  : 'Elbow-L',              # 6
+    8  : 'Elbow-R',              # 7
+    9  : 'Wrist-L',              # 8
+    10 : 'Wrist-R',              # 9
     11 : 'Middle Finger Tip-L',  # 10
     12 : 'Middle Finger Tip-R',  # 11
     13 : 'Upper Hip-L',          # 12
@@ -395,16 +395,16 @@ def mpi_inf_3dhp2h36m_from_original(x):
     # y[:,14,:] = x[:,4,:]  # R_Shoulder
     # y[:,15,:] = x[:,3,:]  # R_Elbow
     # y[:,16,:] = x[:,6,:]  # R_Wrist
-    
+
     y = x.copy()[:, [7, 5, 14, 15, 16, 9, 10, 11, 23, 24, 25, 18, 19, 20, 4, 3, 6]]
     return y
-    
+
 
 # https://github.com/chaneyddtt/Generating-Multiple-Hypotheses-for-3D-Human-Pose-Estimation-with-Mixture-Density-Network/issues/12
 def mpi_inf_3dhp2h36m(x):
     '''
-    Input: x (T x V x C)  
-    //mpi_inf_3dhp 17 body keypoints   
+    Input: x (T x V x C)
+    //mpi_inf_3dhp 17 body keypoints
     h36m kp 0          <- original kp 14 (pelvis)
     h36m kp 1          <- original kp 8  (right_hip)
     h36m kp 2          <- original kp 9  (right_knee)
@@ -532,7 +532,7 @@ def smpl2h36m(x, with_nose=True):
 
 def kookmin2h36m(x):
     '''
-    Input: x (T x V x C)  
+    Input: x (T x V x C)
     //kookmin 25 body keypoints
     1 : 'Head-top',
     2 : 'Neck',
@@ -589,7 +589,7 @@ def kookmin2h36m(x):
 
 def kookmin2h36m_with_nose(x):
     '''
-    Input: x (T x V x C)  
+    Input: x (T x V x C)
     //kookmin 25 body keypoints
     0  : 'Head-top',
     1  : 'Nose',
@@ -718,7 +718,7 @@ aihub_connections = [
 # lib/data/dataset_wild.py
 def halpe2h36m(x):
     '''
-        Input: x (T x V x C)  
+        Input: x (T x V x C)
        //Halpe 26 body keypoints
     {0,  "Nose"},
     {1,  "LEye"},
@@ -830,12 +830,12 @@ def aihub2h36m(x, mode='3d'):
     y[:,14,:] = x[:,17,:] # R_Shoulder
     y[:,15,:] = x[:,19,:] # R_Elbow
     y[:,16,:] = x[:,21,:] # R_Wrist
-    
+
     return y
 
 def coco2h36m(x, mode='3d'):
     '''
-        Input: x (T x V x C)  
+        Input: x (T x V x C)
        //coco 17 body keypoints
     0: 'nose',
     1: 'left_eye',
@@ -879,7 +879,7 @@ def coco2h36m(x, mode='3d'):
     y[:,14,:] = x[:,6,:]  # R_Shoulder
     y[:,15,:] = x[:,8,:]  # R_Elbow
     y[:,16,:] = x[:,10,:] # R_Wrist
-    
+
     return y
 
 def fit3d2h36m(x):
@@ -896,13 +896,13 @@ def euclidean_distance(a,b):
 def loadAIHubCameraParameter(json_path, trans_scale=1.0, W=1920):
     cam_json = readJSON(json_path)
     return getAIHubCameraParameter(cam_json, trans_scale, W)
-    
+
 
 def getAIHubCameraParameter(cam_json, trans_scale=1.0, W=1920):
     extrinsic_properties = np.array(cam_json['extrinsics'])
     R = copy.deepcopy(np.array(cam_json['extrinsics'])[:,:3])
     T = copy.deepcopy(np.array(cam_json['extrinsics'])[:,3]*trans_scale)
-    R_c = Rotation.T
+    R_c = R.T
     C = - np.matmul(R_c, T)
     intrinsic_properties = np.array(cam_json['intrinsics']) # normalized intrinsic matrix
     intrinsic_properties[:2, :] *= W # denormalize
@@ -910,20 +910,20 @@ def getAIHubCameraParameter(cam_json, trans_scale=1.0, W=1920):
     fy = intrinsic_properties[1,1]
     cx = intrinsic_properties[0,2]
     cy = intrinsic_properties[1,2]
-    
+
     return cam_json, extrinsic_properties, R, T, R_c, C, intrinsic_properties, fx, fy, cx, cy
 
 # Coordinate Transformation
 def World2CameraCoordinate(pos, extrinsic_properties):
     # input: pos (N, 4) -> (x, y, z, 1), extrinsic_properties (3, 4)
     # output: pos (N, 3) -> (x, y, z)
-    if len(pos.shape) == 1: 
+    if len(pos.shape) == 1:
         C = pos.shape[0]
         pos = pos.reshape(1, C)
     elif len(pos.shape) == 2:
         if pos.shape[1] == 3:
             pos = np.concatenate([pos, np.ones([pos.shape[0], 1])], axis=1)
-    
+
     return np.matmul(extrinsic_properties, pos.T).T # World coordinate -> Camera coordinate
 
 def Camera2ImageCoordinate(pos, intrinsic_properties):
@@ -988,7 +988,7 @@ def array2dict(array, keypoints, verbose=False):
 #     #print'data: ', data)
 #     max_ = max_x = max_y = max_z =  -100000
 #     min_ = min_x = min_y = min_z = 100000
-    
+
 #     for pos in data:
 #         x = pos[0]
 #         y = pos[1]
@@ -1001,7 +1001,7 @@ def array2dict(array, keypoints, verbose=False):
 #         #     max_x = x
 #         # if x < min_x:
 #         #     min_x = x
-            
+
 #         if y > max_:
 #             max_ = y
 #         if y < min_:
@@ -1010,7 +1010,7 @@ def array2dict(array, keypoints, verbose=False):
 #         #     max_y = y
 #         # if y < min_y:
 #         #     min_y = y
-            
+
 #         if z > max_:
 #             max_ = z
 #         if z < min_:
@@ -1019,19 +1019,19 @@ def array2dict(array, keypoints, verbose=False):
 #         #     max_z = z
 #         # if z < min_z:
 #         #     min_z = z
-        
+
 #     return max_, min_
 def check_max_min(array): # (N, M) array
     # input: (N, M) array
     # output: max, min value of array
     return array.reshape(-1).max(), array.reshape(-1).min()
-    
+
 # Draw skeleton function
-# - points -> joint 좌표  
-# - connections -> joint 연결 관계      
+# - points -> joint 좌표
+# - connections -> joint 연결 관계
 def draw_skeleton(points, connections, elevation=0, azimuth=0, xaxis=dict(range=[-1, 1]), yaxis=dict(range=[-1, 1]), zaxis=dict(range=[-1, 1]), camera=None):
     fig = go.Figure()
-    
+
     # Add origin
     fig.add_trace(go.Scatter3d(x=[0.0], y=[0.0], z=[0.0],
                                    mode='markers', marker=dict(size=5, color='red')))
@@ -1055,12 +1055,12 @@ def draw_skeleton(points, connections, elevation=0, azimuth=0, xaxis=dict(range=
                                                       z=np.sin(np.pi * elevation / 180*0.5)))),
                       width=700, height=700, autosize=False,
                       scene_camera_eye=dict(x=1, y=1, z=1))
-    
+
     if camera is not None:
         fig.update_layout(scene_camera=camera)
 
     return fig
-    
+
 # Draw skeleton function
 def draw_skeleton_both(points1, connections1, points2, connections2, elevation=0, azimuth=0):
     fig = go.Figure()
@@ -1100,7 +1100,7 @@ def draw_skeleton_both(points1, connections1, points2, connections2, elevation=0
 
 def draw_skeleton_2d(points, connections, elevation=0, azimuth=0, img_source=None):
     fig = go.Figure()
-    
+
     # Add points
     for point in points.values():
         fig.add_trace(go.Scatter(x=[point[0]], y=[point[1]],
@@ -1122,7 +1122,7 @@ def draw_skeleton_2d(points, connections, elevation=0, azimuth=0, img_source=Non
     #fig.update_xaxes(autorange="reversed") # 축 범위 반전, 위의 range 설정이 초기화되버림
 
     fig.update_layout(width=1000,height=620)
-    
+
     if img_source is not None:
         fig.add_layout_image(
             source=img_source,
@@ -1136,7 +1136,7 @@ def draw_skeleton_2d(points, connections, elevation=0, azimuth=0, img_source=Non
             opacity=0.5,
             layer="below"
         )
-    
+
     fig.update_layout(template="plotly_white")
 
     fig.show()
@@ -1190,7 +1190,7 @@ def avgErrorForOneAction(dataset, action):
     # actor가 없으면 None 반환
     if len(actor_list) == 0:
         return None
-    
+
     total_sum = 0
     for actor_id in actor_list:
         #print(actor_id)
@@ -1226,7 +1226,7 @@ def MPJPE_for_multiple_pose(pred, gt, root_rel=True):
     return mpjpe / pred.shape[0]
 
 def get_rootrel_pose(pose):
-    # input: pose (N, D) or 
+    # input: pose (N, D) or
     # output: rootrel_pose (1N, D)
     if len(pose.shape) == 2:
         rootrel_pose = pose - pose[0]
@@ -1288,7 +1288,7 @@ def infer_box(pose3d, camera, rootIdx):
 def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.00005, stop_tolerance=0.000001, gpus='0, 1'):
     import torch
     from torch.autograd import Variable
-    
+
     # cam_cs_hat, img_cs_hat: (17, 3)
     os.environ['CUDA_VISIBLE_DEVICES'] = gpus
     os.environ["NCCL_P2P_DISABLE"]= '1'
@@ -1306,13 +1306,13 @@ def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.0
     x_train = copy.deepcopy(cam_cs_hat.reshape(-1, 1).astype(np.float32)) # 모든 점을 batch로 취급
     y_train = copy.deepcopy(img_cs_hat.reshape(-1, 1).astype(np.float32)) # 모든 점을 batch로 취급
 
-    inputDim = 1        # takes variable 'x' 
+    inputDim = 1        # takes variable 'x'
     outputDim = 1       # takes variable 'y'
 
     model = linearRegression(inputDim, outputDim)
     #model.linear.weight.data[0] = 0.25
 
-    criterion = torch.nn.MSELoss() 
+    criterion = torch.nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningRate)
 
     losses = []
@@ -1338,7 +1338,7 @@ def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.0
         #loss.requires_grad = True
         losses.append(loss.item())
         # print('epoch {}, loss {}'.format(epoch, loss.item()))
-        
+
         # if loss is not decreasing, stop training
         if epoch > 1:
             if abs(losses[-1]-losses[-2]) < stop_tolerance:
@@ -1347,13 +1347,13 @@ def optimize_scaling_factor(cam_cs_hat, img_cs_hat, epochs=200, learningRate=0.0
                     break
             else:
                 tol_cnt = 0
-  
+
         # get gradients w.r.t to parameters
         loss.backward()
 
         # update parameters
         optimizer.step()
-        
+
         #weights.append(model.linear.weight.data.item())
 
         #print('epoch {}, loss {}'.format(epoch, loss.item()))
@@ -1431,7 +1431,7 @@ def get_video_frame(video_path, frame_id=None):
         ret, img_frame = cap.read()
         cap.release()
         return cv2.cvtColor(img_frame, cv2.COLOR_BGR2RGB)
-    
+
 def get_bbox_area(bbox, input_type='xyxy'):
     if input_type == 'xxyy':
         x1, x2, y1, y2 = bbox
@@ -1454,7 +1454,7 @@ def get_bbox_from_pose2d(pose_2d, output_type='xyxy'):
     x2 = float(pose_2d[:, 0].max())
     y1 = float(pose_2d[:, 1].min())
     y2 = float(pose_2d[:, 1].max())
-    
+
     if output_type == 'xyxy':
         return x1, y1, x2, y2
     elif output_type == 'xywh':
@@ -1465,7 +1465,7 @@ def get_bbox_from_pose2d(pose_2d, output_type='xyxy'):
         return x1, x2, y1, y2
     else:
         return -1, -1, -1, -1
-    
+
 def get_batch_bbox_from_pose2d(batch_pose_2d):
     assert type(batch_pose_2d) == torch.Tensor, 'batch_pose_2d should be torch.Tensor'
     batch_x1 = batch_pose_2d[:, :, 0].min(dim=1, keepdim=True).values
@@ -1489,7 +1489,7 @@ def change_bbox_convention(bbox, input_type='xyxy', output_type='xywh'):
         x1, y1, x2, y2 = cx - w/2, cy - h/2, cx + w/2, cy + h/2
     else:
         raise ValueError(f'Invalid input_type: {input_type}')
-        
+
     if output_type == 'xxyy':
         return int(x1), int(x2), int(y1), int(y2)
     elif output_type == 'xyxy':
@@ -1498,8 +1498,8 @@ def change_bbox_convention(bbox, input_type='xyxy', output_type='xywh'):
         return int(x1 + (x2 - x1) / 2), int(y1 + (y2 - y1) / 2), int(x2 - x1), int(y2 - y1)
     else:
         raise ValueError(f'Invalid output_type: {output_type}')
-    
-    
+
+
 ## ------------------------------------------  from pytorch3d
 # https://pytorch3d.readthedocs.io/en/latest/_modules/pytorch3d/transforms/rotation_conversions.html#matrix_to_quaternion
 
@@ -1596,7 +1596,7 @@ def get_pose_height(pose_2d):
         return pose_2d[:, :, 1].max(axis=-1) - pose_2d[:, :, 1].min(axis=-1)
     elif len(pose_2d.shape) == 4:
         return pose_2d[:, :, :, 1].max(axis=-1) - pose_2d[:, :, :, 1].min(axis=-1)
-    
+
 def procrustes_align(predicted, target):
     """
     Pose error: MPJPE after rigid alignment (scale, rotation, and translation),
@@ -1605,18 +1605,18 @@ def procrustes_align(predicted, target):
     target: (T, 17, 3)
     """
     assert predicted.shape == target.shape
-    
+
     # Translation
     muX = np.mean(target, axis=1, keepdims=True)
     muY = np.mean(predicted, axis=1, keepdims=True)
-    
+
     X0 = target - muX
     Y0 = predicted - muY
 
     # Uniform scaling
     normX = np.sqrt(np.sum(X0**2, axis=(1, 2), keepdims=True))
     normY = np.sqrt(np.sum(Y0**2, axis=(1, 2), keepdims=True))
-    
+
     X0 /= normX
     Y0 /= normY
 
@@ -1634,10 +1634,10 @@ def procrustes_align(predicted, target):
     tr = np.expand_dims(np.sum(s, axis=1, keepdims=True), axis=2)
     a = tr * normX / normY # Scale
     t = muX - a*np.matmul(muY, R) # Translation
-    
+
     # Perform rigid transformation on the input
     predicted_aligned = a*np.matmul(predicted, R) + t
-    
+
     # Return MPJPE
     return predicted_aligned
 
@@ -1647,7 +1647,7 @@ def T_to_C(R, T):
     assert R.shape == (3, 3)
     assert T.shape == (3,)
     return - R.T @ T
-    
+
 def C_to_T(R, C):
     R = np.array(R)
     C = np.array(C).reshape(-1)
@@ -1667,15 +1667,15 @@ def rotation_matrix_from_vectors(vec1, vec2):
     v = np.cross(a, b)
     c = np.dot(a, b)
     s = np.linalg.norm(v)
-    
+
     # Compute the skew-symmetric cross-product matrix of v
     kmat = np.array([[0, -v[2], v[1]],
                      [v[2], 0, -v[0]],
                      [-v[1], v[0], 0]])
-    
+
     # Compute the rotation matrix
     rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
-    
+
     return rotation_matrix
 
 def get_canonical_3d(world_3d, cam_3d, C, R, fixed_dist=3.5, return_vector_cam_forward=False, canonical_type='same_z'):
@@ -1692,20 +1692,20 @@ def get_canonical_3d(world_3d, cam_3d, C, R, fixed_dist=3.5, return_vector_cam_f
         mag_cam_origin_to_pelvis = np.expand_dims(np.linalg.norm(vec_cam_origin_to_pelvis, axis=1), axis=1).repeat(3, axis=1) # (F, 3)
     elif canonical_type == 'fixed_dist':
         mag_cam_origin_to_pelvis = fixed_dist
-    
+
     vec_cam_forward = np.multiply(np.expand_dims(R[2], 0).repeat(num_frames, axis=0),  mag_cam_origin_to_pelvis)
     canonical_pelvis = cam_origin_w + vec_cam_forward
     canonical_3d = canonical_3d - np.expand_dims(pelvis_w, 1) + np.expand_dims(canonical_pelvis, 1)
-    
+
     if return_vector_cam_forward:
         return canonical_3d, vec_cam_forward
     else:
         return canonical_3d
-    
+
 def undistort_pose2d(pose_2d, k1, k2, p1, p2, k3, fx, fy, cx, cy):
     """
     주어진 2D pose 좌표 배열(Jx2)에 왜곡 계수를 사용하여 왜곡을 보정하는 함수
-    
+
     매개변수:
     pose_2d - Jx2 형태의 2D 좌표 배열, 각 행이 (x, y) 형태의 좌표
     k1, k2, p1, p2, k3 - 왜곡 계수
@@ -1715,36 +1715,36 @@ def undistort_pose2d(pose_2d, k1, k2, p1, p2, k3, fx, fy, cx, cy):
     반환값:
     undistorted_pose - Jx2 형태의 보정된 2D 좌표 배열
     """
-    
+
     # J개의 좌표 추출
     x = pose_2d[:, 0]
     y = pose_2d[:, 1]
-    
+
     # 보정 전 좌표를 중심점 기준으로 정규화
     x_normalized = (x - cx) / fx
     y_normalized = (y - cy) / fy
-    
+
     # r^2 계산 (r은 거리)
     r2 = x_normalized**2 + y_normalized**2
     r4 = r2**2
     r6 = r2**3
-    
+
     # 방사형 왜곡 보정
     radial_distortion = 1 + k1 * r2 + k2 * r4 + k3 * r6
-    
+
     # 접선 왜곡 보정
     x_tangential = 2 * p1 * x_normalized * y_normalized + p2 * (r2 + 2 * x_normalized**2)
     y_tangential = p1 * (r2 + 2 * y_normalized**2) + 2 * p2 * x_normalized * y_normalized
-    
+
     # 보정된 좌표 계산
     x_corrected = x_normalized * radial_distortion + x_tangential
     y_corrected = y_normalized * radial_distortion + y_tangential
-    
+
     # 보정된 좌표를 다시 픽셀 좌표로 변환
     undistorted_x = fx * x_corrected + cx
     undistorted_y = fy * y_corrected + cy
-    
+
     # Jx2 형태로 보정된 좌표 반환
     undistorted_pose = np.vstack((undistorted_x, undistorted_y)).T
-    
+
     return undistorted_pose

@@ -17,10 +17,10 @@ def canonicalization_cam_3d(cam_3d, canonical_type):
         elif 'revolute' in canonical_type:
             dist = np.linalg.norm(cam_3d[:, 0], axis=1)
             v_origin_to_pelvis = cam_3d[:, 0] / dist[:, None]
-            v_origin_to_revolute = np.array([0, 0, 1]).reshape(1, 3).repeat(len(cam_3d), axis=0)
-            rot_pelvis_to_revolute = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_revolute)
-            rot_pelvis_to_revolute_inv = np.linalg.inv(rot_pelvis_to_revolute)
-            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, rot_pelvis_to_revolute_inv)
+            v_origin_to_principle = np.array([0, 0, 1]).reshape(1, 3).repeat(len(cam_3d), axis=0)
+            R_pelvis_to_principle = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
+            R_pelvis_to_principle_inv = np.linalg.inv(R_pelvis_to_principle)
+            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_pelvis_to_principle_inv)
         else: raise ValueError(f'canonical type {canonical_type} not found')
         cam_3d_canonical[..., 2] += dist[:, None]
     else:

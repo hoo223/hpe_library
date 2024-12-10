@@ -12,7 +12,7 @@ from hpe_library.lib_import import *
 ## for general
 
 def split_source_name(source:str, dataset_name:str) -> Tuple[str, Optional[str], Optional[str]]:
-    if dataset_name == 'h36m':
+    if dataset_name == 'h36m' or dataset_name == 'kookmin':
         subject, cam_id, action = source.split('_')
         return subject, cam_id, action
     elif dataset_name == 'fit3d':
@@ -1674,6 +1674,13 @@ def gernerate_dataset_yaml(subset):
             test_subject = [f'TS{i}' for i in range(1, 5)]
         else: raise ValueError(f'Invalid item: {subset}')
         if 'UNIV' in subset: univ = True
+    elif dataset_name == 'kookmin':
+        if 'FOLD1' in subset:   test_subject = ['S12', 'S15', 'S18']
+        elif 'FOLD2' in subset: test_subject = ['S16', 'S18', 'S19']
+        elif 'FOLD3' in subset: test_subject = ['S13', 'S14', 'S19']
+        elif 'FOLD4' in subset: test_subject = ['S11', 'S12', 'S20']
+        elif 'FOLD5' in subset: test_subject = ['S11', 'S17', 'S18']
+        train_subject = list(set([f'S{i}' for i in range(11, 21)]) - set(test_subject))
 
     #print(train_subject, test_subject)
 

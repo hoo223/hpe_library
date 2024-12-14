@@ -3,10 +3,10 @@ from hpe_library.lib_import import *
 # from my_utils import normalize_input
 # from .inference import normalize_input
 
-def convert_intrinsic_from_mm_to_pixel(sensor_size, focal_length, pixel_aspect, center_offset, sensor_pixels_x, sensor_pixels_y):
+def convert_intrinsic_from_mm_to_pixel(sensor_size, focal_length, center_offset, sensor_pixels_x, sensor_pixels_y):
     # Calculate pixel sizes
     pixel_size_x = sensor_size[0] / sensor_pixels_x
-    pixel_size_y = sensor_size[1] * pixel_aspect / sensor_pixels_y
+    pixel_size_y = sensor_size[1] / sensor_pixels_y
 
     # Calculate focal length in pixels
     fx = focal_length / pixel_size_x
@@ -52,7 +52,7 @@ def get_3dhp_cam_info(data_type):
             right = cam_info_3dhp_test[key]['right']
             forward = np.cross(right, up)
             R = np.column_stack((right, up, forward))
-            print(R)
+            print('R:',R)
             t = cam_info_3dhp_test[key]['origin']/1000
             #t = -R@C
             C = -R.T@t

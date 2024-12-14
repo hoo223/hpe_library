@@ -165,7 +165,16 @@ def get_save_paths(save_root:str, dataset_name:str, canonical_type:str, univ:boo
     }
     return save_paths
 
-def load_data(dataset_name, data_type, save_folder='data/motion3d', overwrite_list=[], canonical_type=None, only_visible_frame=True, univ=False, no_save=False, adaptive_focal=False, verbose=True,
+def load_data(dataset_name,
+              data_type,
+              save_folder='data/motion3d',
+              overwrite_list=[],
+              canonical_type=None,
+              only_visible_frame=True,
+              univ=False,
+              no_save=False,
+              adaptive_focal=False,
+              verbose=True,
               data_aug={'step_rot': 0,
                         'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273,
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
@@ -396,19 +405,14 @@ def load_cam_params(dataset_name, save_paths, overwrite=False, no_save=False, on
                 subject, cam_id, seq = split_source_name(source, dataset_name)
                 if subject not in cam_params.keys():      cam_params[subject] = {}
                 if seq not in cam_params[subject].keys(): cam_params[subject][seq] = {}
-                if cam_id == None:
-                    if only_visible_frame:
-                        num_frames = data_dict_3dhp[f'{subject}']['visible_frame'].sum()
-                    else:
-                        num_frames = data_dict_3dhp[f'{subject}']['annot3'].shape[0] # test data
+                if cam_id == None: # test data
+                    if only_visible_frame: num_frames = data_dict_3dhp[f'{subject}']['num_visible_frames']
+                    else:                  num_frames = data_dict_3dhp[f'{subject}']['num_frames'] 
                     cam_params[subject][seq][cam_id] = cam_param_3dhp[subject].copy() # copy 안하면 원본 데이터가 바뀜
-                else:
-                    if only_visible_frame:
-                        num_frames = data_dict_3dhp[f'{subject}_{seq}_{cam_id}']['visible_frame'].sum()
-                    else:
-                        num_frames = data_dict_3dhp[f'{subject}_{seq}_{cam_id}']['annot3'].shape[0] # train data
+                else: # train data
+                    if only_visible_frame: num_frames = data_dict_3dhp[f'{subject}_{seq}_{cam_id}']['num_visible_frames']
+                    else:                  num_frames = data_dict_3dhp[f'{subject}_{seq}_{cam_id}']['num_frames']
                     cam_params[subject][seq][cam_id] = cam_param_3dhp[cam_id].copy() # copy 안하면 원본 데이터가 바뀜
-
                 cam_params[subject][seq][cam_id]['num_frames'] = num_frames
         else:
             raise ValueError(f'{dataset_name} not found')
@@ -524,41 +528,41 @@ def load_img_2d(dataset_name, save_paths, overwrite=False, no_save=False, only_v
         source_list = readpkl(save_path_source_list)
 
         img_2ds = {}
-        if dataset_name == '3dhp':
-            data_dict_3dhp_train, cam_param_3dhp_train = load_3dhp_original('train')
-            data_dict_3dhp_test, cam_param_3dhp_test = load_3dhp_original('test')
-            data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
-            for source in tqdm(source_list):
-                subject, cam_id, seq = split_source_name(source, '3dhp')
-                if seq is not None: source = f'{subject}_{seq}_{cam_id}'
-                else: source = subject
-                if subject not in img_2ds.keys():      img_2ds[subject] = {}
-                if seq not in img_2ds[subject].keys(): img_2ds[subject][seq] = {}
-                if only_visible_frame:
-                    visible_frame = data_dict_3dhp[source]['visible_frame']
-                    img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2'][visible_frame]
-                else:
-                    img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2']
-        else:
-            save_path_cam_3d = save_paths['cam_3d']
-            save_path_cam_params = save_paths['cam_param']
-            assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
-            assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
-            cam_3ds = readpkl(save_path_cam_3d)
-            cam_params = readpkl(save_path_cam_params)
-            for source in tqdm(source_list):
-                subject, cam_id, action = split_source_name(source, dataset_name)
-                if subject not in img_2ds:          img_2ds[subject] = {}
-                if action  not in img_2ds[subject]: img_2ds[subject][action] = {}
-                # cam_3d
-                cam_3d = cam_3ds[subject][action][cam_id]
-                # cam_param
-                cam_param = cam_params[subject][action][cam_id]
-                intrinsic = np.array(cam_param['intrinsic'])
-                # cam to img
-                img_2d = projection(cam_3d, intrinsic) # (N, 17, 2)
-                # store
-                img_2ds[subject][action][cam_id] = img_2d
+        # if dataset_name == '3dhp':
+        #     data_dict_3dhp_train, cam_param_3dhp_train = load_3dhp_original('train')
+        #     data_dict_3dhp_test, cam_param_3dhp_test = load_3dhp_original('test')
+        #     data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
+        #     for source in tqdm(source_list):
+        #         subject, cam_id, seq = split_source_name(source, '3dhp')
+        #         if seq is not None: source = f'{subject}_{seq}_{cam_id}'
+        #         else: source = subject
+        #         if subject not in img_2ds.keys():      img_2ds[subject] = {}
+        #         if seq not in img_2ds[subject].keys(): img_2ds[subject][seq] = {}
+        #         if only_visible_frame:
+        #             visible_frame = data_dict_3dhp[source]['visible_frame']
+        #             img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2'][visible_frame]
+        #         else:
+        #             img_2ds[subject][seq][cam_id] = data_dict_3dhp[source]['annot2']
+        # else:
+        save_path_cam_3d = save_paths['cam_3d']
+        save_path_cam_params = save_paths['cam_param']
+        assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
+        assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+        cam_3ds = readpkl(save_path_cam_3d)
+        cam_params = readpkl(save_path_cam_params)
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            if subject not in img_2ds:          img_2ds[subject] = {}
+            if action  not in img_2ds[subject]: img_2ds[subject][action] = {}
+            # cam_3d
+            cam_3d = cam_3ds[subject][action][cam_id]
+            # cam_param
+            cam_param = cam_params[subject][action][cam_id]
+            intrinsic = np.array(cam_param['intrinsic'])
+            # cam to img
+            img_2d = projection(cam_3d, intrinsic) # (N, 17, 2)
+            # store
+            img_2ds[subject][action][cam_id] = img_2d
         if not no_save: savepkl(img_2ds, save_path_img_2d)
     return img_2ds
 
@@ -581,7 +585,7 @@ def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
     source_list = readpkl(save_path_source_list)
 
     cam_3d_canonicals = {}
-    if canonical_type == 'pcl':
+    if 'pcl' in canonical_type:
         cam_3d_canonicals = cam_3ds
     else:
         # prerequisites
@@ -609,6 +613,7 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                         'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                         }):
     from my_utils import readpkl, savepkl, projection, genertate_pcl_img_2d
+    from hpe_library.pcl_utils import pcl
     # prerequisites
     assert canonical_type is not None, 'canonical_type is None'
     # pkl path
@@ -628,7 +633,7 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
         cam_params = readpkl(save_path_cam_params)
 
         img_2d_canonicals = {}
-        if canonical_type == 'pcl':
+        if 'pcl' in canonical_type:
             save_path_img_2d = save_paths['img_2d']
             assert os.path.exists(save_path_img_2d), f'No img_2d found for {dataset_name}'
             img_2ds = readpkl(save_path_img_2d)
@@ -639,7 +644,28 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                 if action  not in img_2d_canonicals[subject]: img_2d_canonicals[subject][action] = {}
                 img_2d = img_2ds[subject][action][cam_id].copy()
                 cam_param = cam_params[subject][action][cam_id].copy()
-                img_2d_canonical = genertate_pcl_img_2d(img_2d, cam_param)
+                if 'original' in canonical_type: 
+                    intrinsic = np.array(cam_param['intrinsic'])
+                    location_px = img_2d[:, 0]
+                    scale_y = img_2d[...,1].max(axis=-1) - img_2d[...,1].min(axis=-1)
+                    scale_x = img_2d[...,0].max(axis=-1) - img_2d[...,0].min(axis=-1)
+                    scale = np.stack([scale_x, scale_y], axis=-1)
+
+                    img_2d_tensor = torch.tensor(img_2d).float()
+                    scale_tensor = torch.tensor(scale).float()
+                    Ks_px_orig_tensor = torch.tensor(intrinsic.reshape(1, 3, 3)).repeat(img_2d.shape[0], 1, 1).float()
+                    location_px_tensor = torch.tensor(location_px).float()
+
+                    img_2d_canonical, R_virt2orig, P_virt2orig = pcl.pcl_transforms_2d(img_2d_tensor,
+                                                                                       location_px_tensor,
+                                                                                       scale_tensor,
+                                                                                       Ks_px_orig_tensor,
+                                                                                       focal_at_image_plane=True,
+                                                                                       slant_compensation=True)
+                    img_2d_canonical = img_2d_canonical.detach().cpu().numpy()
+                else: # with K
+                    if 'with_Rz' in canonical_type: img_2d_canonical = genertate_pcl_img_2d(img_2d, cam_param, no_Rz=False)
+                    else:                           img_2d_canonical = genertate_pcl_img_2d(img_2d, cam_param, no_Rz=True)
                 img_2d_canonicals[subject][action][cam_id] = img_2d_canonical
             if not no_save: savepkl(img_2d_canonicals, save_path_img_2d_canonical)
         else:
@@ -1712,11 +1738,18 @@ def gernerate_dataset_yaml(subset):
         input_mode = 'joint_2d'
 
     # canonical type
+    print(subset)
     if 'SAME_Z' in subset:         canonical_type = 'same_z'
     elif 'SAME_DIST' in subset:    canonical_type = 'same_dist'
     elif 'FIXED_DIST_5' in subset: canonical_type = 'fixed_dist_5'
-    elif 'REVOLUTE' in subset:     canonical_type = 'revolute'
-    elif 'PCL' in subset:          canonical_type = 'pcl'
+    elif 'REVOLUTE' in subset:
+        if 'NO_RZ' in subset:      canonical_type = 'revolute_no_Rz'
+        else:                      canonical_type = 'revolute'
+    elif 'PCL' in subset:
+        if 'WITH_RZ' in subset:    canonical_type = 'pcl_with_Rz'
+        else:
+            if 'ORIGINAL' in subset: canonical_type = 'pcl_original'
+            else:                    canonical_type = 'pcl'
     else: canonical_type = None
 
     if 'ADAPTIVE_FOCAL' in subset:

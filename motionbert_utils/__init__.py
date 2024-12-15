@@ -24,7 +24,7 @@ from MotionBERT.lib.utils.args import check_args, get_opt_args_from_model_name, 
 from MotionBERT.lib.utils.learning import accuracy, load_backbone, load_pretrained_weights, partial_train_layers, AverageMeter
 from MotionBERT.lib.model.drop import drop_path, DropPath
 from MotionBERT.lib.model.load_model import load_model
-from MotionBERT.lib.model.evaluation import batch_inference_eval, calculate_eval_metric, calculate_eval_metric_canonicalization, evaluate, evaluate_onevec, inference_eval, preprocess_eval
+from MotionBERT.lib.model.evaluation import batch_inference_eval, calculate_eval_metric, calculate_eval_metric_canonicalization, evaluate, evaluate_onevec, inference_eval, postprocess_eval, preprocess_eval
 from MotionBERT.lib.model.model_action import ActionHeadClassification, ActionHeadEmbed, ActionNet
 from MotionBERT.lib.model.CanonDSTformer import _no_grad_trunc_normal_, trunc_normal_, Attention, Block, CanonDSTformer1, CanonDSTformer2, MLP
 from MotionBERT.lib.model.load_dataset import load_dataset
@@ -34,7 +34,7 @@ from MotionBERT.lib.model.DHDSTformer import DHDSTformer_limb, DHDSTformer_limb2
 from MotionBERT.lib.model.DSTformer import _no_grad_trunc_normal_, trunc_normal_, Attention, Block, DSTformer, MLP
 from MotionBERT.lib.model.loss import get_angles, get_limb_lens, loss_2d_weighted, loss_angle, loss_angle_velocity, loss_joint, loss_limb_gt, loss_limb_var, loss_mpjpe, loss_symmetry, loss_velocity, mpjpe, mpjpe_for_each_joint, n_mpjpe, p_mpjpe, p_mpjpe_for_each_joint, weighted_bonelen_loss, weighted_boneratio_loss, weighted_mpjpe
 from MotionBERT.lib.model.loss_mesh import MeshLoss
-from MotionBERT.lib.model.training import generate_loss_dict, inference_train, preprocess_train, save_checkpoint, train, train_epoch, update_train_writer
+from MotionBERT.lib.model.training import generate_loss_dict, inference_train, postprocess_train, preprocess_train, save_checkpoint, train, train_epoch, update_train_writer
 from MotionBERT.lib.model.DHformer import _no_grad_trunc_normal_, trunc_normal_, Attention, Block, DHformer, MLP
 
 group_data_datareader_aihub = ['DataReaderAIHUB']
@@ -61,7 +61,7 @@ group_utils_args = ['check_args', 'get_opt_args_from_model_name', 'get_opts_args
 group_utils_learning = ['accuracy', 'load_backbone', 'load_pretrained_weights', 'partial_train_layers', 'AverageMeter']
 group_model_drop = ['drop_path', 'DropPath']
 group_model_load_model = ['load_model']
-group_model_evaluation = ['batch_inference_eval', 'calculate_eval_metric', 'calculate_eval_metric_canonicalization', 'evaluate', 'evaluate_onevec', 'inference_eval', 'preprocess_eval']
+group_model_evaluation = ['batch_inference_eval', 'calculate_eval_metric', 'calculate_eval_metric_canonicalization', 'evaluate', 'evaluate_onevec', 'inference_eval', 'postprocess_eval', 'preprocess_eval']
 group_model_model_action = ['ActionHeadClassification', 'ActionHeadEmbed', 'ActionNet']
 group_model_CanonDSTformer = ['_no_grad_trunc_normal_', 'trunc_normal_', 'Attention', 'Block', 'CanonDSTformer1', 'CanonDSTformer2', 'MLP']
 group_model_load_dataset = ['load_dataset']
@@ -71,7 +71,7 @@ group_model_DHDSTformer = ['DHDSTformer_limb', 'DHDSTformer_limb2', 'DHDSTformer
 group_model_DSTformer = ['_no_grad_trunc_normal_', 'trunc_normal_', 'Attention', 'Block', 'DSTformer', 'MLP']
 group_model_loss = ['get_angles', 'get_limb_lens', 'loss_2d_weighted', 'loss_angle', 'loss_angle_velocity', 'loss_joint', 'loss_limb_gt', 'loss_limb_var', 'loss_mpjpe', 'loss_symmetry', 'loss_velocity', 'mpjpe', 'mpjpe_for_each_joint', 'n_mpjpe', 'p_mpjpe', 'p_mpjpe_for_each_joint', 'weighted_bonelen_loss', 'weighted_boneratio_loss', 'weighted_mpjpe']
 group_model_loss_mesh = ['MeshLoss']
-group_model_training = ['generate_loss_dict', 'inference_train', 'preprocess_train', 'save_checkpoint', 'train', 'train_epoch', 'update_train_writer']
+group_model_training = ['generate_loss_dict', 'inference_train', 'postprocess_train', 'preprocess_train', 'save_checkpoint', 'train', 'train_epoch', 'update_train_writer']
 group_model_DHformer = ['_no_grad_trunc_normal_', 'trunc_normal_', 'Attention', 'Block', 'DHformer', 'MLP']
 
 __all__ = group_data_datareader_aihub + group_data_datareader_fit3d + group_data_datareader_h36m + group_data_datareader_poseaug_3dhp + group_data_datareader_mesh + group_data_datareader_3dhp + group_data_dataset_motion_2d + group_data_datareader_total + group_data_dataset_motion_3d + group_data_datareader_random_limb + group_data_augmentation + group_data_dataset_mesh + group_data_datareader_kookmin + group_data_dataset_action + group_data_dataset_wild + group_utils_utils_data + group_utils_utils_smpl + group_utils_utils_mesh + group_utils_tools + group_utils_vismo + group_utils_args + group_utils_learning + group_model_drop + group_model_load_model + group_model_evaluation + group_model_model_action + group_model_CanonDSTformer + group_model_load_dataset + group_model_loss_supcon + group_model_model_mesh + group_model_DHDSTformer + group_model_DSTformer + group_model_loss + group_model_loss_mesh + group_model_training + group_model_DHformer

@@ -200,19 +200,19 @@ def batch_virtualCameraRotationFromPosition(positions):
 
     return R_virt2orig
 
-def get_batch_R_real2virt_from_2d(img_2d, K):
+def get_batch_R_orig2virt_from_2d(img_2d, K):
     # K: intrinsic matrix
     assert len(img_2d.shape) == 3, img_2d.shape
     assert img_2d.shape[-1] == 2, img_2d.shape
     locations = img_2d[:, 0]
     locations = np.hstack([locations, np.ones((locations.shape[0], 1))]) # to homogeneous coordinates
     locations = locations @ np.linalg.inv(K).T
-    R_virt2real_from_2d = batch_virtualCameraRotationFromPosition(locations)
-    R_real2virt_from_2d = np.linalg.inv(R_virt2real_from_2d)
-    R_real2virt_from_2d_inv = R_virt2real_from_2d
-    return R_real2virt_from_2d, R_real2virt_from_2d_inv
+    R_virt2orig_from_2d = batch_virtualCameraRotationFromPosition(locations)
+    R_orig2virt_from_2d = np.linalg.inv(R_virt2orig_from_2d)
+    R_orig2virt_from_2d_inv = R_virt2orig_from_2d
+    return R_orig2virt_from_2d, R_orig2virt_from_2d_inv
 
-def get_batch_R_real2virt_from_3d(cam_3d, no_Rz=False):
+def get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=False):
     from hpe_library.my_utils.test_utils import rotation_matrix_from_vectors
     if len(cam_3d.shape) == 2: # single frame
         assert len(cam_3d.shape) == 2, cam_3d.shape
@@ -226,9 +226,9 @@ def get_batch_R_real2virt_from_3d(cam_3d, no_Rz=False):
             v_origin_to_pelvis_proj_on_xz[1] = 0
             R1 = rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz)
             R2 = rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle)
-            R_real2virt_from_3d = R2 @ R1
+            R_orig2virt_from_3d = R2 @ R1
         else:
-            R_real2virt_from_3d = rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
+            R_orig2virt_from_3d = rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
     elif len(cam_3d.shape) == 3: # multiple frames
         assert len(cam_3d.shape) == 3, cam_3d.shape
         assert cam_3d.shape[-1] == 3, cam_3d.shape
@@ -241,9 +241,9 @@ def get_batch_R_real2virt_from_3d(cam_3d, no_Rz=False):
             v_origin_to_pelvis_proj_on_xz[:, 1] = 0
             R1 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz)
             R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle)
-            R_real2virt_from_3d = R2 @ R1
+            R_orig2virt_from_3d = R2 @ R1
         else:
-            R_real2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
+            R_orig2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
     elif len(cam_3d.shape) == 4: # batches of multiple frame
         assert len(cam_3d.shape) == 4, cam_3d.shape
         assert cam_3d.shape[-1] == 3, cam_3d.shape
@@ -258,11 +258,11 @@ def get_batch_R_real2virt_from_3d(cam_3d, no_Rz=False):
             v_origin_to_pelvis_proj_on_xz[:, 1] = 0
             R1 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz)
             R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle)
-            R_real2virt_from_3d = R2 @ R1
+            R_orig2virt_from_3d = R2 @ R1
         else:
-            R_real2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
-        R_real2virt_from_3d = R_real2virt_from_3d.reshape(b, f, 3, 3)
+            R_orig2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
+        R_orig2virt_from_3d = R_orig2virt_from_3d.reshape(b, f, 3, 3)
     else:
         raise ValueError(cam_3d.shape)
-    R_real2virt_from_3d_inv = np.linalg.inv(R_real2virt_from_3d)
-    return R_real2virt_from_3d, R_real2virt_from_3d_inv
+    R_orig2virt_from_3d_inv = np.linalg.inv(R_orig2virt_from_3d)
+    return R_orig2virt_from_3d, R_orig2virt_from_3d_inv

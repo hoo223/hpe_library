@@ -16,26 +16,12 @@ def canonicalization_cam_3d(cam_3d, canonical_type):
         elif 'fixed_dist' in canonical_type: dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d))
         elif 'revolute_no_Rz' in canonical_type:
             dist = np.linalg.norm(cam_3d[:, 0], axis=1)
-            # v_origin_to_pelvis = cam_3d[:, 0] / dist[:, None]
-            # v_origin_to_pelvis_proj_on_xz = v_origin_to_pelvis.copy()
-            # v_origin_to_pelvis_proj_on_xz[:, 1] = 0
-            # v_origin_to_principle = np.array([0, 0, 1]).reshape(1, 3).repeat(len(cam_3d), axis=0)
-            # assert v_origin_to_principle.shape == v_origin_to_pelvis.shape, (v_origin_to_principle.shape, v_origin_to_pelvis.shape)
-            # R1 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz)
-            # R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle)
-            # R_real2virt_from_3d = R2 @ R1
-            # R_real2virt_from_3d_inv = np.linalg.inv(R_real2virt_from_3d)
             R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=True)
-            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d)
+            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d_inv)
         elif 'revolute' == canonical_type:
             dist = np.linalg.norm(cam_3d[:, 0], axis=1)
-            # v_origin_to_pelvis = cam_3d[:, 0] / dist[:, None]
-            # v_origin_to_principle = np.array([0, 0, 1]).reshape(1, 3).repeat(len(cam_3d), axis=0)
-            # R_pelvis_to_principle = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
-            # R_pelvis_to_principle_inv = np.linalg.inv(R_pelvis_to_principle)
-            # assert v_origin_to_principle.shape == v_origin_to_pelvis.shape, (v_origin_to_principle.shape, v_origin_to_pelvis.shape)
             R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d)
-            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d)
+            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d_inv)
         else: raise ValueError(f'canonical type {canonical_type} not found')
         cam_3d_canonical[..., 2] += dist[:, None]
     else:
@@ -150,11 +136,11 @@ def batch_rotation_matrix_from_vectors(vec1, vec2):
     c = np.einsum('ij,ij->i', a, b)
     s = np.linalg.norm(v, axis=1)
     # check if v is zero (i.e. vec1 and vec2 are parallel)
-    wherezero = np.where(s == 0)
-    if len(wherezero[0]) > 0:
-        #print(wherezero)
-        #print(v[wherezero], s[wherezero])
-        s[wherezero] = 1
+    # wherezero = np.where(s == 0)
+    # if len(wherezero[0]) > 0:
+    #     #print(wherezero)
+    #     #print(v[wherezero], s[wherezero])
+    #     s[wherezero] = 1
 
     # Compute the skew-symmetric cross-product matrices of v
     kmat = np.zeros((vec1.shape[0], 3, 3))
@@ -170,9 +156,9 @@ def batch_rotation_matrix_from_vectors(vec1, vec2):
     rotation_matrices = eye + kmat + np.einsum('ijk,ikl->ijl', kmat, kmat) * ((1 - c) / (s ** 2))[:, None, None]
 
     # check if v is zero (i.e. vec1 and vec2 are parallel)
-    if len(wherezero[0]) > 0:
-        rotation_matrices[wherezero] = np.eye(3)
-        #print(rotation_matrices[wherezero])
+    # if len(wherezero[0]) > 0:
+    #     rotation_matrices[wherezero] = np.eye(3)
+    #     #print(rotation_matrices[wherezero])
 
     return rotation_matrices
 

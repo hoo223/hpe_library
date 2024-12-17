@@ -25,8 +25,8 @@ def canonicalization_cam_3d(cam_3d, canonical_type):
             # R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle)
             # R_real2virt_from_3d = R2 @ R1
             # R_real2virt_from_3d_inv = np.linalg.inv(R_real2virt_from_3d)
-            R_real2virt_from_3d, R_real2virt_from_3d_inv = get_batch_R_real2virt_from_3d(cam_3d, no_Rz=True)
-            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_real2virt_from_3d_inv)
+            R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=True)
+            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d)
         elif 'revolute' == canonical_type:
             dist = np.linalg.norm(cam_3d[:, 0], axis=1)
             # v_origin_to_pelvis = cam_3d[:, 0] / dist[:, None]
@@ -34,8 +34,8 @@ def canonicalization_cam_3d(cam_3d, canonical_type):
             # R_pelvis_to_principle = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
             # R_pelvis_to_principle_inv = np.linalg.inv(R_pelvis_to_principle)
             # assert v_origin_to_principle.shape == v_origin_to_pelvis.shape, (v_origin_to_principle.shape, v_origin_to_pelvis.shape)
-            R_real2virt_from_3d, R_real2virt_from_3d_inv = get_batch_R_real2virt_from_3d(cam_3d)
-            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_real2virt_from_3d_inv)
+            R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d)
+            cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d)
         else: raise ValueError(f'canonical type {canonical_type} not found')
         cam_3d_canonical[..., 2] += dist[:, None]
     else:
@@ -58,7 +58,7 @@ def genertate_pcl_img_2d(img_2d, cam_param, no_Rz=True):
         # R_real2virts = np.linalg.inv(R_virt2reals)
         R_real2virt_inv = R_virt2real
     else:
-        R_real2virt, R_real2virt_inv = get_batch_R_real2virt_from_3d(norm_2d, no_Rz=False)
+        R_real2virt, R_real2virt_inv = get_batch_R_orig2virt_from_3d(norm_2d, no_Rz=False)
 
     norm_2d_virt = np.einsum('ijk,ikl->ijl', norm_2d, R_real2virt_inv)
     img_2d_pcl = projection(norm_2d_virt, K)

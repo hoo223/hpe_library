@@ -604,6 +604,7 @@ def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                 # store
                 cam_3d_canonicals[subject][action][cam_id] = cam_3d_canonical
             if not no_save: savepkl(cam_3d_canonicals, save_path_cam_3d_canonical)
+            print(f'Saved {save_path_cam_3d_canonical}')
     return cam_3d_canonicals
 
 def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=False, no_save=False, adaptive_focal=False,
@@ -667,7 +668,6 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                     if 'with_Rz' in canonical_type: img_2d_canonical = genertate_pcl_img_2d(img_2d, cam_param, no_Rz=False)
                     else:                           img_2d_canonical = genertate_pcl_img_2d(img_2d, cam_param, no_Rz=True)
                 img_2d_canonicals[subject][action][cam_id] = img_2d_canonical
-            if not no_save: savepkl(img_2d_canonicals, save_path_img_2d_canonical)
         else:
             save_path_cam_3d_canonical = save_paths['cam_3d_canonical']
             assert os.path.exists(save_path_cam_3d_canonical), f'No cam_3d_canonical {canonical_type} found for {dataset_name}'
@@ -682,7 +682,8 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                 intrinsic = np.array(cam_param['intrinsic'])
                 img_2d_canonical = projection(cam_3d_canonical, intrinsic)
                 img_2d_canonicals[subject][action][cam_id] = img_2d_canonical
-            if not no_save: savepkl(img_2d_canonicals, save_path_img_2d_canonical)
+        if not no_save: savepkl(img_2d_canonicals, save_path_img_2d_canonical)
+        print(f'Saved {save_path_img_2d_canonical}')
 
     return img_2d_canonicals
 

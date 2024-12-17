@@ -1748,3 +1748,30 @@ def undistort_pose2d(pose_2d, k1, k2, p1, p2, k3, fx, fy, cx, cy):
     undistorted_pose = np.vstack((undistorted_x, undistorted_y)).T
 
     return undistorted_pose
+
+def update_result_dict(blacklist_checkpoint=[]):
+    if os.path.exists('result_dict.pkl'):
+        print('Loading result_dict.pkl')
+        result_dict = readpkl('result_dict.pkl')
+    else:
+        result_dict = {}
+    result_root = '/home/hrai/codes/MotionBERT/saved_results'
+    checkpoint_list = os.listdir(result_root)
+    for checkpoint in tqdm(checkpoint_list):
+        if checkpoint in blacklist_checkpoint: continue # skip
+        if checkpoint not in result_dict.keys(): result_dict[checkpoint] = {} # create new key if not exists
+        checkpoint_root = os.path.join(result_root, checkpoint)
+        subset_list = glob(checkpoint_root+'/*.pkl')
+        for item in subset_list:
+            subset = os.path.basename(item).split('.pkl')[0]
+            if subset in result_dict[checkpoint].keys():
+                #print(f'{subset} exists')
+                continue
+            result = readpkl(item)
+            result_dict[checkpoint][subset] = {'e1': result['e1'], 'e2': result['e2']}
+        # remove key if not in subset_list
+        for key in list(result_dict[checkpoint].keys()):
+            if key not in [os.path.basename(item).split('.pkl')[0] for item in subset_list]:
+                del result_dict[checkpoint][key]
+
+    savepkl(result_dict, 'result_dict.pkl')

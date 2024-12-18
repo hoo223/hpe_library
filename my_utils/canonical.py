@@ -15,7 +15,7 @@ def canonicalization_cam_3d(cam_3d, canonical_type):
         elif canonical_type == 'same_dist':  dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame
         elif 'fixed_dist' in canonical_type: dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d))
         elif 'revolute_no_Rz' in canonical_type:
-            dist = np.linalg.norm(cam_3d[:, 0], axis=1)
+            dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame
             R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=True)
             cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d_inv)
         elif 'revolute' == canonical_type:

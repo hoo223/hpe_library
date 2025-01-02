@@ -1695,6 +1695,10 @@ def gernerate_dataset_yaml(subset):
         if 'ALL_TRAIN' in subset:
             test_subject = [f'S{i}' for i in range(1, 9)]
             cam_list = ['cam0', 'cam1', 'cam2', 'cam4', 'cam5', 'cam6', 'cam7', 'cam8']
+        elif 'TR_S1' in subset:
+            train_subject = ['S1']
+            test_subject = [f'S{i}' for i in range(2, 9)]
+            cam_list = ['cam0', 'cam1', 'cam2', 'cam4', 'cam5', 'cam6', 'cam7', 'cam8']
         elif 'TS1_6' in subset:
             test_subject = [f'TS{i}' for i in range(1, 7)]
         elif 'TS1_4' in subset:

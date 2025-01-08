@@ -144,8 +144,6 @@ def draw_torso_direction(ax, torso):
 
     return pelvis_normal
 
-
-
 def generate_dh_frame(pos, R, name='dh_frame'):
     dh_frame = ReferenceFrame(
         origin=pos,

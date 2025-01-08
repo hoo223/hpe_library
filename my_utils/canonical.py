@@ -18,7 +18,7 @@ def canonicalization_cam_3d(cam_3d, canonical_type):
             dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame
             R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=True)
             cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d_inv)
-        elif 'revolute' == canonical_type:
+        elif ('revolute' == canonical_type) or ('revolute_with_Kvirt' in canonical_type):
             dist = np.linalg.norm(cam_3d[:, 0], axis=1)
             R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d)
             cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d_inv)
@@ -41,7 +41,6 @@ def genertate_pcl_img_2d(img_2d, cam_param, no_Rz=True):
     locations = locations @ K_inv.T
     if no_Rz:
         R_virt2real = batch_virtualCameraRotationFromPosition(locations)
-        # R_real2virts = np.linalg.inv(R_virt2reals)
         R_real2virt_inv = R_virt2real
     else:
         R_real2virt, R_real2virt_inv = get_batch_R_orig2virt_from_3d(norm_2d, no_Rz=False)
@@ -210,8 +209,8 @@ def get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=False):
         if no_Rz:
             v_origin_to_pelvis_proj_on_xz = v_origin_to_pelvis.copy()
             v_origin_to_pelvis_proj_on_xz[1] = 0
-            R1 = rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz)
-            R2 = rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle)
+            R1 = rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz) # R1: project v_origin_to_pelvis to xz plane
+            R2 = rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle) # R2: rotate projected to principle
             R_orig2virt_from_3d = R2 @ R1
         else:
             R_orig2virt_from_3d = rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
@@ -225,8 +224,8 @@ def get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=False):
         if no_Rz:
             v_origin_to_pelvis_proj_on_xz = v_origin_to_pelvis.copy()
             v_origin_to_pelvis_proj_on_xz[:, 1] = 0
-            R1 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz)
-            R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle)
+            R1 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz) # R1: project v_origin_to_pelvis to xz plane
+            R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle) # R2: rotate projected to principle
             R_orig2virt_from_3d = R2 @ R1
         else:
             R_orig2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
@@ -242,8 +241,8 @@ def get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=False):
         if no_Rz:
             v_origin_to_pelvis_proj_on_xz = v_origin_to_pelvis.copy()
             v_origin_to_pelvis_proj_on_xz[:, 1] = 0
-            R1 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz)
-            R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle)
+            R1 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz) # R1: project v_origin_to_pelvis to xz plane
+            R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle) # R2: rotate projected to principle
             R_orig2virt_from_3d = R2 @ R1
         else:
             R_orig2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)

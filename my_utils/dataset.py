@@ -645,7 +645,7 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                 if action  not in img_2d_canonicals[subject]: img_2d_canonicals[subject][action] = {}
                 img_2d = img_2ds[subject][action][cam_id].copy()
                 cam_param = cam_params[subject][action][cam_id].copy()
-                if 'original' in canonical_type: 
+                if 'original' in canonical_type: # with original PCL K_virt
                     intrinsic = np.array(cam_param['intrinsic'])
                     location_px = img_2d[:, 0]
                     scale_y = img_2d[...,1].max(axis=-1) - img_2d[...,1].min(axis=-1)
@@ -664,7 +664,7 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                                                                                        focal_at_image_plane=True,
                                                                                        slant_compensation=True)
                     img_2d_canonical = img_2d_canonical.detach().cpu().numpy()
-                else: # with K
+                else: # with custom K_virt -> we can choose the existence of Rz
                     if 'with_Rz' in canonical_type: img_2d_canonical = genertate_pcl_img_2d(img_2d, cam_param, no_Rz=False)
                     else:                           img_2d_canonical = genertate_pcl_img_2d(img_2d, cam_param, no_Rz=True)
                 img_2d_canonicals[subject][action][cam_id] = img_2d_canonical
@@ -681,6 +681,24 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                 cam_param = cam_params[subject][action][cam_id]
                 intrinsic = np.array(cam_param['intrinsic'])
                 img_2d_canonical = projection(cam_3d_canonical, intrinsic)
+                if 'with_Kvirt' in canonical_type:
+                    location_px = img_2d_canonical[:, 0]
+                    scale_y = img_2d_canonical[...,1].max(axis=-1) - img_2d_canonical[...,1].min(axis=-1)
+                    scale_x = img_2d_canonical[...,0].max(axis=-1) - img_2d_canonical[...,0].min(axis=-1)
+                    scale = np.stack([scale_x, scale_y], axis=-1)
+
+                    img_2d_tensor = torch.tensor(img_2d_canonical).float()
+                    scale_tensor = torch.tensor(scale).float()
+                    Ks_px_orig_tensor = torch.tensor(intrinsic.reshape(1, 3, 3)).repeat(img_2d_canonical.shape[0], 1, 1).float()
+                    location_px_tensor = torch.tensor(location_px).float()
+
+                    img_2d_canonical, R_virt2orig, P_virt2orig = pcl.pcl_transforms_2d(img_2d_tensor,
+                                                                                       location_px_tensor,
+                                                                                       scale_tensor,
+                                                                                       Ks_px_orig_tensor,
+                                                                                       focal_at_image_plane=True,
+                                                                                       slant_compensation=True)
+                    img_2d_canonical = img_2d_canonical.detach().cpu().numpy()
                 img_2d_canonicals[subject][action][cam_id] = img_2d_canonical
         if not no_save: savepkl(img_2d_canonicals, save_path_img_2d_canonical)
         print(f'Saved {save_path_img_2d_canonical}')
@@ -1665,6 +1683,9 @@ def gernerate_dataset_yaml(subset):
         if 'TR_S1_TS_S5678' in subset:
             train_subject = ['S1']
             test_subject = ['S5', 'S6', 'S7', 'S8']
+        elif 'TR_S15_TS_S678' in subset:
+            train_subject = ['S1', 'S5']
+            test_subject = ['S6', 'S7', 'S8']
         elif 'S15678_TR_54138969_TS_OTHERS' in subset:
             train_subject = ['S1', 'S5', 'S6', 'S7', 'S8']
             test_subject = ['S1', 'S5', 'S6', 'S7', 'S8']
@@ -1749,6 +1770,7 @@ def gernerate_dataset_yaml(subset):
     elif 'FIXED_DIST_5' in subset: canonical_type = 'fixed_dist_5'
     elif 'REVOLUTE' in subset:
         if 'NO_RZ' in subset:      canonical_type = 'revolute_no_Rz'
+        if 'WITH_KVIRT' in subset: canonical_type = 'revolute_with_Kvirt'
         else:                      canonical_type = 'revolute'
     elif 'PCL' in subset:
         if 'WITH_RZ' in subset:    canonical_type = 'pcl_with_Rz'

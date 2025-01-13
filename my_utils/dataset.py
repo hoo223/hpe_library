@@ -1724,7 +1724,10 @@ def gernerate_dataset_yaml(subset):
             test_subject = [f'TS{i}' for i in range(1, 7)]
         elif 'TS1_4' in subset:
             test_subject = [f'TS{i}' for i in range(1, 5)]
-        else: raise ValueError(f'Invalid item: {subset}')
+        else:
+            train_subject = [f'S{i}' for i in range(1, 9)]
+            test_subject = [f'TS{i}' for i in range(1, 7)]
+            cam_list = ['cam0', 'cam1', 'cam2', 'cam4', 'cam5', 'cam6', 'cam7', 'cam8', None]
         if 'UNIV' in subset: univ = True
     elif dataset_name == 'kookmin':
         if 'FOLD1' in subset:   test_subject = ['S12', 'S15', 'S18']

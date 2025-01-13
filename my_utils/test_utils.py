@@ -20,10 +20,19 @@ def savepkl(data, save_path):
 
 # return keypoint index from keypoint name (h36m)
 def get_h36m_keypoint_index(keypoint_name):
-    for idx, value in h36m_keypoints.items():
-        if value.lower() == keypoint_name.lower():
-            return idx
-    print('Invalid keypoint name: {}'.format(keypoint_name))
+    if type(keypoint_name) == list:
+        output = []
+        for key in keypoint_name:
+            for idx, value in h36m_keypoints.items():
+                if value.lower() == key.lower():
+                    output.append(idx)
+                    break
+        return output
+    elif type(keypoint_name) == str:
+        for idx, value in h36m_keypoints.items():
+            if value.lower() == keypoint_name.lower():
+                return idx
+        print('Invalid keypoint name: {}'.format(keypoint_name))
     return -1
 
 # return keypoints from keypoint list (h36m)
@@ -36,7 +45,9 @@ def get_h36m_keypoints(pose3d, key_list=[]):
     return output
 
 def get_batch_h36m_keypoints(batch_pose3d, key_list=[]):
-    assert type(batch_pose3d) == torch.Tensor, 'batch_pose3d should be torch.Tensor'
+    #assert type(batch_pose3d) == torch.Tensor, 'batch_pose3d should be torch.Tensor'
+    if type(batch_pose3d) != torch.Tensor:
+        batch_pose3d = torch.tensor(batch_pose3d)
     if len(batch_pose3d.shape) == 3:
         output = torch.zeros([batch_pose3d.shape[0], len(key_list), 3], dtype=torch.float32).to(batch_pose3d.device)
     elif len(batch_pose3d.shape) == 4:

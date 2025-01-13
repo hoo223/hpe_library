@@ -900,6 +900,8 @@ def general_plot_func(axs, configs, plot_pose_setting, frame_num, legend_fontsiz
         color = setting['color'] if 'color' in setting and setting['color'] != '' else None
         label = setting['label'] if 'label' in setting and setting['label'] != '' else None
         linestyle = setting['linestyle'] if 'linestyle' in setting and setting['linestyle'] != '' else '-'
+        lw = setting['lw'] if 'lw' in setting and setting['lw'] != '' else 1
+        markersize = setting['markersize'] if 'markersize' in setting and setting['markersize'] != '' else 1
         if 'img' in setting:
             if type(setting['img']) == list: img = setting['img'][frame_num]
             else: img = setting['img']
@@ -919,7 +921,7 @@ def general_plot_func(axs, configs, plot_pose_setting, frame_num, legend_fontsiz
             else: raise ValueError(f'Invalid H type: {type(setting["H"])}')
         else: H = None
         if configs[plot]['type'] == '3d':
-            draw_3d_pose(axs[plot], pose, dataset=dataset, color=color, label=label, linestyle=linestyle)
+            draw_3d_pose(axs[plot], pose, dataset=dataset, lw=lw, markersize=markersize, color=color, label=label, linestyle=linestyle)
         elif configs[plot]['type'] == '2d':
             if 'normalize' in configs[plot]: draw_2d_pose(axs[plot], pose, img=img, dataset=dataset, color=color, label=label, linestyle=linestyle, normalize=True)
             else:                            draw_2d_pose(axs[plot], pose, img=img, dataset=dataset, color=color, label=label, linestyle=linestyle, W=W, H=H)

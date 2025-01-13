@@ -1213,6 +1213,7 @@ def frame_vec_to_matrix(forward, left, up):
 
 
 def generate_vis_frame(origin, R, name='dh_frame'):
+    from hpe_library.camera_models_utils import ReferenceFrame
     dh_frame = ReferenceFrame(
         origin=origin,
         dx=R[:, 0],
@@ -1300,15 +1301,21 @@ def get_batch_upper_torso_frame_from_keypoints(batch_r_shoulder, batch_l_shoulde
     batch_upper_frame_R = get_batch_frame_vec_from_keypoints(batch_r_shoulder, batch_l_shoulder, batch_torso, batch_neck, forward_dir)
     return batch_upper_frame_origin, batch_upper_frame_R
 
-def get_batch_lower_torso_frame_from_pose(batch_pose, forward_dir='x'):
+def get_batch_lower_torso_frame_from_pose(batch_pose, forward_dir='x', output_type='tensor'):
     from my_utils import get_batch_h36m_keypoints
-    output = get_batch_h36m_keypoints(batch_pose, ['r_hip', 'l_hip', 'pelvis', 'torso'])
-    return get_batch_lower_torso_frame_from_keypoints(output[:, :, 0], output[:, :, 1], output[:, :, 2], output[:, :, 3], forward_dir)
+    batch_keypoints = get_batch_h36m_keypoints(batch_pose, ['r_hip', 'l_hip', 'pelvis', 'torso'])
+    output = get_batch_lower_torso_frame_from_keypoints(batch_keypoints[:, 0], batch_keypoints[:, 1], batch_keypoints[:, 2], batch_keypoints[:, 3], forward_dir)
+    if output_type == 'numpy':
+        output = [output[0].cpu().numpy(), output[1].cpu().numpy()]
+    return output
 
-def get_batch_upper_torso_frame_from_pose(batch_pose, forward_dir='x'):
+def get_batch_upper_torso_frame_from_pose(batch_pose, forward_dir='x', output_type='tensor'):
     from my_utils import get_batch_h36m_keypoints
-    output = get_batch_h36m_keypoints(batch_pose, ['r_shoulder', 'l_shoulder', 'torso', 'neck'])
-    return get_batch_upper_torso_frame_from_keypoints(output[:, :, 0], output[:, :, 1], output[:, :, 2], output[:, :, 3], forward_dir)
+    batch_keypoints = get_batch_h36m_keypoints(batch_pose, ['r_shoulder', 'l_shoulder', 'torso', 'neck'])
+    output = get_batch_upper_torso_frame_from_keypoints(batch_keypoints[:, 0], batch_keypoints[:, 1], batch_keypoints[:, 2], batch_keypoints[:, 3], forward_dir)
+    if output_type == 'numpy':
+        output = [output[0].cpu().numpy(), output[1].cpu().numpy()]
+    return output
 
 
 # Batch version of Appendage class

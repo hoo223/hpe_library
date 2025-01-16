@@ -69,7 +69,10 @@ def projection(pose3d, intrinsic):
         #     pose_2ds.append(pose_2d)
         # return np.array(pose_2ds)
         assert (pose3d[:, 0, 2] != 0).any(), "z value of pelvis must not be 0"
-        pose2d = np.einsum('njc,cl->njl', pose3d, intrinsic.T) # (N, J, 3)
+        if len(intrinsic.shape) == 2:
+            pose2d = np.einsum('njc,cl->njl', pose3d, intrinsic.T) # (N, J, 3)
+        elif len(intrinsic.shape) == 3:
+            pose2d = np.einsum('njc,ncl->njl', pose3d, np.transpose(intrinsic, axes=(0, 2, 1))) # (N, J, 3)
         pose2d = pose2d / pose2d[:, :, 2:] # (N, J, 3)
         return pose2d[...,:2] # (N, J, 2)
     else:

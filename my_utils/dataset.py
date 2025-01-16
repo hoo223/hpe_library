@@ -290,8 +290,8 @@ def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=T
     return data_dict
 
 def load_source_list(dataset_name, save_paths, overwrite=False, no_save=False):
-    from my_utils import load_3dhp_original, readpkl, savepkl
-    from posynda_utils import Human36mDataset
+    from hpe_library.my_utils import load_3dhp_original, readpkl, savepkl
+    from hpe_library.posynda_utils import Human36mDataset
     user = getpass.getuser()
     save_path_source_list = save_paths['source_list']
     if os.path.exists(save_path_source_list) and not overwrite and not no_save:
@@ -335,8 +335,8 @@ def load_source_list(dataset_name, save_paths, overwrite=False, no_save=False):
     return source_list
 
 def load_cam_params(dataset_name, save_paths, overwrite=False, no_save=False, only_visible_frame=False, adaptive_focal=False):
-    from my_utils import load_3dhp_original, readpkl, savepkl, readJSON, get_video_info
-    from posynda_utils import Human36mDataset
+    from hpe_library.my_utils import load_3dhp_original, readpkl, savepkl, readJSON, get_video_info
+    from hpe_library.posynda_utils import Human36mDataset
     if adaptive_focal: save_path_cam_params = save_paths['cam_param_adaptive_focal']
     else: save_path_cam_params = save_paths['cam_param']
     if os.path.exists(save_path_cam_params) and not overwrite and not no_save:
@@ -420,7 +420,7 @@ def load_cam_params(dataset_name, save_paths, overwrite=False, no_save=False, on
     return cam_params
 
 def load_image_frame(dataset_name, source, frame_num):
-    from my_utils import split_source_name, get_video_frame, load_cam_params
+    from hpe_library.my_utils import split_source_name, get_video_frame, load_cam_params
     user = getpass.getuser()
     subject, cam_id, action = split_source_name(source, dataset_name)
     cam_params = load_cam_params(dataset_name, f'/home/{user}/codes/MotionBERT/data/motion3d')
@@ -448,7 +448,7 @@ def load_cam_3d(dataset_name, save_paths, overwrite=False, no_save=False, univ=F
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                         'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                         }):
-    from my_utils import load_3dhp_original, data_augmentation, readpkl, savepkl, split_source_name, get_video_info
+    from hpe_library.my_utils import load_3dhp_original, data_augmentation, readpkl, savepkl, split_source_name, get_video_info
     import random
     random.seed(0)
     # pkl path
@@ -515,7 +515,7 @@ def load_img_2d(dataset_name, save_paths, overwrite=False, no_save=False, only_v
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                         'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                         }):
-    from my_utils import load_3dhp_original, readpkl, savepkl, projection
+    from hpe_library.my_utils import load_3dhp_original, readpkl, savepkl, projection
     # pkl path
     save_path_img_2d = save_paths['img_2d']
     # load data
@@ -572,7 +572,7 @@ def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                                     'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                                     'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                                     }):
-    from my_utils import canonicalization_cam_3d, readpkl, savepkl
+    from hpe_library.my_utils import canonicalization_cam_3d, readpkl, savepkl
     import random
     random.seed(0)
     assert canonical_type is not None, 'canonical_type is None'
@@ -613,7 +613,7 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
                         'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                         }):
-    from my_utils import readpkl, savepkl, projection, genertate_pcl_img_2d
+    from hpe_library.my_utils import readpkl, savepkl, projection, genertate_pcl_img_2d
     from hpe_library.pcl_utils import pcl
     # prerequisites
     assert canonical_type is not None, 'canonical_type is None'
@@ -706,8 +706,8 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
     return img_2d_canonicals
 
 def load_world_3d(dataset_name, save_paths, overwrite=False, no_save=False):
-    from my_utils import readpkl, savepkl, split_source_name, readJSON
-    from posynda_utils import Human36mDataset
+    from hpe_library.my_utils import readpkl, savepkl, split_source_name, readJSON
+    from hpe_library.posynda_utils import Human36mDataset
     user = getpass.getuser()
     # pkl path
     save_path_world_3d = save_paths['world_3d']
@@ -762,7 +762,7 @@ def load_world_3d(dataset_name, save_paths, overwrite=False, no_save=False):
     return world_3ds
 
 def load_img_3d(dataset_name, save_paths, overwrite=False, no_save=False):
-    from my_utils import readpkl, savepkl, split_source_name
+    from hpe_library.my_utils import readpkl, savepkl, split_source_name
     save_path_img_3d = save_paths['img_3d']
     if os.path.exists(save_path_img_3d) and not overwrite and not no_save:
         img_3ds = readpkl(save_path_img_3d)
@@ -816,7 +816,7 @@ def load_img_3d(dataset_name, save_paths, overwrite=False, no_save=False):
     return img_3ds
 
 def load_scale_factor(dataset_name, save_paths, overwrite=False, no_save=False):
-    from my_utils import readpkl, savepkl, split_source_name, optimize_scaling_factor
+    from hpe_library.my_utils import readpkl, savepkl, split_source_name, optimize_scaling_factor
     save_path_scale_factor = save_paths['scale_factor']
     if os.path.exists(save_path_scale_factor) and not overwrite and not no_save:
         scale_factors = readpkl(save_path_scale_factor)
@@ -860,7 +860,7 @@ def load_scale_factor(dataset_name, save_paths, overwrite=False, no_save=False):
     return scale_factors
 
 def load_img25d(dataset_name, save_paths, overwrite=False, no_save=False):
-    from my_utils import readpkl, savepkl, split_source_name
+    from hpe_library.my_utils import readpkl, savepkl, split_source_name
     save_path_img_25d = save_paths['img_25d']
     if os.path.exists(save_path_img_25d) and not overwrite and not no_save:
         img_25ds = readpkl(save_path_img_25d)
@@ -892,8 +892,8 @@ def load_img25d(dataset_name, save_paths, overwrite=False, no_save=False):
     return img_25ds
 
 def load_h36m():
-    from posynda_utils import Human36mDataset
-    from my_utils import readJSON
+    from hpe_library.posynda_utils import Human36mDataset
+    from hpe_library.my_utils import readJSON
     # camera parameters
     cam_param = readJSON('/home/hrai/codes/hpe_library/data/h36m_camera-parameters.json')
     print('==> Loading 3D data wrt World CS...')
@@ -904,7 +904,7 @@ def load_h36m():
     return h36m_3d_world, cam_param
 
 def load_fit3d_one_video(fit3d_root, cam_num, data_type='train', subject='s03', action='burpees'):
-    from my_utils import readJSON
+    from hpe_library.my_utils import readJSON
     # load gt 3d
     subject_path = os.path.join(fit3d_root, data_type, subject)
     gt_3d_path = os.path.join(subject_path, 'joints3d_25', action + '.json')
@@ -944,7 +944,7 @@ def get_pose_seq_and_cam_param(h36m_3d_world, h36m_cam_param, subject, action):
     return pose3d, cam_param
 
 def get_part_traj(pose_traj, part):
-    from my_utils import get_h36m_keypoint_index
+    from hpe_library.my_utils import get_h36m_keypoint_index
     # h36m 기준
     pelvis_idx = get_h36m_keypoint_index('Pelvis')
     l_hip_idx = get_h36m_keypoint_index('L_Hip')
@@ -973,7 +973,7 @@ def get_part_traj(pose_traj, part):
     return part_traj
 
 def get_aligned_init_torso(torso, forward, height=0.86):
-    from my_utils import get_torso_rotation_matrix, rotation_matrix_to_vector_align, rotate_torso_by_R, get_torso_direction
+    from hpe_library.my_utils import get_torso_rotation_matrix, rotation_matrix_to_vector_align, rotate_torso_by_R, get_torso_direction
     # align to world origin
     rot_from_world = get_torso_rotation_matrix(torso)
     align_R = rot_from_world.T
@@ -998,7 +998,7 @@ def get_aligned_init_torso(torso, forward, height=0.86):
     return aligned_init_torso
 
 def generate_random_trajectory(seed_offest, start_torso, cam_proj, num_points=5000, max_deg=5, max_dist=10, max_bias=5, step_size=0.01, rt_type='rxryrztxtytz', seed=None):
-    from my_utils import get_torso_rotation_matrix, rotate_torso_by_R, projection
+    from hpe_library.my_utils import get_torso_rotation_matrix, rotate_torso_by_R, projection
     # max_dist [cm]
     cm_to_m = 0.01
     start_point = start_torso[0]
@@ -1080,7 +1080,6 @@ def generate_random_trajectory(seed_offest, start_torso, cam_proj, num_points=50
     return points, rots, torsos, torsos_projected
 
 def generate_random_segment(seed_offest, start_torso, cam_proj, num_points, max_deg, max_bias, max_dist, step_size, rt_type, seed, xyz_range=[0.5, 0.5, 0.2]):
-
     points, rots, torsos, torsos_projected = generate_random_trajectory(seed_offest, start_torso, cam_proj, num_points=num_points, max_deg=max_deg, max_bias=max_bias, max_dist=max_dist,  step_size=step_size, rt_type=rt_type, seed=seed)
 
     # exclude points outside of image, -bound<= x,y <=bound
@@ -1359,7 +1358,7 @@ def get_backbone_line_from_torso(torso):
     return line
 
 def get_ap_pose_2d(video_path, ap_result_path, dataset='h36m'):
-    from my_utils import get_video_info, readJSON, get_bbox_from_pose2d, get_bbox_area, change_bbox_convention, halpe2h36m
+    from hpe_library.my_utils import get_video_info, readJSON, get_bbox_from_pose2d, get_bbox_area, change_bbox_convention, halpe2h36m
     W, H, video_length, _ = get_video_info(video_path)
     ap_result = readJSON(os.path.join(ap_result_path, 'alphapose-results.json'))
     if dataset == 'h36m': num_keypoints = 17
@@ -1407,7 +1406,7 @@ def parse_args_by_model_name(target):
     return opts
 
 def get_limb_angle(batch_pose):
-    from my_utils import get_h36m_keypoint_index, calculate_batch_azimuth_elevation
+    from hpe_library.my_utils import get_h36m_keypoint_index, calculate_batch_azimuth_elevation
     # batch_gt: (B, T, 17, 3)
     if type(batch_pose) != torch.Tensor:
         batch_pose = torch.tensor(batch_pose).float()
@@ -1484,7 +1483,7 @@ def get_limb_angle(batch_pose):
 def get_input_gt_for_onevec(batch_input, batch_gt):
     # batch_input: (B, T, 17, 3)
     # batch_gt: (B, T, 17, 3)
-    from my_utils import get_h36m_keypoint_index, calculate_batch_azimuth_elevation
+    from hpe_library.my_utils import get_h36m_keypoint_index, calculate_batch_azimuth_elevation
 
     # get the keypoint index
     r_hip = get_h36m_keypoint_index('r_hip')
@@ -1583,7 +1582,7 @@ def get_h36m_camera_info(h36m_3d_world, h36m_cam_param, subject, action, camera_
     return calibration_matrix, camera_param, H, W, fx, fy, cx, cy
 
 def h36m_data_processing(pose3d_list, camera_param, fx, fy, cx, cy, length=243):
-    from my_utils import World2CameraCoordinate, get_rootrel_pose, infer_box, camera_to_image_frame, optimize_scaling_factor
+    from hpe_library.my_utils import World2CameraCoordinate, get_rootrel_pose, infer_box, camera_to_image_frame, optimize_scaling_factor
     pose_2d_list = []
     cam_3d_list = []
     img_3d_list = []

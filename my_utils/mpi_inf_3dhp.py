@@ -60,9 +60,9 @@ def get_3dhp_cam_info(data_type):
             cam_info_3dhp_test[key]['t'] = t
             cam_info_3dhp_test[key]['C'] = C
         return cam_info_3dhp_test
-    
+
 def get_img_frame_3dhp(data_type, subject, frame_num, seq=None, cam_id=None):
-    from my_utils import get_video_frame
+    from hpe_library.my_utils import get_video_frame
     user = getpass.getuser()
     if data_type == 'train':
         cam_id = cam_id.split('cam')[-1]
@@ -73,9 +73,9 @@ def get_img_frame_3dhp(data_type, subject, frame_num, seq=None, cam_id=None):
         return cv2.imread(img_path)
     else:
         raise ValueError(f'Invalid data_type: {data_type}')
-    
+
 def load_3dhp_original(data_type='test', overwrite=False, no_save=False):
-    from my_utils import readpkl, savepkl, mpi_inf_3dhp2h36m, normalize_input
+    from hpe_library.my_utils import readpkl, savepkl, mpi_inf_3dhp2h36m, normalize_input
     #print(f"==> Loading 3DHP {data_type} data...")
     user = getpass.getuser()
     cam_params = readpkl(f'/home/{user}/codes/MotionBERT/custom_codes/dataset_generation/3dhp/3dhp_{data_type}_cam_params.pkl')
@@ -149,16 +149,16 @@ def load_3dhp_original(data_type='test', overwrite=False, no_save=False):
                         data_dict[source]['num_visible_frames'] = num_visible_frames
                         data_dict[source]['num_frames'] = len(annot2)
         if not no_save: savepkl(data_dict, data_dict_path)
-        
+
     return data_dict, cam_params
 
 def test_3dhp_data_generator(pose_type, canonical_type='', fixed_position=[]):
-    from my_utils import remove_nose_from_h36m, canonicalization_cam_3d, projection, normalize_input, denormalize_input
+    from hpe_library.my_utils import remove_nose_from_h36m, canonicalization_cam_3d, projection, normalize_input, denormalize_input
     # load original 3dhp data
     mpi_inf_3dhp_test = np.load('data_extra/dataset_extras/mpi_inf_3dhp_test.npz')
     original_test, cam_param_3dhp_test = load_3dhp_original('test', overwrite=False)
     test_3dhp_from_test = np.load('data_extra/test_set/test_3dhp_from_test.npz')
-    
+
     source_list = []
     pose_dict = {}
     for key in pose_type:
@@ -172,7 +172,7 @@ def test_3dhp_data_generator(pose_type, canonical_type='', fixed_position=[]):
         cam_param = cam_param_3dhp_test[subject]
         W, H, intrinsic = cam_param['W'], cam_param['H'], cam_param['intrinsic']
         #fx, fy, cx, cy = intrinsic[0, 0], intrinsic[1, 1], intrinsic[0, 2], intrinsic[1, 2]
-        
+
         # original 3dhp
         annot3 = remove_nose_from_h36m(original_test[subject]['annot3'][actual_frame].copy()/1000)
         annot3_hat = annot3 - annot3[0]
@@ -184,11 +184,11 @@ def test_3dhp_data_generator(pose_type, canonical_type='', fixed_position=[]):
         univ_annot3_hat = univ_annot3 - univ_annot3[0]
         univ_annot2 = projection(univ_annot3, intrinsic)[..., :2]
         univ_annot2_norm = normalize_input(univ_annot2, W, H)
-        # poseaug 3dhp 
+        # poseaug 3dhp
         test_pose3d = test_3dhp_from_test['pose3d'][frame_num]
         test_pose2d = test_3dhp_from_test['pose2d'][frame_num]
         test_pose2d_denorm = denormalize_input(test_pose2d, W, H)
-        
+
         if canonical_type != '':
             # canonicalization for annot3
             annot3_canonical = canonicalization_cam_3d(annot3, canonical_type=canonical_type)
@@ -207,7 +207,7 @@ def test_3dhp_data_generator(pose_type, canonical_type='', fixed_position=[]):
             univ_annot3_fixed_pos = univ_annot3 - univ_annot3[0] + fixed_position
             univ_annot2_fixed_pos = projection(univ_annot3_fixed_pos, intrinsic)[..., :2]
             univ_annot2_fixed_pos_norm = normalize_input(univ_annot2_fixed_pos, W, H)
-        
+
         if 'annot3'                     in pose_type: pose_dict['annot3'].append(annot3)
         if 'annot3_hat'                 in pose_type: pose_dict['annot3_hat'].append(annot3_hat)
         if 'univ_annot3'                in pose_type: pose_dict['univ_annot3'].append(univ_annot3)
@@ -233,7 +233,68 @@ def test_3dhp_data_generator(pose_type, canonical_type='', fixed_position=[]):
         if 'univ_annot2_canonical_norm' in pose_type: pose_dict['univ_annot2_canonical_norm'].append(univ_annot2_canonical_norm)
         if 'test_pose2d'                in pose_type: pose_dict['test_pose2d'].append(test_pose2d)
         if 'test_pose2d_denorm'         in pose_type: pose_dict['test_pose2d_denorm'].append(test_pose2d_denorm)
-        
+
     for key in pose_dict.keys():
         pose_dict[key] = np.array(pose_dict[key])
     return pose_dict, source_list, cam_param_3dhp_test
+
+def test_3dhp_data_generator_new(args):
+    from hpe_library.my_utils import load_data_dict, remove_nose_from_h36m, canonicalization_cam_3d, projection, normalize_input, denormalize_input
+    # load original 3dhp data
+    mpi_inf_3dhp_test = np.load('data_extra/dataset_extras/mpi_inf_3dhp_test.npz')
+    original_test, cam_param_3dhp_test = load_3dhp_original('test', overwrite=False)
+    test_3dhp_from_test = np.load('data_extra/test_set/test_3dhp_from_test.npz')
+
+    pose_dict = {}
+    source_list = []
+    pose_dict = {'pose2d': [], 'pose3d': [], 'W': [], 'H': [], 'intrinsic': []}
+    for frame_num in range(len(mpi_inf_3dhp_test['imgname'])):
+        source = mpi_inf_3dhp_test['imgname'][frame_num]
+        splited = source.split('/')
+        subject = splited[1]
+        actual_frame = int(splited[-1].split('.')[0].split('_')[-1]) - 1
+        source_list.append([subject, actual_frame])
+        cam_param = cam_param_3dhp_test[subject]
+        W, H, intrinsic = cam_param['W'], cam_param['H'], cam_param['intrinsic']
+
+        # original 3dhp
+        annot3_univ = remove_nose_from_h36m(original_test[subject]['univ_annot3'][actual_frame].copy()/1000)
+        annot3 = remove_nose_from_h36m(original_test[subject]['annot3'][actual_frame].copy()/1000)
+        if args.input_from_proj: annot2 = projection(annot3, intrinsic)[..., :2]
+        else:               annot2 = remove_nose_from_h36m(original_test[subject]['annot2'][actual_frame].copy())
+
+        # poseaug 3dhp
+        #test_pose3d = test_3dhp_from_test['pose3d'][frame_num]
+        #test_pose2d = test_3dhp_from_test['pose2d'][frame_num]
+        #test_pose2d_denorm = denormalize_input(test_pose2d, W, H)
+
+        # canonicalization
+        if args.canonical_type != '':
+            annot3 = canonicalization_cam_3d(annot3, canonical_type=args.canonical_type)
+            annot3_univ = canonicalization_cam_3d(annot3_univ, canonical_type=args.canonical_type)
+            annot2 = projection(annot3, intrinsic)[..., :2]
+            if args.univ_3dhp_gt: annot3 = annot3_univ
+        # fixed position
+        elif len(args.fixed_position) > 0:
+            annot3_fixed_pos = annot3 - annot3[0] + args.fixed_position
+            annot3_univ_fixed_pos = annot3_univ - annot3_univ[0] + args.fixed_position
+            annot2_fixed_pos = projection(annot3_fixed_pos, intrinsic)[..., :2]
+            if args.univ_3dhp_gt: annot3 = annot3_univ_fixed_pos
+            else:            annot3 = annot3_fixed_pos
+            annot2 = annot2_fixed_pos
+        else:
+            if args.univ_3dhp_gt: annot3 = annot3_univ
+        # normalize 2d input
+        if args.input_norm: annot2 = normalize_input(annot2, W, H)
+
+        pose_dict['pose2d'].append(annot2)
+        pose_dict['pose3d'].append(annot3)
+        pose_dict['W'].append(W)
+        pose_dict['H'].append(H)
+        pose_dict['intrinsic'].append(intrinsic)
+
+    # convert to numpy array
+    for key in pose_dict.keys():
+        pose_dict[key] = np.array(pose_dict[key])
+
+    return pose_dict, source_list

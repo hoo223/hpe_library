@@ -2,12 +2,15 @@ from hpe_library.lib_import import *
 
 def canonicalization_cam_3d(cam_3d, canonical_type):
     if len(cam_3d.shape) == 2:
+        cam_3d_canonical = cam_3d.copy() - cam_3d[0, None] # move to cam origin
         if 'same_z' in canonical_type:       dist = cam_3d[0, 2] # z value of pelvis joint for each frame
         elif 'same_dist' in canonical_type:  dist = np.linalg.norm(cam_3d[0], axis=1) # dist from origin to pelvis joint for each frame
         elif 'fixed_dist' in canonical_type: dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d))
-        #elif 'revolute' in canonical_type: dist = np.linalg.norm(cam_3d[0], axis=1) # dist from origin to pelvis joint for each frame
+        elif 'revolute' in canonical_type: 
+            dist = np.linalg.norm(cam_3d[0]) # dist from origin to pelvis joint for each frame
+            R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d)
+            cam_3d_canonical = np.einsum('ik,kj->ij', cam_3d_canonical, R_orig2virt_from_3d_inv)
         else: raise ValueError(f'canonical type {canonical_type} not found')
-        cam_3d_canonical = cam_3d.copy() - cam_3d[0, None] # move to cam origin
         cam_3d_canonical[..., 2] += dist[None]
     elif len(cam_3d.shape) == 3:
         cam_3d_canonical = cam_3d.copy() - cam_3d[:, 0, None] # move to cam origin

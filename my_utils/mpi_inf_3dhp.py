@@ -261,7 +261,7 @@ def test_3dhp_data_generator_new(args):
         annot3_univ = remove_nose_from_h36m(original_test[subject]['univ_annot3'][actual_frame].copy()/1000)
         annot3 = remove_nose_from_h36m(original_test[subject]['annot3'][actual_frame].copy()/1000)
         if args.input_from_proj: annot2 = projection(annot3, intrinsic)[..., :2]
-        else:               annot2 = remove_nose_from_h36m(original_test[subject]['annot2'][actual_frame].copy())
+        else:                    annot2 = remove_nose_from_h36m(original_test[subject]['annot2'][actual_frame].copy())
 
         # poseaug 3dhp
         #test_pose3d = test_3dhp_from_test['pose3d'][frame_num]
@@ -273,7 +273,6 @@ def test_3dhp_data_generator_new(args):
             annot3 = canonicalization_cam_3d(annot3, canonical_type=args.canonical_type)
             annot3_univ = canonicalization_cam_3d(annot3_univ, canonical_type=args.canonical_type)
             annot2 = projection(annot3, intrinsic)[..., :2]
-            if args.univ_3dhp_gt: annot3 = annot3_univ
         # fixed position
         elif len(args.fixed_position) > 0:
             annot3_fixed_pos = annot3 - annot3[0] + args.fixed_position
@@ -282,8 +281,7 @@ def test_3dhp_data_generator_new(args):
             if args.univ_3dhp_gt: annot3 = annot3_univ_fixed_pos
             else:            annot3 = annot3_fixed_pos
             annot2 = annot2_fixed_pos
-        else:
-            if args.univ_3dhp_gt: annot3 = annot3_univ
+        if args.univ_3dhp_gt: annot3 = annot3_univ
         # normalize 2d input
         if args.input_norm: annot2 = normalize_input(annot2, W, H)
 

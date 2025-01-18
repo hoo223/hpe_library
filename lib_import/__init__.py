@@ -56,7 +56,8 @@ from tqdm import tqdm
 import pandas as pd
 from natsort import natsorted
 import plotly.graph_objects as go
-lib_others = ['cv2', 'yaml', 'imageio', 'np', 'tqdm', 'pd', 'natsorted', 'go']
+import prettytable
+lib_others = ['cv2', 'yaml', 'imageio', 'np', 'tqdm', 'pd', 'natsorted', 'go', 'prettytable']
 
 lib_third_party = lib_matplotlib + lib_scipy + lib_ipywidgets + lib_others 
 ## custom functions

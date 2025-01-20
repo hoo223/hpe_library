@@ -20,6 +20,25 @@ def savepkl(data, save_path):
 
 # return keypoint index from keypoint name (h36m)
 def get_h36m_keypoint_index(keypoint_name):
+    '''
+    0 :  'Pelvis',
+    1 :  'R_Hip',
+    2 :  'R_Knee',
+    3 :  'R_Ankle',
+    4 :  'L_Hip',
+    5 :  'L_Knee',
+    6 :  'L_Ankle',
+    7 :  'Torso',
+    8 :  'Neck',
+    9 :  'Nose',
+    10 : 'Head',
+    11 : 'L_Shoulder',
+    12 : 'L_Elbow',
+    13 : 'L_Wrist',
+    14 : 'R_Shoulder',
+    15 : 'R_Elbow',
+    16 : 'R_Wrist',
+    '''
     if type(keypoint_name) == list:
         output = []
         for key in keypoint_name:
@@ -88,16 +107,16 @@ SMPL_JOINT_NAMES = {
 }
 
 h36m_keypoints ={
-    0 : 'Pelvis',
-    1 : 'R_Hip',
-    2 : 'R_Knee',
-    3 : 'R_Ankle',
-    4 : 'L_Hip',
-    5 : 'L_Knee',
-    6 : 'L_Ankle',
-    7 : 'Torso',
-    8 : 'Neck',
-    9 : 'Nose',
+    0 :  'Pelvis',
+    1 :  'R_Hip',
+    2 :  'R_Knee',
+    3 :  'R_Ankle',
+    4 :  'L_Hip',
+    5 :  'L_Knee',
+    6 :  'L_Ankle',
+    7 :  'Torso',
+    8 :  'Neck',
+    9 :  'Nose',
     10 : 'Head',
     11 : 'L_Shoulder',
     12 : 'L_Elbow',

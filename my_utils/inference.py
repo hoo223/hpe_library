@@ -335,9 +335,10 @@ def get_inference_from_DHDSTformer_limb(model, input_data, args, W, H, denormali
         output = denormalize_motionbert_result(output, W, H)
     return output
 
-def normalize_input(input_data, W, H):
+def normalize_input(input_data, W, H, modify_den=True):
     # input range: [0, W] -> [-1, 1]
-    den = W if W >= H else H
+    if modify_den: den = W if W >= H else H
+    else: den = W
     if input_data.shape[-1] == 3:
         return (input_data * 2 - [W, H, 0]) / den
     elif input_data.shape[-1] == 2:

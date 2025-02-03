@@ -148,6 +148,13 @@ def get_save_paths(save_root:str, dataset_name:str, canonical_type:str, univ:boo
     save_path_img_25d = os.path.join(save_root, f'{dataset_name}-img_25d')
     if dataset_name == '3dhp' and univ: save_path_img_25d += '_univ'
     save_path_img_25d += '.pkl'
+    
+    # img_3d_norm
+    save_path_img_3d_norm = os.path.join(save_root, f'{dataset_name}-img_3d_norm')
+    save_path_img_3d_norm += '.pkl'
+    # scale_ratio_3d_to_2d
+    save_path_scale_ratio_3d_to_2d = os.path.join(save_root, f'{dataset_name}-scale_ratio_3d_to_2d')
+    save_path_scale_ratio_3d_to_2d += '.pkl'
 
     save_paths = {
         'source_list': save_path_source_list,
@@ -162,6 +169,8 @@ def get_save_paths(save_root:str, dataset_name:str, canonical_type:str, univ:boo
         'img_25d': save_path_img_25d,
         'scale_factor': save_path_scale_factor,
         'img_2d_canonical_adaptive_focal': save_path_img_2d_canonical_adaptive_focal,
+        'img_3d_norm': save_path_img_3d_norm,
+        'scale_ratio_3d_to_2d': save_path_scale_ratio_3d_to_2d
     }
     return save_paths
 
@@ -227,17 +236,77 @@ def load_data(dataset_name,
     # save path
     save_paths = get_save_paths(save_root, dataset_name, canonical_type, univ, data_aug)
 
-    if data_type   == 'source_list':      return load_source_list(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'cam_param':        return load_cam_params(dataset_name, save_paths, overwrite, no_save, only_visible_frame, adaptive_focal)
-    elif data_type == 'world_3d':         return load_world_3d(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'cam_3d':           return load_cam_3d(dataset_name, save_paths, overwrite, no_save, univ, only_visible_frame, data_aug)
-    elif data_type == 'img_2d':           return load_img_2d(dataset_name, save_paths, overwrite, no_save, only_visible_frame, data_aug)
-    elif data_type == 'img_3d':           return load_img_3d(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'img_25d':          return load_img25d(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'scale_factor':     return load_scale_factor(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'cam_3d_canonical': return load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, data_aug)
-    elif data_type == 'img_2d_canonical': return load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, adaptive_focal, data_aug)
+    if data_type   == 'source_list':          return load_source_list(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'cam_param':            return load_cam_params(dataset_name, save_paths, overwrite, no_save, only_visible_frame, adaptive_focal)
+    elif data_type == 'world_3d':             return load_world_3d(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'cam_3d':               return load_cam_3d(dataset_name, save_paths, overwrite, no_save, univ, only_visible_frame, data_aug)
+    elif data_type == 'img_2d':               return load_img_2d(dataset_name, save_paths, overwrite, no_save, only_visible_frame, data_aug)
+    elif data_type == 'img_3d':               return load_img_3d(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'img_25d':              return load_img25d(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'scale_factor':         return load_scale_factor(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'cam_3d_canonical':     return load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, data_aug)
+    elif data_type == 'img_2d_canonical':     return load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, adaptive_focal, data_aug)
+    elif data_type == 'img_3d_norm':          return load_img_3d_norm(dataset_name, save_paths, overwrite, no_save, return_type='img_3d_norm')
+    elif data_type == 'scale_ratio_3d_to_2d': return load_img_3d_norm(dataset_name, save_paths, overwrite, no_save, return_type='scale_ratio_3d_to_2d')
     else:                                 raise ValueError(f'{data_type} not found')
+
+def load_img_3d_norm(dataset_name, save_paths, overwrite=False, no_save=False, return_type='img_3d_norm'):
+    from hpe_library.my_utils import savepkl, readpkl, normalize_input, split_source_name
+    save_path_img_3d_norm = save_paths['img_3d_norm']
+    save_path_scale_ratio_3d_to_2d = save_paths['scale_ratio_3d_to_2d']
+    # load data
+    if return_type=='img_3d_norm' and os.path.exists(save_path_img_3d_norm) and not overwrite and not no_save:
+        img_3d_norms = readpkl(save_path_img_3d_norm)
+    elif return_type=='scale_ratio_3d_to_2d' and os.path.exists(save_path_scale_ratio_3d_to_2d) and not overwrite and not no_save:
+        scale_ratio_3d_to_2ds = readpkl(save_path_scale_ratio_3d_to_2d)
+    else:
+        # prerequisites
+        save_path_source_list = save_paths['source_list']
+        save_path_cam_params = save_paths['cam_param']
+        save_path_cam_3d_canonical = save_paths['cam_3d_canonical']
+        save_path_img_2d_canonical = save_paths['img_2d_canonical']
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+        assert os.path.exists(save_path_cam_3d_canonical), f'No cam_3d_canonical found for {dataset_name}'
+        assert os.path.exists(save_path_img_2d_canonical), f'No img_2d_canonical found for {dataset_name}'
+        source_list = readpkl(save_path_source_list)
+        cam_params = readpkl(save_path_cam_params)
+        cam_3d_canonicals = readpkl(save_path_cam_3d_canonical)
+        img_2d_canonicals = readpkl(save_path_img_2d_canonical)
+        img_3d_norms = {}
+        scale_ratio_3d_to_2ds = {}
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            if subject not in img_3d_norms:          img_3d_norms[subject] = {}
+            if action  not in img_3d_norms[subject]: img_3d_norms[subject][action] = {}
+            if subject not in scale_ratio_3d_to_2ds:          scale_ratio_3d_to_2ds[subject] = {}
+            if action  not in scale_ratio_3d_to_2ds[subject]: scale_ratio_3d_to_2ds[subject][action] = {}
+            cam_param = cam_params[subject][action][cam_id]
+            W, H = cam_param['W'], cam_param['H']
+            cam_3d_canonical = cam_3d_canonicals[subject][action][cam_id]
+            img_2d_canonical = img_2d_canonicals[subject][action][cam_id]
+            img_2d_canonical_norm = normalize_input(img_2d_canonical, W, H)
+            img_2d_canonical_norm_centered = img_2d_canonical_norm.copy() - img_2d_canonical_norm[:, 0, None]
+            img_3d_norm, scale_ratio_3d_to_2d = generate_img_3d(cam_3d_canonical, img_2d_canonical_norm_centered)
+            img_3d_norms[subject][action][cam_id] = img_3d_norm
+            scale_ratio_3d_to_2ds[subject][action][cam_id] = scale_ratio_3d_to_2d
+        if not no_save:
+            if return_type == 'img_3d_norm': savepkl(img_3d_norms, save_path_img_3d_norm)
+            elif return_type == 'scale_ratio_3d_to_2d': savepkl(scale_ratio_3d_to_2ds, save_path_scale_ratio_3d_to_2d)
+    if return_type == 'img_3d_norm': return img_3d_norms
+    elif return_type == 'scale_ratio_3d_to_2d': return scale_ratio_3d_to_2ds
+
+def generate_img_3d(cam_3d, img_2d):
+    from hpe_library.my_utils import get_euclidean_norm_from_pose
+    pose3d_xy = cam_3d[..., :2].copy()
+    pose3d_xy -= pose3d_xy[:, 0 , None]
+    pose2d = img_2d.copy() - img_2d[:, 0, None]
+
+    scale_3d = get_euclidean_norm_from_pose(pose3d_xy) # (F,)
+    scale_2d = get_euclidean_norm_from_pose(pose2d) # (F,)
+    scale_ratio_3d_to_2d = scale_2d / scale_3d # (F,)
+    img_3d = cam_3d * scale_ratio_3d_to_2d[:, None, None]
+    return img_3d, scale_ratio_3d_to_2d
 
 def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, univ=False,
                    data_aug={'step_rot': 0,
@@ -274,6 +343,8 @@ def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=T
         elif 'img_2d_canonical' in data_type:
             canonical_type = data_type.split('canonical_')[-1]
             data_type = 'img_2d_canonical'
+        elif 'img_3d_norm' in data_type or 'scale_ratio_3d_to_2d' in data_type:
+            canonical_type = 'revolute'
         else:
             canonical_type = None
 
@@ -1857,3 +1928,77 @@ def gernerate_dataset_yaml(subset):
     with open(os.path.join(yaml_root, f'{subset}.yaml'), 'w') as file:
         yaml.dump(data, file, default_flow_style=False, allow_unicode=True)
     print(os.path.join(yaml_root, f'{subset}.yaml'))
+
+
+def load_total_data(dataset_name, data_type, subject_list=[], rootrel=False, overwrite=False, verbose=False):
+    from hpe_library.my_utils import split_source_name, readpkl, savepkl, normalize_input
+    import os, getpass
+    user = getpass.getuser()
+    os.chdir(f'/home/{user}/codes/MotionBERT')
+    if dataset_name == 'h36m_train': subject_list = ['S1', 'S5', 'S6', 'S7', 'S8']
+    elif dataset_name == 'h36m_test': subject_list = ['S9', 'S11']
+    elif dataset_name == 'h36m_total': subject_list = ['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11']
+    elif dataset_name == 'h36m_tr_s1_ts_s5678_train': subject_list = ['S1']
+    elif dataset_name == 'h36m_tr_s1_ts_s5678_test': subject_list = ['S5', 'S6', 'S7', 'S8']
+    elif dataset_name == 'fit3d_total': subject_list = ['s03', 's04', 's05', 's07', 's08', 's09', 's10', 's11']
+    elif dataset_name == 'fit3d_tr_s03_train': subject_list = ['s03']
+    elif dataset_name == 'fit3d_tr_s03_test': subject_list = ['s04', 's05', 's07', 's08', 's09', 's10', 's11']
+    elif dataset_name == 'fit3d_ts_s4710_train': subject_list = ['s03', 's05', 's08', 's09', 's11']
+    elif dataset_name == 'fit3d_ts_s4710_test': subject_list = ['s04', 's07', 's10']
+    elif dataset_name == '3dhp_train': subject_list = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']
+    elif dataset_name == '3dhp_test': subject_list = ['TS1', 'TS2', 'TS3', 'TS4', 'TS5', 'TS6']
+    elif dataset_name == '3dhp_total': subject_list = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'TS1', 'TS2', 'TS3', 'TS4', 'TS5', 'TS6']
+    assert len(subject_list) != 0, f"Please provide a list of subjects to load the data for {dataset_name}."
+
+    # get total data
+    save_path = f'custom_codes/dataset_distribution_analysis/pkls/{data_type}_total-{dataset_name}.pkl'
+    if os.path.exists(save_path) and not overwrite:
+        if verbose: print(f"Loading total data for {dataset_name} {data_type} {subject_list}...")
+        data_total = readpkl(save_path)
+    else:
+        if verbose: print(f"Creating total data for {dataset_name} {data_type} {subject_list}...")
+        if 'h36m' in dataset_name: dataset_name = 'h36m'
+        elif 'fit3d' in dataset_name: dataset_name = 'fit3d'
+        elif '3dhp' in dataset_name: dataset_name = '3dhp'
+
+        if '_hat' in data_type:
+            data_type = data_type.replace('_hat', '')
+            rootrel = True
+        if data_type in ['W', 'H', 'intrinsic']:
+            data = load_data_dict(dataset_name, ['source_list', 'cam_param', 'cam_3d'], verbose=True)
+        else:
+            data = load_data_dict(dataset_name, ['source_list', 'cam_param', data_type], verbose=True)
+            assert data_type in data.keys(), f"Invalid data type: {data_type}"
+
+        # if 'train' in dataset_name_:  source_list = [source for source in source_list if 'TS' not in source]
+        # elif 'test' in dataset_name_: source_list = [source for source in source_list if 'TS' in source]
+        source_list = []
+        for source in data['source_list']:
+            subject, cam_id, _ = split_source_name(source, dataset_name)
+            if subject in subject_list:
+                if dataset_name == '3dhp' and cam_id not in ['cam0','cam1','cam2','cam4','cam5','cam6','cam7','cam8', None]: continue
+                source_list.append(source)
+        if verbose: print(source_list)
+        data_total = []
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            cam_param = data['cam_param'][subject][action][cam_id]
+            if 'img_2d' in data_type:
+                W, H = cam_param['W'], cam_param['H']
+                img_2d = data[data_type][subject][action][cam_id]
+                if 'pcl_original' not in data_type:
+                    img_2d = normalize_input(img_2d, W, H)
+                data_total += img_2d.tolist()
+            elif data_type in ['W', 'H', 'intrinsic']:
+                num_frames = data['cam_3d'][subject][action][cam_id].shape[0]
+                data_total += [cam_param[data_type]]*num_frames
+            else:
+                if rootrel:
+                    data_root = data[data_type][subject][action][cam_id].copy()
+                    data_root -= data_root[:, 0:1]
+                    data_total += data_root.tolist()
+                else:
+                    data_total += data[data_type][subject][action][cam_id].tolist()
+        data_total = np.array(data_total)
+        savepkl(data_total, save_path)
+    return data_total

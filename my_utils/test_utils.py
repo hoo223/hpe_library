@@ -145,6 +145,25 @@ h36m_connections = [
     ('L_Elbow','L_Wrist')
 ]
 
+# h36m_connections = [
+#     (0,1),
+#     (0,4),
+#     (0,7),
+#     (1,2),
+#     (2,3),
+#     (4,5),
+#     (5,6),
+#     (7,8),
+#     (8,9),
+#     (9,10),
+#     (8,14),
+#     (14,15),
+#     (15,16),
+#     (8,11),
+#     (11,12),
+#     (12,13)
+# ]
+
 len_ids = {
     'R_HIP' : 0,
     'R_UPPER_LEG' : 1,
@@ -242,24 +261,30 @@ def remove_nose_from_h36m(pose):
     else:
         return np.concatenate([pose[:, :9], pose[:, 10:]], axis=1)
 
-# h36m_connections = [
-#     (0,1),
-#     (0,4),
-#     (0,7),
-#     (1,2),
-#     (2,3),
-#     (4,5),
-#     (5,6),
-#     (7,8),
-#     (8,9),
-#     (9,10),
-#     (8,14),
-#     (14,15),
-#     (15,16),
-#     (8,11),
-#     (11,12),
-#     (12,13)
-# ]
+# Define parent joint for 17 keypoints
+h36M_parent_joint = {
+    0 :  0,
+    1 :  0,
+    2 :  1,
+    3 :  2,
+    4 :  0,
+    5 :  4,
+    6 :  5,
+    7 :  0,
+    8 :  7,
+    9 :  8,
+    10 : 9,
+    11 : 8,
+    12 : 11,
+    13 : 12,
+    14 : 8,
+    15 : 14,
+    16 : 15,
+}
+# Make parent joint index
+def get_parent_index():
+    return [h36M_parent_joint[i] for i in range(17)]
+
 
 kookmin_keypoints = {
     1 : 'Head-top',
@@ -1805,3 +1830,69 @@ def update_result_dict(blacklist_checkpoint=[]):
                 del result_dict[checkpoint][key]
 
     savepkl(result_dict, 'result_dict.pkl')
+
+def get_euclidean_norm_from_pose(pose):
+    if len(pose.shape) == 2:
+        j, c = pose.shape
+        return np.linalg.norm(pose.reshape(j*c), axis=0)
+    elif len(pose.shape) == 3:
+        f, j, c = pose.shape
+        return np.linalg.norm(pose.reshape(f, j*c), axis=1)
+    else:
+        raise ValueError(f'pose shape is not valid: {pose.shape}')
+
+def get_length_ratio_from_pose3d(pose3d, ratio_type='pelvis'):
+    '''
+    pose3d: (f, j, c)
+    ratio_type: pelvis or parent
+    '''
+    from hpe_library.my_utils import get_parent_index
+    assert ratio_type in ['pelvis', 'parent'], f'ratio_type should be either pelvis or parent, but got {ratio_type}'
+    if len(pose3d.shape) == 2:
+        j, c = pose3d.shape
+        pose3d = pose3d.reshape(1, j, c)
+    elif len(pose3d.shape) == 3:
+        f, j, c = pose3d.shape
+    elif len(pose3d.shape) == 4:
+        b, f, j, c = pose3d.shape
+        pose3d = pose3d.reshape(b*f, j, c)
+    else:
+        raise ValueError(f'pose3d shape is not valid: {pose3d.shape}')
+    assert len(pose3d.shape) == 3, f'pose3d shape should be (f, j, c), but got {pose3d.shape}'
+
+    parent_index = get_parent_index()
+    diff_from_parent = pose3d - pose3d[:, parent_index]
+    length = np.linalg.norm(diff_from_parent, axis=-1)
+    length[:, 0] = length[:, get_h36m_keypoint_index('L_Hip')] + length[:, get_h36m_keypoint_index('R_Hip')] # set Pelvis length to left-right hip length
+    if ratio_type == 'pelvis':
+        length_ratio = length / length[:, 0:1]
+    elif ratio_type == 'parent':
+        length_ratio = length / length[:, parent_index]
+
+    # back to original shape
+    if len(pose3d.shape) == 2:
+        length_ratio = length_ratio[0]
+    if len(pose3d.shape) == 4:
+        length_ratio = length_ratio.reshape(b, f, j)
+    return length_ratio
+
+def get_root_relative_depth_from_pose(pose3d):
+    '''
+    pose3d: (f, j, c)
+    '''
+    if len(pose3d.shape) == 2:
+        j, c = pose3d.shape
+        pose3d = pose3d.reshape(1, j, c)
+    elif len(pose3d.shape) == 3:
+        f, j, c = pose3d.shape
+    elif len(pose3d.shape) == 4:
+        b, f, j, c = pose3d.shape
+        pose3d = pose3d.reshape(b*f, j, c)
+    else:
+        raise ValueError(f'pose3d shape is not valid: {pose3d.shape}')
+    assert len(pose3d.shape) == 3, f'pose3d shape should be (f, j, c), but got {pose3d.shape}'
+    assert pose3d.shape[-1] == 3, f'pose3d shape should be (f, j, 3), but got {pose3d.shape}'
+
+    pose3d_hat = pose3d.copy() - pose3d[:, 0, None]
+    relative_depth = pose3d_hat[..., 2]
+    return relative_depth

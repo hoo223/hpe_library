@@ -1,3 +1,4 @@
+from numpy import single
 from hpe_library.lib_import import *
 
 #plt.switch_backend('TkAgg')
@@ -19,7 +20,7 @@ def savepkl(data, save_path):
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
 # return keypoint index from keypoint name (h36m)
-def get_h36m_keypoint_index(keypoint_name):
+def get_h36m_keypoint_index(keypoint_name, without_nose=False):
     '''
     0 :  'Pelvis',
     1 :  'R_Hip',
@@ -39,16 +40,19 @@ def get_h36m_keypoint_index(keypoint_name):
     15 : 'R_Elbow',
     16 : 'R_Wrist',
     '''
+    
+    if without_nose: keypoints_dict = h36m_keypoints_without_nose
+    else:            keypoints_dict = h36m_keypoints
     if type(keypoint_name) == list:
         output = []
         for key in keypoint_name:
-            for idx, value in h36m_keypoints.items():
+            for idx, value in keypoints_dict.items():
                 if value.lower() == key.lower():
                     output.append(idx)
                     break
         return output
     elif type(keypoint_name) == str:
-        for idx, value in h36m_keypoints.items():
+        for idx, value in keypoints_dict.items():
             if value.lower() == keypoint_name.lower():
                 return idx
         print('Invalid keypoint name: {}'.format(keypoint_name))
@@ -56,10 +60,14 @@ def get_h36m_keypoint_index(keypoint_name):
 
 # return keypoints from keypoint list (h36m)
 def get_h36m_keypoints(pose3d, key_list=[]):
-    assert pose3d.shape == (17, 3), 'pose3d shape is wrong'
+    j, c = pose3d.shape
+    assert c == 3, 'pose3d should have 3 columns'
+    assert j in [16, 17], 'pose3d should have 16 or 17 keypoints'
+    if j == 16: without_nose = True
+    else: without_nose = False
     output = []
     for key in key_list:
-        idx = get_h36m_keypoint_index(key)
+        idx = get_h36m_keypoint_index(key, without_nose)
         output.append(pose3d[idx])
     return output
 
@@ -69,10 +77,14 @@ def get_batch_h36m_keypoints(batch_pose3d, key_list=[]):
         batch_pose3d = torch.tensor(batch_pose3d)
     if len(batch_pose3d.shape) == 3:
         output = torch.zeros([batch_pose3d.shape[0], len(key_list), 3], dtype=torch.float32).to(batch_pose3d.device)
+        f, j, c = batch_pose3d.shape
     elif len(batch_pose3d.shape) == 4:
         output = torch.zeros([batch_pose3d.shape[0], batch_pose3d.shape[1], len(key_list), 3], dtype=torch.float32).to(batch_pose3d.device)
+        b, f, j, c = batch_pose3d.shape
+    if j == 16: without_nose = True
+    else: without_nose = False
     for i, key in enumerate(key_list):
-        key_idx = get_h36m_keypoint_index(key)
+        key_idx = get_h36m_keypoint_index(key, without_nose)
         if len(batch_pose3d.shape) == 3:
             output[:, i] = batch_pose3d[:, key_idx]
         elif len(batch_pose3d.shape) == 4:
@@ -125,6 +137,33 @@ h36m_keypoints ={
     15 : 'R_Elbow',
     16 : 'R_Wrist',
 }
+
+h36m_keypoints_without_nose ={
+    0 :  'Pelvis',
+    1 :  'R_Hip',
+    2 :  'R_Knee',
+    3 :  'R_Ankle',
+    4 :  'L_Hip',
+    5 :  'L_Knee',
+    6 :  'L_Ankle',
+    7 :  'Torso',
+    8 :  'Neck',
+    9 :  'Head',
+    10 : 'L_Shoulder',
+    11 : 'L_Elbow',
+    12 : 'L_Wrist',
+    13 : 'R_Shoulder',
+    14 : 'R_Elbow',
+    15 : 'R_Wrist',
+}
+
+def get_h36m_joint_name(joint_idx, without_nose=False):
+    if without_nose: keypoints_dict = h36m_keypoints_without_nose
+    else: keypoints_dict = h36m_keypoints
+    if type (joint_idx) == list:
+        return [keypoints_dict[joint] for joint in joint_idx]
+    else:
+        return keypoints_dict[joint_idx]
 
 h36m_connections = [
     ('Pelvis','R_Hip'),
@@ -263,28 +302,107 @@ def remove_nose_from_h36m(pose):
 
 # Define parent joint for 17 keypoints
 h36M_parent_joint = {
-    0 :  0,
-    1 :  0,
-    2 :  1,
-    3 :  2,
-    4 :  0,
-    5 :  4,
-    6 :  5,
-    7 :  0,
-    8 :  7,
-    9 :  8,
-    10 : 9,
-    11 : 8,
-    12 : 11,
-    13 : 12,
-    14 : 8,
-    15 : 14,
-    16 : 15,
+    0 :  0, # 'Pelvis',
+    1 :  0, # 'R_Hip',
+    2 :  1, # 'R_Knee',
+    3 :  2, # 'R_Ankle',
+    4 :  0, # 'L_Hip',
+    5 :  4, # 'L_Knee',
+    6 :  5, # 'L_Ankle',
+    7 :  0, # 'Torso',
+    8 :  7, # 'Neck',
+    9 :  8, # 'Nose',
+    10 : 9, # 'Head',
+    11 : 8, # 'L_Shoulder',
+    12 : 11, # 'L_Elbow',
+    13 : 12, # 'L_Wrist',
+    14 : 8, # 'R_Shoulder',
+    15 : 14, # 'R_Elbow',
+    16 : 15, # 'R_Wrist',
 }
-# Make parent joint index
-def get_parent_index():
-    return [h36M_parent_joint[i] for i in range(17)]
+h36M_parent_joint_without_nose = {
+    0 :  0, # 'Pelvis',
+    1 :  0, # 'R_Hip',
+    2 :  1, # 'R_Knee',
+    3 :  2, # 'R_Ankle',
+    4 :  0, # 'L_Hip',
+    5 :  4, # 'L_Knee',
+    6 :  5, # 'L_Ankle',
+    7 :  0, # 'Torso',
+    8 :  7, # 'Neck',
+    9 :  8, # 'Head',
+    10 : 9, # 'L_Shoulder',
+    11 : 8, # 'L_Elbow',
+    12 : 11, # 'L_Wrist',
+    13 : 12, # 'R_Shoulder',
+    14 : 8, # 'R_Elbow',
+    15 : 14, # 'R_Wrist',
+}
 
+# Make parent joint index
+def get_parent_index(num_joints):
+    if num_joints == 17:   return [h36M_parent_joint[i] for i in range(17)]
+    elif num_joints == 16: return [h36M_parent_joint_without_nose[i] for i in range(16)]
+    else: raise ValueError('Invalid number of joints: {}'.format(num_joints))
+
+def get_length_from_pose3d(pose3d):
+    from hpe_library.my_utils import get_h36m_keypoint_index, get_parent_index
+    len_input_shape = len(pose3d.shape)
+    if len_input_shape == 2:
+        j, c = pose3d.shape
+        pose3d = pose3d[None, ...]
+    elif len_input_shape == 3:
+        f, j, c = pose3d.shape
+    elif len_input_shape == 4:
+        b, f, j, c = pose3d.shape
+        pose3d = pose3d.reshape(b*f, j, c)
+    elif len_input_shape:
+        raise ValueError('pose3d shape should be (N, J, 3)')
+    assert len(pose3d.shape) == 3, f'pose3d shape should be (f, j, c), but got {pose3d.shape}'
+
+    parent_index = get_parent_index(j)
+    diff_from_parent = pose3d - pose3d[:, parent_index]
+    if type(diff_from_parent) == torch.Tensor: length = torch.norm(diff_from_parent, dim=-1)
+    elif type(diff_from_parent) == np.ndarray: length = np.linalg.norm(diff_from_parent, axis=-1)
+    # set Pelvis length to left-right hip length
+    length[:, 0] = length[:, get_h36m_keypoint_index('L_Hip')] + length[:, get_h36m_keypoint_index('R_Hip')]
+    if len_input_shape == 2:   return length[0]
+    elif len_input_shape == 4: return length.reshape(b, f, j)
+    else:                      return length
+
+def get_length_ratio_from_pose3d(pose3d, base_length_type='pelvis'):
+    '''
+    base_length_type: pelvis or parent
+    '''
+    from hpe_library.my_utils import get_parent_index
+    assert base_length_type in ['pelvis', 'parent'], f'ratio_type should be either pelvis or parent, but got {base_length_type}'
+    len_input_shape = len(pose3d.shape)
+    if len_input_shape == 2:
+        j, c = pose3d.shape
+        pose3d = pose3d.reshape(1, j, c)
+    elif len_input_shape == 3:
+        f, j, c = pose3d.shape
+    elif len_input_shape == 4:
+        b, f, j, c = pose3d.shape
+        pose3d = pose3d.reshape(b*f, j, c)
+    else:
+        raise ValueError(f'pose3d shape is not valid: {pose3d.shape}')
+    assert len(pose3d.shape) == 3, f'pose3d shape should be (f, j, c), but got {pose3d.shape}'
+
+    # diff_from_parent = pose3d - pose3d[:, parent_index]
+    # if type(diff_from_parent) == torch.Tensor: length = torch.norm(diff_from_parent, dim=-1)
+    # elif type(diff_from_parent) == np.ndarray: length = np.linalg.norm(diff_from_parent, axis=-1)
+    # length[:, 0] = length[:, get_h36m_keypoint_index('L_Hip')] + length[:, get_h36m_keypoint_index('R_Hip')] # set Pelvis length to left-right hip length
+    length = get_length_from_pose3d(pose3d)
+    parent_index = get_parent_index(j)
+
+    if base_length_type == 'pelvis':   length_ratio = length / length[:, 0:1]
+    elif base_length_type == 'parent': length_ratio = length / length[:, parent_index]
+
+    # back to original shape
+    if len_input_shape == 2: length_ratio = length_ratio[0]
+    if len_input_shape == 4: length_ratio = length_ratio.reshape(b, f, j)
+    return length_ratio
 
 kookmin_keypoints = {
     1 : 'Head-top',
@@ -1840,41 +1958,6 @@ def get_euclidean_norm_from_pose(pose):
         return np.linalg.norm(pose.reshape(f, j*c), axis=1)
     else:
         raise ValueError(f'pose shape is not valid: {pose.shape}')
-
-def get_length_ratio_from_pose3d(pose3d, ratio_type='pelvis'):
-    '''
-    pose3d: (f, j, c)
-    ratio_type: pelvis or parent
-    '''
-    from hpe_library.my_utils import get_parent_index
-    assert ratio_type in ['pelvis', 'parent'], f'ratio_type should be either pelvis or parent, but got {ratio_type}'
-    if len(pose3d.shape) == 2:
-        j, c = pose3d.shape
-        pose3d = pose3d.reshape(1, j, c)
-    elif len(pose3d.shape) == 3:
-        f, j, c = pose3d.shape
-    elif len(pose3d.shape) == 4:
-        b, f, j, c = pose3d.shape
-        pose3d = pose3d.reshape(b*f, j, c)
-    else:
-        raise ValueError(f'pose3d shape is not valid: {pose3d.shape}')
-    assert len(pose3d.shape) == 3, f'pose3d shape should be (f, j, c), but got {pose3d.shape}'
-
-    parent_index = get_parent_index()
-    diff_from_parent = pose3d - pose3d[:, parent_index]
-    length = np.linalg.norm(diff_from_parent, axis=-1)
-    length[:, 0] = length[:, get_h36m_keypoint_index('L_Hip')] + length[:, get_h36m_keypoint_index('R_Hip')] # set Pelvis length to left-right hip length
-    if ratio_type == 'pelvis':
-        length_ratio = length / length[:, 0:1]
-    elif ratio_type == 'parent':
-        length_ratio = length / length[:, parent_index]
-
-    # back to original shape
-    if len(pose3d.shape) == 2:
-        length_ratio = length_ratio[0]
-    if len(pose3d.shape) == 4:
-        length_ratio = length_ratio.reshape(b, f, j)
-    return length_ratio
 
 def get_root_relative_depth_from_pose(pose3d):
     '''

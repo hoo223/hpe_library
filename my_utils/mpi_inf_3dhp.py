@@ -239,7 +239,7 @@ def test_3dhp_data_generator(pose_type, canonical_type='', fixed_position=[]):
     return pose_dict, source_list, cam_param_3dhp_test
 
 def test_3dhp_data_generator_new(args):
-    from hpe_library.my_utils import load_data_dict, remove_nose_from_h36m, canonicalization_cam_3d, projection, normalize_input, denormalize_input
+    from hpe_library.my_utils import load_data_dict, remove_nose_from_h36m, canonicalization_cam_3d, projection, normalize_input, denormalize_input, generate_img_3d
     # load original 3dhp data
     mpi_inf_3dhp_test = np.load('data_extra/dataset_extras/mpi_inf_3dhp_test.npz')
     original_test, cam_param_3dhp_test = load_3dhp_original('test', overwrite=False)
@@ -247,9 +247,11 @@ def test_3dhp_data_generator_new(args):
 
     pose_dict = {}
     source_list = []
-    pose_dict = {'pose2d': [], 'pose3d': [], 'W': [], 'H': [], 'intrinsic': []}
+    pose_dict = {'pose2d': [], 'pose3d': [], 'W': [], 'H': [], 'intrinsic': [],
+                 'subject': [], 'action': [], 'cam': [], 'frame': [], 'actual_frame': []}
+    if args.scale_consistency: pose_dict['scale_ratio'] = []
     for frame_num in range(len(mpi_inf_3dhp_test['imgname'])):
-        source = mpi_inf_3dhp_test['imgname'][frame_num]
+        source = mpi_inf_3dhp_test['imgname'][frame_num] # e.g., mpi_inf_3dhp_test_set/TS6/imageSequence/img_000489.jpg
         splited = source.split('/')
         subject = splited[1]
         actual_frame = int(splited[-1].split('.')[0].split('_')[-1]) - 1
@@ -270,8 +272,8 @@ def test_3dhp_data_generator_new(args):
 
         # canonicalization
         if args.canonical_type != '':
-            annot3 = canonicalization_cam_3d(annot3, canonical_type=args.canonical_type)
-            annot3_univ = canonicalization_cam_3d(annot3_univ, canonical_type=args.canonical_type)
+            annot3 = canonicalization_cam_3d(annot3, canonical_type=args.canonical_type, root_joint_idx=args.root_joint_idx)
+            annot3_univ = canonicalization_cam_3d(annot3_univ, canonical_type=args.canonical_type, root_joint_idx=args.root_joint_idx)
             annot2 = projection(annot3, intrinsic)[..., :2]
         # fixed position
         elif len(args.fixed_position) > 0:
@@ -284,12 +286,21 @@ def test_3dhp_data_generator_new(args):
         if args.univ_3dhp_gt: annot3 = annot3_univ
         # normalize 2d input
         if args.input_norm: annot2 = normalize_input(annot2, W, H)
+        if args.scale_consistency:
+            img_3d, scale_ratio = generate_img_3d(annot3.copy(), annot2.copy())
+            annot3 = img_3d[0]
+            pose_dict['scale_ratio'].append(scale_ratio)
 
         pose_dict['pose2d'].append(annot2)
         pose_dict['pose3d'].append(annot3)
         pose_dict['W'].append(W)
         pose_dict['H'].append(H)
         pose_dict['intrinsic'].append(intrinsic)
+        pose_dict['subject'].append(subject)
+        pose_dict['action'].append(-1)
+        pose_dict['cam'].append(-1)
+        pose_dict['frame'].append(frame_num)
+        pose_dict['actual_frame'].append(actual_frame)
 
     # convert to numpy array
     for key in pose_dict.keys():

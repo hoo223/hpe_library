@@ -1,29 +1,29 @@
 from hpe_library.lib_import import *
 
-def canonicalization_cam_3d(cam_3d, canonical_type):
+def canonicalization_cam_3d(cam_3d, canonical_type, root_joint_idx=0):
     if len(cam_3d.shape) == 2:
-        cam_3d_canonical = cam_3d.copy() - cam_3d[0, None] # move to cam origin
-        if 'same_z' in canonical_type:       dist = cam_3d[0, 2] # z value of pelvis joint for each frame
-        elif 'same_dist' in canonical_type:  dist = np.linalg.norm(cam_3d[0], axis=1) # dist from origin to pelvis joint for each frame
+        cam_3d_canonical = cam_3d.copy() - cam_3d[root_joint_idx, None] # move to cam origin
+        if 'same_z' in canonical_type:       dist = cam_3d[root_joint_idx, 2] # z value of pelvis joint for each frame
+        elif 'same_dist' in canonical_type:  dist = np.linalg.norm(cam_3d[root_joint_idx], axis=1) # dist from origin to pelvis joint for each frame
         elif 'fixed_dist' in canonical_type: dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d))
         elif 'revolute' in canonical_type: 
-            dist = np.linalg.norm(cam_3d[0]) # dist from origin to pelvis joint for each frame
-            R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d)
+            dist = np.linalg.norm(cam_3d[root_joint_idx]) # dist from origin to pelvis joint for each frame
+            R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d, root_joint_idx=root_joint_idx)
             cam_3d_canonical = np.einsum('ik,kj->ij', cam_3d_canonical, R_orig2virt_from_3d_inv)
         else: raise ValueError(f'canonical type {canonical_type} not found')
         cam_3d_canonical[..., 2] += dist[None]
     elif len(cam_3d.shape) == 3:
-        cam_3d_canonical = cam_3d.copy() - cam_3d[:, 0, None] # move to cam origin
-        if 'same_z' in canonical_type:       dist = cam_3d[:, 0, 2] # z value of pelvis joint for each frame
-        elif canonical_type == 'same_dist':  dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame
+        cam_3d_canonical = cam_3d.copy() - cam_3d[:, root_joint_idx, None] # move to cam origin
+        if 'same_z' in canonical_type:       dist = cam_3d[:, root_joint_idx, 2] # z value of pelvis joint for each frame
+        elif canonical_type == 'same_dist':  dist = np.linalg.norm(cam_3d[:, root_joint_idx], axis=1) # dist from origin to pelvis joint for each frame
         elif 'fixed_dist' in canonical_type: dist = np.array([float(canonical_type.split('_')[-1])]*len(cam_3d))
         elif 'revolute_no_Rz' in canonical_type:
-            dist = np.linalg.norm(cam_3d[:, 0], axis=1) # dist from origin to pelvis joint for each frame
-            R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=True)
+            dist = np.linalg.norm(cam_3d[:, root_joint_idx], axis=1) # dist from origin to pelvis joint for each frame
+            R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=True, root_joint_idx=root_joint_idx)
             cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d_inv)
         elif ('revolute' == canonical_type) or ('revolute_with_Kvirt' in canonical_type):
-            dist = np.linalg.norm(cam_3d[:, 0], axis=1)
-            R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d)
+            dist = np.linalg.norm(cam_3d[:, root_joint_idx], axis=1)
+            R_orig2virt_from_3d, R_orig2virt_from_3d_inv = get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=False, root_joint_idx=root_joint_idx)
             cam_3d_canonical = np.einsum('ijk,ikl->ijl', cam_3d_canonical, R_orig2virt_from_3d_inv)
         else: raise ValueError(f'canonical type {canonical_type} not found')
         cam_3d_canonical[..., 2] += dist[:, None]
@@ -200,55 +200,55 @@ def get_batch_R_orig2virt_from_2d(img_2d, K):
     R_orig2virt_from_2d_inv = R_virt2orig_from_2d
     return R_orig2virt_from_2d, R_orig2virt_from_2d_inv
 
-def get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=False):
+def get_batch_R_orig2virt_from_3d(cam_3d, no_Rz=False, root_joint_idx=0):
     from hpe_library.my_utils.test_utils import rotation_matrix_from_vectors
     if len(cam_3d.shape) == 2: # single frame
         assert len(cam_3d.shape) == 2, cam_3d.shape
         assert cam_3d.shape[-1] == 3, cam_3d.shape
-        dist = np.linalg.norm(cam_3d[0])
-        v_origin_to_pelvis = cam_3d[0] / dist
+        dist = np.linalg.norm(cam_3d[root_joint_idx])
+        v_origin_to_root = cam_3d[root_joint_idx] / dist
         v_origin_to_principle = np.array([0, 0, 1])
-        assert v_origin_to_principle.shape == v_origin_to_pelvis.shape, (v_origin_to_principle.shape, v_origin_to_pelvis.shape)
+        assert v_origin_to_principle.shape == v_origin_to_root.shape, (v_origin_to_principle.shape, v_origin_to_root.shape)
         if no_Rz:
-            v_origin_to_pelvis_proj_on_xz = v_origin_to_pelvis.copy()
-            v_origin_to_pelvis_proj_on_xz[1] = 0
-            R1 = rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz) # R1: project v_origin_to_pelvis to xz plane
-            R2 = rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle) # R2: rotate projected to principle
+            v_origin_to_root_proj_on_xz = v_origin_to_root.copy()
+            v_origin_to_root_proj_on_xz[1] = 0
+            R1 = rotation_matrix_from_vectors(v_origin_to_root, v_origin_to_root_proj_on_xz) # R1: project v_origin_to_root to xz plane
+            R2 = rotation_matrix_from_vectors(v_origin_to_root_proj_on_xz, v_origin_to_principle) # R2: rotate projected to principle
             R_orig2virt_from_3d = R2 @ R1
         else:
-            R_orig2virt_from_3d = rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
+            R_orig2virt_from_3d = rotation_matrix_from_vectors(v_origin_to_root, v_origin_to_principle)
     elif len(cam_3d.shape) == 3: # multiple frames
         assert len(cam_3d.shape) == 3, cam_3d.shape
         assert cam_3d.shape[-1] == 3, cam_3d.shape
-        dist = np.linalg.norm(cam_3d[:, 0], axis=1)
-        v_origin_to_pelvis = cam_3d[:, 0] / dist[:, None]
+        dist = np.linalg.norm(cam_3d[:, root_joint_idx], axis=1)
+        v_origin_to_root = cam_3d[:, root_joint_idx] / dist[:, None]
         v_origin_to_principle = np.array([0, 0, 1]).reshape(1, 3).repeat(len(cam_3d), axis=0)
-        assert v_origin_to_principle.shape == v_origin_to_pelvis.shape, (v_origin_to_principle.shape, v_origin_to_pelvis.shape)
+        assert v_origin_to_principle.shape == v_origin_to_root.shape, (v_origin_to_principle.shape, v_origin_to_root.shape)
         if no_Rz:
-            v_origin_to_pelvis_proj_on_xz = v_origin_to_pelvis.copy()
-            v_origin_to_pelvis_proj_on_xz[:, 1] = 0
-            R1 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz) # R1: project v_origin_to_pelvis to xz plane
-            R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle) # R2: rotate projected to principle
+            v_origin_to_root_proj_on_xz = v_origin_to_root.copy()
+            v_origin_to_root_proj_on_xz[:, 1] = 0
+            R1 = batch_rotation_matrix_from_vectors(v_origin_to_root, v_origin_to_root_proj_on_xz) # R1: project v_origin_to_root to xz plane
+            R2 = batch_rotation_matrix_from_vectors(v_origin_to_root_proj_on_xz, v_origin_to_principle) # R2: rotate projected to principle
             R_orig2virt_from_3d = R2 @ R1
         else:
-            R_orig2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
+            R_orig2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_root, v_origin_to_principle)
     elif len(cam_3d.shape) == 4: # batches of multiple frame
         assert len(cam_3d.shape) == 4, cam_3d.shape
         assert cam_3d.shape[-1] == 3, cam_3d.shape
         b, f, j, c = cam_3d.shape
         cam_3d = cam_3d.reshape(b*f, j, c)
-        dist = np.linalg.norm(cam_3d[:, 0], axis=1)
-        v_origin_to_pelvis = cam_3d[:, 0] / dist[:, None]
+        dist = np.linalg.norm(cam_3d[:, root_joint_idx], axis=1)
+        v_origin_to_root = cam_3d[:, root_joint_idx] / dist[:, None]
         v_origin_to_principle = np.array([0, 0, 1]).reshape(1, 3).repeat(len(cam_3d), axis=0)
-        assert v_origin_to_principle.shape == v_origin_to_pelvis.shape, (v_origin_to_principle.shape, v_origin_to_pelvis.shape)
+        assert v_origin_to_principle.shape == v_origin_to_root.shape, (v_origin_to_principle.shape, v_origin_to_root.shape)
         if no_Rz:
-            v_origin_to_pelvis_proj_on_xz = v_origin_to_pelvis.copy()
-            v_origin_to_pelvis_proj_on_xz[:, 1] = 0
-            R1 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_pelvis_proj_on_xz) # R1: project v_origin_to_pelvis to xz plane
-            R2 = batch_rotation_matrix_from_vectors(v_origin_to_pelvis_proj_on_xz, v_origin_to_principle) # R2: rotate projected to principle
+            v_origin_to_root_proj_on_xz = v_origin_to_root.copy()
+            v_origin_to_root_proj_on_xz[:, 1] = 0
+            R1 = batch_rotation_matrix_from_vectors(v_origin_to_root, v_origin_to_root_proj_on_xz) # R1: project v_origin_to_root to xz plane
+            R2 = batch_rotation_matrix_from_vectors(v_origin_to_root_proj_on_xz, v_origin_to_principle) # R2: rotate projected to principle
             R_orig2virt_from_3d = R2 @ R1
         else:
-            R_orig2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_pelvis, v_origin_to_principle)
+            R_orig2virt_from_3d = batch_rotation_matrix_from_vectors(v_origin_to_root, v_origin_to_principle)
         R_orig2virt_from_3d = R_orig2virt_from_3d.reshape(b, f, 3, 3)
     else:
         raise ValueError(cam_3d.shape)

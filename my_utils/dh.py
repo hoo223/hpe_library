@@ -1189,10 +1189,12 @@ def get_frame_from_keypoints(kp1, kp2, kp3, kp4, forward_dir='x'):
         up = np.cross(left, kp3_to_kp4)
         up = up / np.linalg.norm(up)
         forward = np.cross(left, up)
+    else:
+        raise NotImplementedError("forward_dir should be either 'x' or '-z'")
     return forward, left, up
 
 def get_lower_torso_frame_from_pose(pose, forward_dir='x'):
-    from my_utils import get_h36m_keypoints
+    from hpe_library.my_utils import get_h36m_keypoints
     r_hip, l_hip, pelvis, torso = get_h36m_keypoints(pose, ['r_hip', 'l_hip', 'pelvis', 'torso'])
     forward, left, up = get_frame_from_keypoints(r_hip, l_hip, pelvis, torso, forward_dir)
     lower_origin = pelvis
@@ -1200,7 +1202,7 @@ def get_lower_torso_frame_from_pose(pose, forward_dir='x'):
     return lower_origin, lower_frame_R
 
 def get_upper_torso_frame_from_pose(pose, forward_dir='x'):
-    from my_utils import get_h36m_keypoints
+    from hpe_library.my_utils import get_h36m_keypoints
     r_shoulder, l_shoulder, torso, neck = get_h36m_keypoints(pose, ['r_shoulder', 'l_shoulder', 'torso', 'neck'])
     forward, left, up = get_frame_from_keypoints(r_shoulder, l_shoulder, torso, neck, forward_dir)
     upper_origin = (r_shoulder + l_shoulder)/2
@@ -1305,7 +1307,7 @@ def get_batch_upper_torso_frame_from_keypoints(batch_r_shoulder, batch_l_shoulde
     return batch_upper_frame_origin, batch_upper_frame_R
 
 def get_batch_lower_torso_frame_from_pose(batch_pose, forward_dir='x', output_type='tensor'):
-    from my_utils import get_batch_h36m_keypoints
+    from hpe_library.my_utils import get_batch_h36m_keypoints
     batch_keypoints = get_batch_h36m_keypoints(batch_pose, ['r_hip', 'l_hip', 'pelvis', 'torso'])
     output = get_batch_lower_torso_frame_from_keypoints(batch_keypoints[:, 0], batch_keypoints[:, 1], batch_keypoints[:, 2], batch_keypoints[:, 3], forward_dir)
     if output_type == 'numpy':
@@ -1313,7 +1315,7 @@ def get_batch_lower_torso_frame_from_pose(batch_pose, forward_dir='x', output_ty
     return output
 
 def get_batch_upper_torso_frame_from_pose(batch_pose, forward_dir='x', output_type='tensor'):
-    from my_utils import get_batch_h36m_keypoints
+    from hpe_library.my_utils import get_batch_h36m_keypoints
     batch_keypoints = get_batch_h36m_keypoints(batch_pose, ['r_shoulder', 'l_shoulder', 'torso', 'neck'])
     output = get_batch_upper_torso_frame_from_keypoints(batch_keypoints[:, 0], batch_keypoints[:, 1], batch_keypoints[:, 2], batch_keypoints[:, 3], forward_dir)
     if output_type == 'numpy':
@@ -2079,7 +2081,7 @@ class BatchDHModel:
         return torch.mean(torch.norm(self.get_batch_pose_3d() - batch_gt, dim=-1))
 
     def draw(self, ax, batch_num, frame_num, draw_frame=False, draw_gt=False, head_length=0.01, scale=0.1, fontsize=10, show_name=False, show_axis=False):
-        from my_utils import draw_3d_pose, generate_vis_frame
+        from hpe_library.my_utils import draw_3d_pose, generate_vis_frame
         if draw_frame:
             #body_frame = self.get_body_frame(batch_num, frame_num)
             #body_frame.draw3d(color='tab:orange', head_length=head_length, scale=scale, show_name=show_name)

@@ -298,8 +298,10 @@ def load_img_3d_norm(dataset_name, save_paths, overwrite=False, no_save=False, r
 
 def generate_img_3d(cam_3d, img_2d):
     from hpe_library.my_utils import get_euclidean_norm_from_pose
+    if len(cam_3d.shape) == 2: cam_3d = cam_3d[None, ...]
+    if len(img_2d.shape) == 2: img_2d = img_2d[None, ...]
     pose3d_xy = cam_3d[..., :2].copy()
-    pose3d_xy -= pose3d_xy[:, 0 , None]
+    pose3d_xy -= pose3d_xy[:, 0 , None] # root-relative
     pose2d = img_2d.copy() - img_2d[:, 0, None]
 
     scale_3d = get_euclidean_norm_from_pose(pose3d_xy) # (F,)

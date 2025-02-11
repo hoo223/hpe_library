@@ -1958,11 +1958,11 @@ def gernerate_dataset_yaml(subset):
         mpjpe_mode = 'world_3d'
     elif 'CAM_SCALE_FACTOR_NORM' in splited:
         if 'CANONICAL' in subset:
-            data_type_list += ['img_3d_norm_canonical', 'scale_factor_norm_canonical']
+            data_type_list += ['img_3d_norm_canonical', 'scale_factor_norm_canonical', 'cam_3d_from_canonical_3d']
             gt_mode = 'img_3d_norm_canonical'
             mpjpe_mode = 'cam_3d_from_canonical_3d'
         else:
-            data_type_list += ['img_3d_norm', 'scale_factor_norm']
+            data_type_list += ['img_3d_norm', 'scale_factor_norm', 'cam_3d']
             gt_mode = 'img_3d_norm'
             mpjpe_mode = 'cam_3d'
     else:

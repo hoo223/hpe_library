@@ -283,7 +283,7 @@ def test_3dhp_data_generator_new(args):
             if args.univ_3dhp_gt: annot3 = annot3_univ_fixed_pos
             else:            annot3 = annot3_fixed_pos
             annot2 = annot2_fixed_pos
-        if args.univ_3dhp_gt: annot3 = annot3_univ
+        if args.univ_3dhp_gt and not args.scale_consistency: annot3 = annot3_univ
         # normalize 2d input
         if args.input_norm: annot2 = normalize_input(annot2, W, H)
         if args.scale_consistency:

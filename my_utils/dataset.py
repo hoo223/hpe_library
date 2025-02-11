@@ -136,25 +136,36 @@ def get_save_paths(save_root:str, dataset_name:str, canonical_type:str, univ:boo
     save_path_world_3d = os.path.join(save_root, f'{dataset_name}-world_3d')
     if dataset_name == '3dhp' and univ: save_path_world_3d += '_univ'
     save_path_world_3d += '.pkl'
+
     # img_3d
     save_path_img_3d = os.path.join(save_root, f'{dataset_name}-img_3d')
     if dataset_name == '3dhp' and univ: save_path_img_3d += '_univ'
     save_path_img_3d += '.pkl'
     # scale_factor
     save_path_scale_factor = os.path.join(save_root, f'{dataset_name}-scale_factor')
-    if dataset_name == '3dhp' and univ: save_path_scale_factor += '_univ'
+    #if dataset_name == '3dhp' and univ: save_path_scale_factor += '_univ'
     save_path_scale_factor += '.pkl'
     # img_25d
     save_path_img_25d = os.path.join(save_root, f'{dataset_name}-img_25d')
     if dataset_name == '3dhp' and univ: save_path_img_25d += '_univ'
     save_path_img_25d += '.pkl'
-    
+
     # img_3d_norm
     save_path_img_3d_norm = os.path.join(save_root, f'{dataset_name}-img_3d_norm')
+    if dataset_name == '3dhp' and univ: save_path_img_3d_norm += '_univ'
     save_path_img_3d_norm += '.pkl'
-    # scale_ratio_3d_to_2d
-    save_path_scale_ratio_3d_to_2d = os.path.join(save_root, f'{dataset_name}-scale_ratio_3d_to_2d')
-    save_path_scale_ratio_3d_to_2d += '.pkl'
+    # img_3d_norm_canonical
+    save_path_img_3d_norm_canonical = os.path.join(save_root, f'{dataset_name}-img_3d_norm')
+    save_path_img_3d_norm_canonical += f"-canonical_{canonical_type}"
+    save_path_img_3d_norm_canonical += '.pkl'
+    # scale_factor_norm
+    save_path_scale_factor_norm = os.path.join(save_root, f'{dataset_name}-scale_factor_norm')
+    #if dataset_name == '3dhp' and univ: save_path_scale_factor_norm += '_univ'
+    save_path_scale_factor_norm += '.pkl'
+    # scale_factor_norm_canonical
+    save_path_scale_factor_norm_canonical = os.path.join(save_root, f'{dataset_name}-scale_factor_norm')
+    save_path_scale_factor_norm_canonical += f"-canonical_{canonical_type}"
+    save_path_scale_factor_norm_canonical += '.pkl'
 
     save_paths = {
         'source_list': save_path_source_list,
@@ -166,11 +177,13 @@ def get_save_paths(save_root:str, dataset_name:str, canonical_type:str, univ:boo
         'cam_3d_canonical': save_path_cam_3d_canonical,
         'img_2d_canonical': save_path_img_2d_canonical,
         'img_3d': save_path_img_3d,
-        'img_25d': save_path_img_25d,
         'scale_factor': save_path_scale_factor,
+        'img_25d': save_path_img_25d,
         'img_2d_canonical_adaptive_focal': save_path_img_2d_canonical_adaptive_focal,
         'img_3d_norm': save_path_img_3d_norm,
-        'scale_ratio_3d_to_2d': save_path_scale_ratio_3d_to_2d
+        'img_3d_norm_canonical': save_path_img_3d_norm_canonical,
+        'scale_factor_norm': save_path_scale_factor_norm,
+        'scale_factor_norm_canonical': save_path_scale_factor_norm_canonical
     }
     return save_paths
 
@@ -236,29 +249,105 @@ def load_data(dataset_name,
     # save path
     save_paths = get_save_paths(save_root, dataset_name, canonical_type, univ, data_aug)
 
-    if data_type   == 'source_list':          return load_source_list(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'cam_param':            return load_cam_params(dataset_name, save_paths, overwrite, no_save, only_visible_frame, adaptive_focal)
-    elif data_type == 'world_3d':             return load_world_3d(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'cam_3d':               return load_cam_3d(dataset_name, save_paths, overwrite, no_save, univ, only_visible_frame, data_aug)
-    elif data_type == 'img_2d':               return load_img_2d(dataset_name, save_paths, overwrite, no_save, only_visible_frame, data_aug)
-    elif data_type == 'img_3d':               return load_img_3d(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'img_25d':              return load_img25d(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'scale_factor':         return load_scale_factor(dataset_name, save_paths, overwrite, no_save)
-    elif data_type == 'cam_3d_canonical':     return load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, data_aug)
-    elif data_type == 'img_2d_canonical':     return load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, adaptive_focal, data_aug)
-    elif data_type == 'img_3d_norm':          return load_img_3d_norm(dataset_name, save_paths, overwrite, no_save, return_type='img_3d_norm')
-    elif data_type == 'scale_ratio_3d_to_2d': return load_img_3d_norm(dataset_name, save_paths, overwrite, no_save, return_type='scale_ratio_3d_to_2d')
+    if data_type   == 'source_list':                 return load_source_list(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'cam_param':                   return load_cam_params(dataset_name, save_paths, overwrite, no_save, only_visible_frame, adaptive_focal)
+    elif data_type == 'world_3d':                    return load_world_3d(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'cam_3d':                      return load_cam_3d(dataset_name, save_paths, overwrite, no_save, univ, only_visible_frame, data_aug)
+    elif data_type == 'img_2d':                      return load_img_2d(dataset_name, save_paths, overwrite, no_save, only_visible_frame, data_aug)
+    elif data_type == 'img_3d':                      return load_img_3d(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'img_25d':                     return load_img25d(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'scale_factor':                return load_scale_factor(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'cam_3d_canonical':            return load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, data_aug)
+    elif data_type == 'img_2d_canonical':            return load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite, no_save, adaptive_focal, data_aug)
+    elif data_type == 'img_3d_norm':                 return load_img_3d_norm(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'img_3d_norm_canonical':       return load_img_3d_norm_canonical(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'scale_factor_norm':           return load_scale_factor_norm(dataset_name, save_paths, overwrite, no_save)
+    elif data_type == 'scale_factor_norm_canonical': return load_scale_factor_norm_canonical(dataset_name, save_paths, overwrite, no_save)
     else:                                 raise ValueError(f'{data_type} not found')
 
-def load_img_3d_norm(dataset_name, save_paths, overwrite=False, no_save=False, return_type='img_3d_norm'):
+def load_img_3d_norm(dataset_name, save_paths, overwrite=False, no_save=False):
     from hpe_library.my_utils import savepkl, readpkl, normalize_input, split_source_name
     save_path_img_3d_norm = save_paths['img_3d_norm']
-    save_path_scale_ratio_3d_to_2d = save_paths['scale_ratio_3d_to_2d']
     # load data
-    if return_type=='img_3d_norm' and os.path.exists(save_path_img_3d_norm) and not overwrite and not no_save:
+    if os.path.exists(save_path_img_3d_norm) and not overwrite and not no_save:
         img_3d_norms = readpkl(save_path_img_3d_norm)
-    elif return_type=='scale_ratio_3d_to_2d' and os.path.exists(save_path_scale_ratio_3d_to_2d) and not overwrite and not no_save:
-        scale_ratio_3d_to_2ds = readpkl(save_path_scale_ratio_3d_to_2d)
+    else:
+        # prerequisites
+        save_path_source_list = save_paths['source_list']
+        save_path_cam_params = save_paths['cam_param']
+        save_path_cam_3d = save_paths['cam_3d']
+        save_path_img_2d = save_paths['img_2d']
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+        assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
+        assert os.path.exists(save_path_img_2d), f'No img_2d found for {dataset_name}'
+        source_list = readpkl(save_path_source_list)
+        cam_params = readpkl(save_path_cam_params)
+        cam_3ds = readpkl(save_path_cam_3d)
+        img_2ds = readpkl(save_path_img_2d)
+        img_3d_norms = {}
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            if subject not in img_3d_norms:          img_3d_norms[subject] = {}
+            if action  not in img_3d_norms[subject]: img_3d_norms[subject][action] = {}
+            cam_param = cam_params[subject][action][cam_id]
+            W, H = cam_param['W'], cam_param['H']
+            cam_3d = cam_3ds[subject][action][cam_id]
+            img_2d = img_2ds[subject][action][cam_id]
+            img_2d_norm = normalize_input(img_2d, W, H)
+            img_2d_norm_centered = img_2d_norm.copy() - img_2d_norm[:, 0, None]
+            img_3d_norm, scale_factor_norm = generate_img_3d(cam_3d, img_2d_norm_centered)
+            img_3d_norms[subject][action][cam_id] = img_3d_norm
+        if not no_save:
+            savepkl(img_3d_norms, save_path_img_3d_norm)
+    return img_3d_norms
+
+def load_scale_factor_norm(dataset_name, save_paths, overwrite=False, no_save=False):
+    '''
+    scale_factor_norm = scale 3d pose to normalized 2d pose
+    '''
+    from hpe_library.my_utils import savepkl, readpkl, normalize_input, split_source_name
+    save_path_scale_factor_norm = save_paths['scale_factor_norm']
+    # load data
+    if os.path.exists(save_path_scale_factor_norm) and not overwrite and not no_save:
+        scale_ratio_3d_to_2ds = readpkl(save_path_scale_factor_norm)
+    else:
+        # prerequisites
+        save_path_source_list = save_paths['source_list']
+        save_path_cam_params = save_paths['cam_param']
+        save_path_cam_3d = save_paths['cam_3d']
+        save_path_img_2d = save_paths['img_2d']
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+        assert os.path.exists(save_path_cam_3d), f'No cam_3d found for {dataset_name}'
+        assert os.path.exists(save_path_img_2d), f'No img_2d found for {dataset_name}'
+        source_list = readpkl(save_path_source_list)
+        cam_params = readpkl(save_path_cam_params)
+        cam_3ds = readpkl(save_path_cam_3d)
+        img_2ds = readpkl(save_path_img_2d)
+        scale_ratio_3d_to_2ds = {}
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
+            if subject not in scale_ratio_3d_to_2ds:          scale_ratio_3d_to_2ds[subject] = {}
+            if action  not in scale_ratio_3d_to_2ds[subject]: scale_ratio_3d_to_2ds[subject][action] = {}
+            cam_param = cam_params[subject][action][cam_id]
+            W, H = cam_param['W'], cam_param['H']
+            cam_3d = cam_3ds[subject][action][cam_id]
+            img_2d = img_2ds[subject][action][cam_id]
+            img_2d_norm = normalize_input(img_2d, W, H)
+            img_2d_norm_centered = img_2d_norm.copy() - img_2d_norm[:, 0, None]
+            img_3d_norm, scale_factor_norm = generate_img_3d(cam_3d, img_2d_norm_centered)
+            scale_ratio_3d_to_2ds[subject][action][cam_id] = scale_factor_norm
+        if not no_save:
+            savepkl(scale_ratio_3d_to_2ds, save_path_scale_factor_norm)
+    return scale_ratio_3d_to_2ds
+
+def load_img_3d_norm_canonical(dataset_name, save_paths, overwrite=False, no_save=False):
+    from hpe_library.my_utils import savepkl, readpkl, normalize_input, split_source_name
+    save_path_img_3d_norm = save_paths['img_3d_norm_canonical']
+    # load data
+    if os.path.exists(save_path_img_3d_norm) and not overwrite and not no_save:
+        img_3d_norms = readpkl(save_path_img_3d_norm)
     else:
         # prerequisites
         save_path_source_list = save_paths['source_list']
@@ -274,11 +363,48 @@ def load_img_3d_norm(dataset_name, save_paths, overwrite=False, no_save=False, r
         cam_3d_canonicals = readpkl(save_path_cam_3d_canonical)
         img_2d_canonicals = readpkl(save_path_img_2d_canonical)
         img_3d_norms = {}
-        scale_ratio_3d_to_2ds = {}
         for source in tqdm(source_list):
             subject, cam_id, action = split_source_name(source, dataset_name)
             if subject not in img_3d_norms:          img_3d_norms[subject] = {}
             if action  not in img_3d_norms[subject]: img_3d_norms[subject][action] = {}
+            cam_param = cam_params[subject][action][cam_id]
+            W, H = cam_param['W'], cam_param['H']
+            cam_3d_canonical = cam_3d_canonicals[subject][action][cam_id]
+            img_2d_canonical = img_2d_canonicals[subject][action][cam_id]
+            img_2d_canonical_norm = normalize_input(img_2d_canonical, W, H)
+            img_2d_canonical_norm_centered = img_2d_canonical_norm.copy() - img_2d_canonical_norm[:, 0, None]
+            img_3d_norm, scale_factor_norm = generate_img_3d(cam_3d_canonical, img_2d_canonical_norm_centered)
+            img_3d_norms[subject][action][cam_id] = img_3d_norm
+        if not no_save:
+            savepkl(img_3d_norms, save_path_img_3d_norm)
+    return img_3d_norms
+
+def load_scale_factor_norm_canonical(dataset_name, save_paths, overwrite=False, no_save=False):
+    '''
+    scale_factor_norm = scale 3d pose to normalized 2d pose
+    '''
+    from hpe_library.my_utils import savepkl, readpkl, normalize_input, split_source_name
+    save_path_scale_factor_norm = save_paths['scale_factor_norm_canonical']
+    # load data
+    if os.path.exists(save_path_scale_factor_norm) and not overwrite and not no_save:
+        scale_ratio_3d_to_2ds = readpkl(save_path_scale_factor_norm)
+    else:
+        # prerequisites
+        save_path_source_list = save_paths['source_list']
+        save_path_cam_params = save_paths['cam_param']
+        save_path_cam_3d_canonical = save_paths['cam_3d_canonical']
+        save_path_img_2d_canonical = save_paths['img_2d_canonical']
+        assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
+        assert os.path.exists(save_path_cam_params), f'No cam_params found for {dataset_name}'
+        assert os.path.exists(save_path_cam_3d_canonical), f'No cam_3d_canonical found for {dataset_name}'
+        assert os.path.exists(save_path_img_2d_canonical), f'No img_2d_canonical found for {dataset_name}'
+        source_list = readpkl(save_path_source_list)
+        cam_params = readpkl(save_path_cam_params)
+        cam_3d_canonicals = readpkl(save_path_cam_3d_canonical)
+        img_2d_canonicals = readpkl(save_path_img_2d_canonical)
+        scale_ratio_3d_to_2ds = {}
+        for source in tqdm(source_list):
+            subject, cam_id, action = split_source_name(source, dataset_name)
             if subject not in scale_ratio_3d_to_2ds:          scale_ratio_3d_to_2ds[subject] = {}
             if action  not in scale_ratio_3d_to_2ds[subject]: scale_ratio_3d_to_2ds[subject][action] = {}
             cam_param = cam_params[subject][action][cam_id]
@@ -287,14 +413,11 @@ def load_img_3d_norm(dataset_name, save_paths, overwrite=False, no_save=False, r
             img_2d_canonical = img_2d_canonicals[subject][action][cam_id]
             img_2d_canonical_norm = normalize_input(img_2d_canonical, W, H)
             img_2d_canonical_norm_centered = img_2d_canonical_norm.copy() - img_2d_canonical_norm[:, 0, None]
-            img_3d_norm, scale_ratio_3d_to_2d = generate_img_3d(cam_3d_canonical, img_2d_canonical_norm_centered)
-            img_3d_norms[subject][action][cam_id] = img_3d_norm
-            scale_ratio_3d_to_2ds[subject][action][cam_id] = scale_ratio_3d_to_2d
+            img_3d_norm, scale_factor_norm = generate_img_3d(cam_3d_canonical, img_2d_canonical_norm_centered)
+            scale_ratio_3d_to_2ds[subject][action][cam_id] = scale_factor_norm
         if not no_save:
-            if return_type == 'img_3d_norm': savepkl(img_3d_norms, save_path_img_3d_norm)
-            elif return_type == 'scale_ratio_3d_to_2d': savepkl(scale_ratio_3d_to_2ds, save_path_scale_ratio_3d_to_2d)
-    if return_type == 'img_3d_norm': return img_3d_norms
-    elif return_type == 'scale_ratio_3d_to_2d': return scale_ratio_3d_to_2ds
+            savepkl(scale_ratio_3d_to_2ds, save_path_scale_factor_norm)
+    return scale_ratio_3d_to_2ds
 
 def generate_img_3d(cam_3d, img_2d):
     from hpe_library.my_utils import get_euclidean_norm_from_pose
@@ -302,7 +425,7 @@ def generate_img_3d(cam_3d, img_2d):
     if len(img_2d.shape) == 2: img_2d = img_2d[None, ...]
     pose3d_xy = cam_3d[..., :2].copy()
     pose3d_xy -= pose3d_xy[:, 0 , None] # root-relative
-    pose2d = img_2d.copy() - img_2d[:, 0, None]
+    pose2d = img_2d.copy() - img_2d[:, 0, None] # root-relative
 
     scale_3d = get_euclidean_norm_from_pose(pose3d_xy) # (F,)
     scale_2d = get_euclidean_norm_from_pose(pose2d) # (F,)
@@ -345,8 +468,15 @@ def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=T
         elif 'img_2d_canonical' in data_type:
             canonical_type = data_type.split('canonical_')[-1]
             data_type = 'img_2d_canonical'
-        elif 'img_3d_norm' in data_type or 'scale_ratio_3d_to_2d' in data_type:
-            canonical_type = 'revolute'
+        elif 'img_3d_canonical' in data_type:
+            canonical_type = data_type.split('canonical_')[-1]
+            data_type = 'img_3d'
+        elif 'img_3d_norm_canonical' in data_type:
+            canonical_type = data_type.split('canonical_')[-1]
+            data_type = 'img_3d_norm_canonical'
+        elif 'scale_factor_norm_canonical' in data_type:
+            canonical_type = data_type.split('canonical_')[-1]
+            data_type = 'scale_factor_norm_canonical'
         else:
             canonical_type = None
 
@@ -877,7 +1007,7 @@ def load_img_3d(dataset_name, save_paths, overwrite=False, no_save=False):
             br_2d = br_2d / br_2d[:, 2:]
             box = np.stack([tl_2d[:, 0], tl_2d[:, 1], br_2d[:, 0], br_2d[:, 1]], axis=1) # (N, 4) - top left x, top left y, bottom right x, bottom right y
             ratio = (box[:, 2] - box[:, 0] + 1) / 2000.0 # (N,)
-            img_3d_depth = ratio.reshape(-1, 1)*(cam_3d[...,2] - cam_3d[:,0:1,2]) # (N, 17, 1)
+            img_3d_depth = ratio.reshape(-1, 1)*(cam_3d[...,2] - cam_3d[:,0:1,2]) # (N, 17, 1) # relative depth
             # img_3d
             img_3d = np.zeros_like(cam_3d)
             img_3d[...,:2] = img_2d.copy()
@@ -1814,21 +1944,36 @@ def gernerate_dataset_yaml(subset):
     # 3d data type
     data_type_list = ['cam_3d']
     if 'CAM_NO_FACTOR' in splited:
-        gt_mode = 'cam_3d'
         if 'CANONICAL' in subset:
             data_type_list += ['cam_3d_from_canonical_3d']
             if ('STEP_ROT' in subset) or ('SINU_' in subset) or 'RAND_' in subset: gt_mode = 'cam_3d_from_canonical_3d' # 어차피 rootrel option 아래에서는 cam_3d와 동일
             if 'REVOLUTE' in subset: gt_mode = 'cam_3d_from_canonical_3d' # revolute는 cam_3d_from_canonical_3d와 cam_3d의 root-relative가 다름
+            mpjpe_mode = 'cam_3d_from_canonical_3d'
+        else:
+            gt_mode = 'cam_3d'
+            mpjpe_mode = 'cam_3d'
     elif 'WORLD_NO_FACTOR' in splited:
         data_type_list += ['world_3d']
         gt_mode = 'world_3d'
+        mpjpe_mode = 'world_3d'
+    elif 'CAM_SCALE_FACTOR_NORM' in splited:
+        if 'CANONICAL' in subset:
+            data_type_list += ['img_3d_norm_canonical', 'scale_factor_norm_canonical']
+            gt_mode = 'img_3d_norm_canonical'
+            mpjpe_mode = 'cam_3d_from_canonical_3d'
+        else:
+            data_type_list += ['img_3d_norm', 'scale_factor_norm']
+            gt_mode = 'img_3d_norm'
+            mpjpe_mode = 'cam_3d'
     else:
         if 'CANONICAL' in subset:
             data_type_list += ['joint3d_image_from_canonical_3d', '2.5d_factor_from_canonical_3d', 'joints_2.5d_image_from_canonical_3d']
             gt_mode = 'joint3d_image_from_canonical_3d'
+            mpjpe_mode = 'joints_2.5d_image_from_canonical_3d'
         else:
             data_type_list += ['joint3d_image', '2.5d_factor', 'joints_2.5d_image']
             gt_mode = 'joint3d_image'
+            mpjpe_mode = 'joints_2.5d_image'
 
     # 2d data type
     if 'CANONICAL' in subset:
@@ -1905,6 +2050,7 @@ def gernerate_dataset_yaml(subset):
         'input_source': input_source,
         'input_mode': input_mode,
         'gt_mode': gt_mode,
+        'mpjpe_mode': mpjpe_mode,
         'train_subject': train_subject,
         'test_subject': test_subject,
         'train_cam': train_cam,

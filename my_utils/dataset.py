@@ -156,14 +156,16 @@ def get_save_paths(save_root:str, dataset_name:str, canonical_type:str, univ:boo
     save_path_img_3d_norm += '.pkl'
     # img_3d_norm_canonical
     save_path_img_3d_norm_canonical = os.path.join(save_root, f'{dataset_name}-img_3d_norm')
+    if dataset_name == '3dhp' and univ: save_path_img_3d_norm_canonical += '_univ'
     save_path_img_3d_norm_canonical += f"-canonical_{canonical_type}"
     save_path_img_3d_norm_canonical += '.pkl'
     # scale_factor_norm
     save_path_scale_factor_norm = os.path.join(save_root, f'{dataset_name}-scale_factor_norm')
-    #if dataset_name == '3dhp' and univ: save_path_scale_factor_norm += '_univ'
+    if dataset_name == '3dhp' and univ: save_path_scale_factor_norm += '_univ'
     save_path_scale_factor_norm += '.pkl'
     # scale_factor_norm_canonical
     save_path_scale_factor_norm_canonical = os.path.join(save_root, f'{dataset_name}-scale_factor_norm')
+    if dataset_name == '3dhp' and univ: save_path_scale_factor_norm_canonical += '_univ'
     save_path_scale_factor_norm_canonical += f"-canonical_{canonical_type}"
     save_path_scale_factor_norm_canonical += '.pkl'
 

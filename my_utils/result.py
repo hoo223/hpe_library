@@ -177,6 +177,18 @@ def seed_summary(result_dict, checkpoint_list, trainset, save_path_to_excel='', 
         elif subset == 'FIT3D-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_REVOLUTE_NO_RZ-ALL_TEST'       : row += ['FIT3D ALL']
         elif subset == 'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_REVOLUTE_NO_RZ'                 : row += ['H36M S9,11']
         elif subset == 'H36M-GT-CAM_NO_FACTOR-INPUT_FROM_3D_CANONICAL_REVOLUTE_NO_RZ-TR_S1_TS_S5678'  : row += ['H36M S5678']
+        ##
+        elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-TEST_ALL_TRAIN'  : row += ['3DHP TRAIN']
+        elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-TEST_TS1_6'      : row += ['3DHP TEST']
+        elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-TEST_TS1_6_UNIV' : row += ['3DHP TEST (univ)']
+        elif subset == 'FIT3D-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-ALL_TEST'       : row += ['FIT3D ALL']
+        elif subset == 'H36M-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE'                 : row += ['H36M S9,11']
+        ##
+        elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-TEST_ALL_TRAIN'  : row += ['3DHP TRAIN']
+        elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-TEST_TS1_6'      : row += ['3DHP TEST']
+        elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-TEST_TS1_6_UNIV' : row += ['3DHP TEST (univ)']
+        elif subset == 'FIT3D-GT-CAM_SCALE_FACTOR_NORM-ALL_TEST'       : row += ['FIT3D ALL']
+        elif subset == 'H36M-GT-CAM_SCALE_FACTOR_NORM'                 : row += ['H36M S9,11']
         else: row += [subset]
 
         if 'seed' in attribute_list:
@@ -220,7 +232,9 @@ def load_excel_and_print_pt(file_path, checkpoint):
     print(pt)
     return pt
 
-def load_excels_merge_print_pt(checkpoints, file_paths, trainset, baseline='', attribute_list=['seed', 'mean', 'best', 'ERR'], save_path_to_excel=''):
+def load_excels_merge_print_pt(checkpoints, file_paths, trainset, baseline='', attribute_list=['seed', 'mean', 'best', 'ERR'], 
+                               config_folder='',
+                               save_path_to_excel=''):
     if baseline != '':
         assert baseline in checkpoints, f"baseline {baseline} is not in checkpoint_list"
     dfs = [pd.read_excel(file_path) for file_path in file_paths]
@@ -278,6 +292,8 @@ def load_excels_merge_print_pt(checkpoints, file_paths, trainset, baseline='', a
                     data[checkpoint][subset]['ERR_best_e2'] = f'{((best_e2 - best_e2_baseline) / best_e2_baseline * 100):.2f}%'
 
     field_names = ['Train set', 'Subset']
+    if 'option' in attribute_list:
+        field_names += ['CA', 'SC', 'IRC']
     if 'seed' in attribute_list: field_names += fields_seed_e1
     if 'mean' in attribute_list:
         field_names += ['Average_e1']
@@ -292,6 +308,7 @@ def load_excels_merge_print_pt(checkpoints, file_paths, trainset, baseline='', a
     if 'best' in attribute_list:
         field_names += ['Best_e2']
         if 'ERR' in attribute_list and baseline != '': field_names += ['ERR_best_e2']
+
     field_names += ['checkpoint']
     pt.field_names = field_names
 
@@ -299,6 +316,22 @@ def load_excels_merge_print_pt(checkpoints, file_paths, trainset, baseline='', a
     for checkpoint in checkpoints:
         for subset in data[checkpoint].keys():
             row = [trainset, subset]
+            if 'option' in attribute_list:
+                # load config file
+                config_file = os.path.join(config_folder, f'{checkpoint}.yaml')
+                with open(config_file, 'r') as f:
+                    config = yaml.safe_load(f)
+                canonical = 'v' if 'canonical' in config['model'] else ''
+                # if 'input_centering' in config.keys() and config['input_centering']:
+                #     input_centering =  'v'
+                # else: input_centering = ''
+                if 'scale_consistency' in config.keys() and config['scale_consistency']:
+                    scale_consistency =  'v'
+                else: scale_consistency = ''
+                if 'input_residual_connection' in config.keys() and config['input_residual_connection']:
+                    input_residual_connection =  'v'
+                else: input_residual_connection = ''
+                row += [canonical, scale_consistency, input_residual_connection]
             if 'seed' in attribute_list:
                 for field in fields_seed_e1:
                     row.append(data[checkpoint][subset][field])
@@ -329,14 +362,15 @@ def load_excels_merge_print_pt(checkpoints, file_paths, trainset, baseline='', a
     prev_subset = rows_sorted[0][0]
     divider = []
     for i, row in enumerate(rows_sorted):
-        if prev_subset != row[0]:
+        if prev_subset != row[1]:
             divider.append(True)
         else:
             divider.append(False)
-        prev_subset = row[0]
+        prev_subset = row[1]
     divider.append(True)
     for i, row in enumerate(rows_sorted):
         pt.add_row(row, divider=divider[i+1])
+    pt.align['checkpoint'] = 'l'
     print(pt)
     if save_path_to_excel != '':
         df = pd.DataFrame(pt.rows, columns=pt.field_names)

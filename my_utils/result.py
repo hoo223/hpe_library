@@ -182,7 +182,11 @@ def seed_summary(result_dict, checkpoint_list, trainset, save_path_to_excel='', 
         elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-TEST_TS1_6'      : row += ['3DHP TEST']
         elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-TEST_TS1_6_UNIV' : row += ['3DHP TEST (univ)']
         elif subset == 'FIT3D-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-ALL_TEST'       : row += ['FIT3D ALL']
+        elif subset == 'FIT3D-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-TS_S4710'       : row += ['FIT3D S4710']
+        elif subset == 'FIT3D-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-TR_S03'         : row += ['FIT3D S03']
         elif subset == 'H36M-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE'                 : row += ['H36M S9,11']
+        elif subset == 'H36M-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-TR_S1_TS_S5678'  : row += ['H36M S5678']
+        elif subset == 'H36M-GT-CAM_SCALE_FACTOR_NORM-INPUT_FROM_3D_CANONICAL_REVOLUTE-TEST_ALL'        : row += ['H36M ALL']
         ##
         elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-TEST_ALL_TRAIN'  : row += ['3DHP TRAIN']
         elif subset == '3DHP-GT-CAM_SCALE_FACTOR_NORM-TEST_TS1_6'      : row += ['3DHP TEST']

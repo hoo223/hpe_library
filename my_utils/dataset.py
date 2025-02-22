@@ -421,7 +421,7 @@ def load_scale_factor_norm_canonical(dataset_name, save_paths, overwrite=False, 
             savepkl(scale_ratio_3d_to_2ds, save_path_scale_factor_norm)
     return scale_ratio_3d_to_2ds
 
-def generate_img_3d(cam_3d, img_2d):
+def generate_img_3d(cam_3d, img_2d, method='type1'):
     from hpe_library.my_utils import get_euclidean_norm_from_pose
     if len(cam_3d.shape) == 2: cam_3d = cam_3d[None, ...]
     if len(img_2d.shape) == 2: img_2d = img_2d[None, ...]
@@ -432,7 +432,18 @@ def generate_img_3d(cam_3d, img_2d):
     scale_3d = get_euclidean_norm_from_pose(pose3d_xy) # (F,)
     scale_2d = get_euclidean_norm_from_pose(pose2d) # (F,)
     scale_ratio_3d_to_2d = scale_2d / scale_3d # (F,)
-    img_3d = cam_3d * scale_ratio_3d_to_2d[:, None, None]
+    # scale the 3d pose to match the 2d pose scale
+    if method == 'type1':
+        img_3d = cam_3d * scale_ratio_3d_to_2d[:, None, None]
+    elif method == 'type2': # root-relative before scaling and back to original root position
+        root_pos = cam_3d[:, 0, None].copy()
+        cam_3d_hat = cam_3d.copy() - root_pos
+        img_3d = cam_3d_hat * scale_ratio_3d_to_2d[:, None, None] + root_pos
+    elif method == 'type3': # LCN method: use 2D pose as x, y coordinates
+        root_pos = cam_3d[:, 0, None].copy()
+        cam_3d_hat = cam_3d.copy() - root_pos
+        img_3d = cam_3d_hat * scale_ratio_3d_to_2d[:, None, None]
+        img_3d[..., :2] = img_2d[..., :2]
     return img_3d, scale_ratio_3d_to_2d
 
 def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, univ=False,

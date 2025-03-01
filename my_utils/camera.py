@@ -221,7 +221,7 @@ class Camera:
         for pose in poses:
             for i in range(len(pose)):
                 X = pose[i]
-                G = GenericPoint(X, name="X")
+                G = GenericPoint(X)
                 X1 = self.image_frame.origin
                 X2 = X1 + self.image_frame.dx
                 X3 = X1 + self.image_frame.dy

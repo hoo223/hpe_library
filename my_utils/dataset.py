@@ -30,6 +30,8 @@ def split_source_name(source:str, dataset_name:str) -> Tuple[str, Optional[str],
         except: # for test data
             subject = source
             return subject, None, None
+    elif dataset_name == '3dpw':
+        return source, None, None
     else:
         raise ValueError(f'{dataset_name} not found')
 
@@ -191,6 +193,7 @@ def get_save_paths(save_root:str, dataset_name:str, canonical_type:str, univ:boo
 
 def load_data(dataset_name,
               data_type,
+              code_name='MotionBERT',
               save_folder='data/motion3d',
               overwrite_list=[],
               canonical_type=None,
@@ -205,8 +208,8 @@ def load_data(dataset_name,
                         'rand_pitch_mag': 0, 'rand_pitch_period': 0,'rand_roll_mag': 0, 'rand_roll_period': 0
                         }):
     user = getpass.getuser()
-    motionbert_root = f'/home/{user}/codes/MotionBERT/'
-    save_root = os.path.join(motionbert_root, save_folder, dataset_name)
+    root = f'/home/{user}/codes/{code_name}/'
+    save_root = os.path.join(root, save_folder, dataset_name)
 
     step_rot = data_aug['step_rot']
     sinu_yaw_mag = data_aug['sinu_yaw_mag']
@@ -446,7 +449,7 @@ def generate_img_3d(cam_3d, img_2d, method='type1'):
         img_3d[..., :2] = img_2d[..., :2]
     return img_3d, scale_ratio_3d_to_2d
 
-def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, univ=False,
+def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=True, univ=False, code_name='MotionBERT',
                    data_aug={'step_rot': 0,
                         'sinu_yaw_mag': 0, 'sinu_yaw_period': 273, 'sinu_pitch_mag': 0, 'sinu_pitch_period': 273,
                         'sinu_roll_mag': 0, 'sinu_roll_period': 273,'rand_yaw_mag': 0, 'rand_yaw_period': 0,
@@ -502,7 +505,7 @@ def load_data_dict(dataset_name, data_type_list=[], overwrite_list=[], verbose=T
         #     if sinu_roll_mag != 0: key += f'-sinu_roll_m{sinu_roll_mag}_p{sinu_roll_period}'
         #     elif rand_roll_mag != 0: key += f'rand_roll_m{rand_roll_mag}_p{rand_roll_period}'
 
-        data_dict[key] = load_data(dataset_name=dataset_name, data_type=data_type, canonical_type=canonical_type, overwrite_list=overwrite_list, adaptive_focal=adaptive_focal, verbose=verbose, univ=univ, data_aug=data_aug)
+        data_dict[key] = load_data(dataset_name=dataset_name, data_type=data_type, code_name=code_name, canonical_type=canonical_type, overwrite_list=overwrite_list, adaptive_focal=adaptive_focal, verbose=verbose, univ=univ, data_aug=data_aug)
     return data_dict
 
 def load_source_list(dataset_name, save_paths, overwrite=False, no_save=False):
@@ -510,6 +513,7 @@ def load_source_list(dataset_name, save_paths, overwrite=False, no_save=False):
     from hpe_library.posynda_utils import Human36mDataset
     user = getpass.getuser()
     save_path_source_list = save_paths['source_list']
+    print(save_path_source_list)
     if os.path.exists(save_path_source_list) and not overwrite and not no_save:
         source_list = readpkl(save_path_source_list)
     else:

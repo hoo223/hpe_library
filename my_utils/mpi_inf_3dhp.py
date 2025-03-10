@@ -86,7 +86,7 @@ def load_3dhp_original(data_type='test', overwrite=False, no_save=False):
         folder = f'/home/{user}/Datasets/HAAI/3DHP/original/{data_type}'
         data_dict = {}
         if data_type == 'test':
-            for subject in natsorted(os.listdir(folder)):
+            for subject in tqdm(natsorted(os.listdir(folder))):
                 if 'TS' not in subject: continue
                 cam_param = cam_params[subject]
                 W, H = cam_param['W'], cam_param['H']

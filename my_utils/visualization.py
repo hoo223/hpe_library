@@ -880,7 +880,29 @@ def generate_axes(fig_idx, configs, fig_title='', figsize=[6.4, 4.8]):
         ax_list[key] = ax
     return fig, ax_list
 
-def general_plot_func(axs, configs, plot_pose_setting, frame_num, legend_fontsize=5, legend_loc='', legend_bbox_to_anchor=''):
+def clean_axes(ax, remove_ticks=False, remove_grid=False, remove_axis=False, remove_legend=True):
+    if remove_ticks:
+        ax.set_xticks([])  
+        ax.set_yticks([])  
+        try:    ax.set_zticks([])  
+        except: pass
+    if remove_grid:
+        ax.grid(False)
+    if remove_axis:
+        ax.axis('off')
+    ax.axes.xaxis.set_ticklabels([])
+    ax.axes.yaxis.set_ticklabels([])
+    try:    ax.axes.zaxis.set_ticklabels([])
+    except: pass
+    ax.axes.set_xlabel('')
+    ax.axes.set_ylabel('')
+    try:    ax.axes.set_zlabel('')
+    except: pass
+    if remove_legend:
+        ax.legend().remove()
+    ax.set_title('')
+
+def general_plot_func(axs, configs, plot_pose_setting, frame_num, legend_fontsize=5, legend_loc='', legend_bbox_to_anchor='', clean_the_axes=False):
     '''
     axs: {key: ax}
     configs: {key: {
@@ -892,7 +914,6 @@ def general_plot_func(axs, configs, plot_pose_setting, frame_num, legend_fontsiz
     plots_and_poses: [(plot, pose, img, dataset, color, label, linestyle), ...]
     frame_num: int
     '''
-
     clear_axes([axs[key] for key in axs.keys()])
     for plot, pose, setting in plot_pose_setting:
         ax = axs[plot]
@@ -929,3 +950,4 @@ def general_plot_func(axs, configs, plot_pose_setting, frame_num, legend_fontsiz
         else:
             raise ValueError(f'Invalid type: {configs[plot]["type"]}')
         legend_without_duplicate_labels(ax, fontsize=legend_fontsize, loc=legend_loc, bbox_to_anchor=legend_bbox_to_anchor)
+        if clean_the_axes: clean_axes(ax)

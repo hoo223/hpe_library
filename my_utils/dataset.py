@@ -275,6 +275,7 @@ def load_img_3d_norm(dataset_name, save_paths, overwrite=False, no_save=False):
     save_path_img_3d_norm = save_paths['img_3d_norm']
     # load data
     if os.path.exists(save_path_img_3d_norm) and not overwrite and not no_save:
+        print(f'Loading {save_path_img_3d_norm}')
         img_3d_norms = readpkl(save_path_img_3d_norm)
     else:
         # prerequisites
@@ -315,6 +316,7 @@ def load_scale_factor_norm(dataset_name, save_paths, overwrite=False, no_save=Fa
     save_path_scale_factor_norm = save_paths['scale_factor_norm']
     # load data
     if os.path.exists(save_path_scale_factor_norm) and not overwrite and not no_save:
+        print(f'Loading {save_path_scale_factor_norm}')
         scale_ratio_3d_to_2ds = readpkl(save_path_scale_factor_norm)
     else:
         # prerequisites
@@ -352,6 +354,7 @@ def load_img_3d_norm_canonical(dataset_name, save_paths, overwrite=False, no_sav
     save_path_img_3d_norm = save_paths['img_3d_norm_canonical']
     # load data
     if os.path.exists(save_path_img_3d_norm) and not overwrite and not no_save:
+        print(f'loading {save_path_img_3d_norm}')
         img_3d_norms = readpkl(save_path_img_3d_norm)
     else:
         # prerequisites
@@ -392,6 +395,7 @@ def load_scale_factor_norm_canonical(dataset_name, save_paths, overwrite=False, 
     save_path_scale_factor_norm = save_paths['scale_factor_norm_canonical']
     # load data
     if os.path.exists(save_path_scale_factor_norm) and not overwrite and not no_save:
+        print(f'loading {save_path_scale_factor_norm}')
         scale_ratio_3d_to_2ds = readpkl(save_path_scale_factor_norm)
     else:
         # prerequisites
@@ -513,8 +517,8 @@ def load_source_list(dataset_name, save_paths, overwrite=False, no_save=False):
     from hpe_library.posynda_utils import Human36mDataset
     user = getpass.getuser()
     save_path_source_list = save_paths['source_list']
-    print(save_path_source_list)
     if os.path.exists(save_path_source_list) and not overwrite and not no_save:
+        print(f'Loading {save_path_source_list}')
         source_list = readpkl(save_path_source_list)
     else:
         source_list = []
@@ -560,6 +564,7 @@ def load_cam_params(dataset_name, save_paths, overwrite=False, no_save=False, on
     if adaptive_focal: save_path_cam_params = save_paths['cam_param_adaptive_focal']
     else: save_path_cam_params = save_paths['cam_param']
     if os.path.exists(save_path_cam_params) and not overwrite and not no_save:
+        print(f'Loading {save_path_cam_params}')
         cam_params = readpkl(save_path_cam_params)
     else:
         save_path_source_list = save_paths['source_list']
@@ -675,8 +680,10 @@ def load_cam_3d(dataset_name, save_paths, overwrite=False, no_save=False, univ=F
     save_path_cam_3d = save_paths['cam_3d']
     # load data
     if os.path.exists(save_path_cam_3d) and not overwrite and not no_save:
+        print(f"loading {save_path_cam_3d}")
         cam_3ds = readpkl(save_path_cam_3d)
     else:
+        print(f'saving {save_path_cam_3d}')
         # prerequisites
         save_path_source_list = save_paths['source_list']
         assert os.path.exists(save_path_source_list), f'No source_list found for {dataset_name}'
@@ -686,14 +693,14 @@ def load_cam_3d(dataset_name, save_paths, overwrite=False, no_save=False, univ=F
             data_dict_3dhp_train, _ = load_3dhp_original('train', overwrite=True)
             data_dict_3dhp_test, _ = load_3dhp_original('test', overwrite=True)
             data_dict_3dhp = {**data_dict_3dhp_train, **data_dict_3dhp_test}
-            #num_frames = 0
+            annot_type = 'univ_annot3' if univ else 'annot3'
+            print(f"annot_type: {annot_type}")
             for source in tqdm(source_list):
                 subject, cam_id, seq = split_source_name(source, '3dhp')
                 if seq is not None: source = f'{subject}_{seq}_{cam_id}'
                 else: source = subject
                 if subject not in cam_3ds.keys():      cam_3ds[subject] = {}
                 if seq not in cam_3ds[subject].keys(): cam_3ds[subject][seq] = {}
-                annot_type = 'univ_annot3' if univ else 'annot3'
                 if only_visible_frame:
                     visible_frame = data_dict_3dhp[source]['visible_frame']
                     cam_3d = data_dict_3dhp[source][annot_type][visible_frame]/1000
@@ -740,6 +747,7 @@ def load_img_2d(dataset_name, save_paths, overwrite=False, no_save=False, only_v
     save_path_img_2d = save_paths['img_2d']
     # load data
     if os.path.exists(save_path_img_2d) and not overwrite and not no_save:
+        print(f'loading {save_path_img_2d}')
         img_2ds = readpkl(save_path_img_2d)
     else:
         # prerequisites
@@ -811,6 +819,7 @@ def load_cam_3d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
         # prerequisites
         save_path_cam_3d_canonical = save_paths['cam_3d_canonical'] # pkl path
         if os.path.exists(save_path_cam_3d_canonical) and not overwrite and not no_save:
+            print(f'loading {save_path_cam_3d_canonical}')
             cam_3d_canonicals = readpkl(save_path_cam_3d_canonical) # load data
         else:
             for source in tqdm(source_list):
@@ -842,6 +851,7 @@ def load_img_2d_canonical(dataset_name, save_paths, canonical_type, overwrite=Fa
     else:save_path_img_2d_canonical = save_paths['img_2d_canonical']
     # load data
     if os.path.exists(save_path_img_2d_canonical) and not overwrite and not no_save:
+        print(f'loading {save_path_img_2d_canonical}')
         img_2d_canonicals = readpkl(save_path_img_2d_canonical)
     else:
         # prerequisites
@@ -932,6 +942,7 @@ def load_world_3d(dataset_name, save_paths, overwrite=False, no_save=False):
     # pkl path
     save_path_world_3d = save_paths['world_3d']
     if os.path.exists(save_path_world_3d) and not overwrite and not no_save:
+        print(f'loading {save_path_world_3d}')
         world_3ds = readpkl(save_path_world_3d)
     else:
         # prerequisites
@@ -985,6 +996,7 @@ def load_img_3d(dataset_name, save_paths, overwrite=False, no_save=False):
     from hpe_library.my_utils import readpkl, savepkl, split_source_name
     save_path_img_3d = save_paths['img_3d']
     if os.path.exists(save_path_img_3d) and not overwrite and not no_save:
+        print(f'loading {save_path_img_3d}')
         img_3ds = readpkl(save_path_img_3d)
     else:
         # prerequisites
@@ -1039,6 +1051,7 @@ def load_scale_factor(dataset_name, save_paths, overwrite=False, no_save=False):
     from hpe_library.my_utils import readpkl, savepkl, split_source_name, optimize_scaling_factor
     save_path_scale_factor = save_paths['scale_factor']
     if os.path.exists(save_path_scale_factor) and not overwrite and not no_save:
+        print(f'loading {save_path_scale_factor}')
         scale_factors = readpkl(save_path_scale_factor)
     else:
         save_path_cam_3d = save_paths['cam_3d']
@@ -1083,6 +1096,7 @@ def load_img25d(dataset_name, save_paths, overwrite=False, no_save=False):
     from hpe_library.my_utils import readpkl, savepkl, split_source_name
     save_path_img_25d = save_paths['img_25d']
     if os.path.exists(save_path_img_25d) and not overwrite and not no_save:
+        print(f'loading {save_path_img_25d}')
         img_25ds = readpkl(save_path_img_25d)
     else:
         save_path_img_3d = save_paths['img_3d']
